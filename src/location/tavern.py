@@ -67,8 +67,24 @@ class Tavern:
 
         self.stats.timesGottenDrunk += 1
 
+        # Random chance of losing additional money while drunk
+        if random.random() < 0.3:  # 30% chance
+            if self.player.money > 0:
+                # Lose between 10% and 50% of remaining money
+                loss_percentage = random.uniform(0.1, 0.5)
+                money_lost = int(self.player.money * loss_percentage)
+                if money_lost > 0:
+                    self.player.money -= money_lost
+                    self.stats.moneyLostWhileDrunk += money_lost
+                    self.currentPrompt.text = f"You have a headache. In your drunken stupor, you lost ${money_lost}!"
+                else:
+                    self.currentPrompt.text = "You have a headache."
+            else:
+                self.currentPrompt.text = "You have a headache."
+        else:
+            self.currentPrompt.text = "You have a headache."
+
         self.timeService.increaseDay()
-        self.currentPrompt.text = "You have a headache."
 
     def gamble(self):
         while True:
