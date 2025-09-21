@@ -6,6 +6,7 @@ from prompt.prompt import Prompt
 from player.playerJsonReaderWriter import PlayerJsonReaderWriter
 from stats.statsJsonReaderWriter import StatsJsonReaderWriter
 from world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
+from location.shopJsonReaderWriter import ShopJsonReaderWriter
 from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
@@ -19,6 +20,7 @@ class FishE:
         self.playerJsonReaderWriter = PlayerJsonReaderWriter()
         self.timeServiceJsonReaderWriter = TimeServiceJsonReaderWriter()
         self.statsJsonReaderWriter = StatsJsonReaderWriter()
+        self.shopJsonReaderWriter = ShopJsonReaderWriter()
 
         # if save file exists, load it
         if (
@@ -48,6 +50,21 @@ class FishE:
 
         self.userInterface = UserInterface(self.prompt, self.timeService, self.player)
 
+        # if save file exists, load it
+        if (
+            os.path.exists("data/shop.json")
+            and os.path.getsize("data/shop.json") > 0
+        ):
+            self.loadShop()
+        else:
+            self.shop = shop.Shop(
+                self.userInterface,
+                self.prompt,
+                self.player,
+                self.stats,
+                self.timeService,
+            )
+
         self.locations = {
             LocationType.BANK: bank.Bank(
                 self.userInterface,
@@ -70,13 +87,7 @@ class FishE:
                 self.stats,
                 self.timeService,
             ),
-            LocationType.SHOP: shop.Shop(
-                self.userInterface,
-                self.prompt,
-                self.player,
-                self.stats,
-                self.timeService,
-            ),
+            LocationType.SHOP: self.shop,
             LocationType.TAVERN: tavern.Tavern(
                 self.userInterface,
                 self.prompt,
@@ -118,6 +129,9 @@ class FishE:
         statsSaveFile = open("data/stats.json", "w")
         self.statsJsonReaderWriter.writeStatsToFile(self.stats, statsSaveFile)
 
+        shopSaveFile = open("data/shop.json", "w")
+        self.shopJsonReaderWriter.writeShopToFile(self.shop, shopSaveFile)
+
     def loadPlayer(self):
         playerSaveFile = open("data/player.json", "r")
         self.player = self.playerJsonReaderWriter.readPlayerFromFile(playerSaveFile)
@@ -134,6 +148,13 @@ class FishE:
             timeServiceSaveFile, self.player, self.stats
         )
         timeServiceSaveFile.close()
+
+    def loadShop(self):
+        shopSaveFile = open("data/shop.json", "r")
+        self.shop = self.shopJsonReaderWriter.readShopFromFile(
+            shopSaveFile, self.userInterface, self.prompt, self.player, self.stats, self.timeService
+        )
+        shopSaveFile.close()
 
 
 if __name__ == "__main__":

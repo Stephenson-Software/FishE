@@ -16,9 +16,11 @@ def createFishE():
     fishE.PlayerJsonReaderWriter = MagicMock()
     fishE.TimeServiceJsonReaderWriter = MagicMock()
     fishE.StatsJsonReaderWriter = MagicMock()
+    fishE.ShopJsonReaderWriter = MagicMock()
     fishE.loadPlayer = MagicMock()
     fishE.loadStats = MagicMock()
     fishE.loadTimeService = MagicMock()
+    fishE.loadShop = MagicMock()
     return fishE.FishE()
 
 
@@ -51,3 +53,4 @@ def test_initialization():
     fishE.PlayerJsonReaderWriter.assert_called_once()
     fishE.TimeServiceJsonReaderWriter.assert_called_once()
     fishE.StatsJsonReaderWriter.assert_called_once()
+    fishE.ShopJsonReaderWriter.assert_called_once()
