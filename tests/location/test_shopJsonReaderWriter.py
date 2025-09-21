@@ -22,6 +22,12 @@ def createShop():
     return Shop(userInterface, prompt, player, stats, timeService)
 
 
+def getShopSchema():
+    # load json from file
+    with open("schemas/shop.json") as json_file:
+        return json.load(json_file)
+
+
 def test_initialization():
     shopJsonReaderWriter = createShopJsonReaderWriter()
     assert shopJsonReaderWriter != None
@@ -34,11 +40,19 @@ def test_createJsonFromShop():
     shopJson = shopJsonReaderWriter.createJsonFromShop(shop)
     assert shopJson != None
     assert shopJson["money"] == 500
+    
+    # Validate against schema
+    shopSchema = getShopSchema()
+    validate(shopJson, shopSchema)
 
 
 def test_createShopFromJson():
     shopJsonReaderWriter = createShopJsonReaderWriter()
     shopJson = {"money": 750}
+
+    # Validate against schema
+    shopSchema = getShopSchema()
+    validate(shopJson, shopSchema)
 
     player = Player()
     stats = Stats()
