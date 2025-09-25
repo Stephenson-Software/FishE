@@ -1,4 +1,5 @@
 import os
+import sys
 from location import bank, docks, home, shop, tavern
 from location.enum.locationType import LocationType
 from player.player import Player
@@ -8,13 +9,15 @@ from stats.statsJsonReaderWriter import StatsJsonReaderWriter
 from world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
 from world.timeService import TimeService
 from stats.stats import Stats
-from ui.userInterface import UserInterface
+from ui.enum.uiType import UIType
+from ui.userInterfaceFactory import UserInterfaceFactory
 
 
 # @author Daniel McCoy Stephenson
 class FishE:
-    def __init__(self):
+    def __init__(self, ui_type=UIType.CONSOLE):
         self.running = True
+        self.ui_type = ui_type
 
         self.playerJsonReaderWriter = PlayerJsonReaderWriter()
         self.timeServiceJsonReaderWriter = TimeServiceJsonReaderWriter()
@@ -46,7 +49,10 @@ class FishE:
 
         self.prompt = Prompt("What would you like to do?")
 
-        self.userInterface = UserInterface(self.prompt, self.timeService, self.player)
+        # Use the factory to create the appropriate UI
+        self.userInterface = UserInterfaceFactory.create_user_interface(
+            self.ui_type, self.prompt, self.timeService, self.player
+        )
 
         self.locations = {
             LocationType.BANK: bank.Bank(
@@ -89,18 +95,23 @@ class FishE:
         self.currentLocation = LocationType.HOME
 
     def play(self):
-        while self.running:
-            # change location
-            nextLocation = self.locations[self.currentLocation].run()
+        try:
+            while self.running:
+                # change location
+                nextLocation = self.locations[self.currentLocation].run()
 
-            if nextLocation == LocationType.NONE:
-                self.running = False
+                if nextLocation == LocationType.NONE:
+                    self.running = False
 
-            self.currentLocation = nextLocation
+                self.currentLocation = nextLocation
 
-            # increase time & save
-            self.timeService.increaseTime()
-            self.save()
+                # increase time & save
+                self.timeService.increaseTime()
+                self.save()
+        finally:
+            # Clean up UI resources
+            if hasattr(self.userInterface, 'cleanup'):
+                self.userInterface.cleanup()
 
     def save(self):
         # create data directory
@@ -137,5 +148,24 @@ class FishE:
 
 
 if __name__ == "__main__":
-    FishE = FishE()
-    FishE.play()
+    # Parse command line arguments for UI type
+    ui_type = UIType.CONSOLE  # Default to console UI
+    
+    if len(sys.argv) > 1:
+        if "--ui" in sys.argv:
+            ui_arg_index = sys.argv.index("--ui") + 1
+            if ui_arg_index < len(sys.argv):
+                ui_arg = sys.argv[ui_arg_index].lower()
+                if ui_arg == "pygame":
+                    ui_type = UIType.PYGAME
+                elif ui_arg == "console":
+                    ui_type = UIType.CONSOLE
+    
+    # Check for pygame argument without --ui flag
+    for arg in sys.argv[1:]:
+        if arg.lower() == "pygame":
+            ui_type = UIType.PYGAME
+            break
+    
+    fishE = FishE(ui_type)
+    fishE.play()
