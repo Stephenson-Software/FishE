@@ -1,9 +1,15 @@
-from src.player.player import Player
-from src.prompt.prompt import Prompt
-from src.stats.stats import Stats
-from src.ui import userInterface
-from src.world.timeService import TimeService
-from unittest.mock import MagicMock
+import sys
+import os
+
+# Add src to the path so imports work correctly
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+from player.player import Player
+from prompt.prompt import Prompt
+from stats.stats import Stats
+from ui.consoleUserInterface import ConsoleUserInterface
+from world.timeService import TimeService
+from unittest.mock import patch
 
 
 def createUserInterface():
@@ -11,7 +17,7 @@ def createUserInterface():
     player = Player()
     stats = Stats()
     timeService = TimeService(player, stats)
-    userInterfaceInstance = userInterface.UserInterface(
+    userInterfaceInstance = ConsoleUserInterface(
         currentPrompt, timeService, player
     )
     return userInterfaceInstance
@@ -30,40 +36,41 @@ def test_initialization():
 def test_lotsOfSpace():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
-
-    # call
-    userInterfaceInstance.lotsOfSpace()
-
-    # check
-    userInterface.print.assert_called_with("\n" * 20)
+    
+    # call with patch
+    with patch('builtins.print') as mock_print:
+        userInterfaceInstance.lotsOfSpace()
+        
+        # check
+        mock_print.assert_called_with("\n" * 20)
 
 
 def test_divider():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
-
-    # call
-    userInterfaceInstance.divider()
-
-    # check
-    assert userInterface.print.call_count == 3
+    
+    # call with patch
+    with patch('builtins.print') as mock_print:
+        userInterfaceInstance.divider()
+        
+        # check
+        assert mock_print.call_count == 3
 
 
 def test_showOptions():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="1")
-    userInterfaceInstance.lotsOfSpace = MagicMock()
-    userInterfaceInstance.divider = MagicMock()
-
-    # call
-    userInterfaceInstance.showOptions("descriptor", ["option1", "option2"])
-
-    # check
-    assert userInterface.print.call_count == 8
-    userInterfaceInstance.lotsOfSpace.assert_called()
-    assert userInterfaceInstance.divider.call_count == 3
-    userInterface.input.assert_called_with("\n> ")
+    
+    # call with patches
+    with patch('builtins.print') as mock_print, \
+         patch('builtins.input', return_value="1") as mock_input, \
+         patch.object(userInterfaceInstance, 'lotsOfSpace') as mock_lots_of_space, \
+         patch.object(userInterfaceInstance, 'divider') as mock_divider:
+        
+        result = userInterfaceInstance.showOptions("descriptor", ["option1", "option2"])
+        
+        # check
+        assert result == "1"
+        mock_lots_of_space.assert_called()
+        assert mock_divider.call_count == 3
+        mock_input.assert_called_with("\n> ")
