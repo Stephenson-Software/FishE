@@ -150,8 +150,8 @@ class FishE:
 def parse_args():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description='FishE - Text-based Fishing Game')
-    parser.add_argument('--ui', 
-                       choices=['console', 'pygame'], 
+    parser.add_argument('--ui',
+                       choices=['console', 'pygame'],
                        default='console',
                        help='UI type to use (default: console)')
     return parser.parse_args()
@@ -159,9 +159,9 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    
-    # Convert string to UIType enum  
+
+    # Convert string to UIType enum
     ui_type = UIType.CONSOLE if args.ui == 'console' else UIType.PYGAME
-    
+
     fishE = FishE(ui_type)
     fishE.play()
