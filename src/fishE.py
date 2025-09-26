@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 from location import bank, docks, home, shop, tavern
 from location.enum.locationType import LocationType
 from player.player import Player
@@ -9,13 +10,13 @@ from stats.statsJsonReaderWriter import StatsJsonReaderWriter
 from world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
 from world.timeService import TimeService
 from stats.stats import Stats
-from ui.enum.uiType import UIType
 from ui.userInterfaceFactory import UserInterfaceFactory
+from ui.enum.uiType import UIType
 
 
 # @author Daniel McCoy Stephenson
 class FishE:
-    def __init__(self, ui_type=UIType.CONSOLE):
+    def __init__(self, ui_type: UIType = UIType.CONSOLE):
         self.running = True
         self.ui_type = ui_type
 
@@ -49,7 +50,7 @@ class FishE:
 
         self.prompt = Prompt("What would you like to do?")
 
-        # Use the factory to create the appropriate UI
+        # Create user interface using factory
         self.userInterface = UserInterfaceFactory.create_user_interface(
             self.ui_type, self.prompt, self.timeService, self.player
         )
@@ -110,8 +111,7 @@ class FishE:
                 self.save()
         finally:
             # Clean up UI resources
-            if hasattr(self.userInterface, 'cleanup'):
-                self.userInterface.cleanup()
+            self.userInterface.cleanup()
 
     def save(self):
         # create data directory
@@ -147,25 +147,24 @@ class FishE:
         timeServiceSaveFile.close()
 
 
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(description='FishE - Text-based Fishing Game')
+    parser.add_argument('--ui', 
+                       choices=['console', 'pygame'], 
+                       default='console',
+                       help='UI type to use (default: console)')
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    # Parse command line arguments for UI type
-    ui_type = UIType.CONSOLE  # Default to console UI
+    args = parse_args()
     
-    if len(sys.argv) > 1:
-        if "--ui" in sys.argv:
-            ui_arg_index = sys.argv.index("--ui") + 1
-            if ui_arg_index < len(sys.argv):
-                ui_arg = sys.argv[ui_arg_index].lower()
-                if ui_arg == "pygame":
-                    ui_type = UIType.PYGAME
-                elif ui_arg == "console":
-                    ui_type = UIType.CONSOLE
-    
-    # Check for pygame argument without --ui flag
-    for arg in sys.argv[1:]:
-        if arg.lower() == "pygame":
-            ui_type = UIType.PYGAME
-            break
+    # Convert string argument to UIType enum
+    if args.ui == 'pygame':
+        ui_type = UIType.PYGAME
+    else:
+        ui_type = UIType.CONSOLE
     
     fishE = FishE(ui_type)
     fishE.play()
