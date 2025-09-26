@@ -27,6 +27,7 @@ def test_initialization():
     assert shopInstance.player != None
     assert shopInstance.stats != None
     assert shopInstance.timeService != None
+    assert shopInstance.money == 1000
 
 
 def test_run_sell_fish_action():
@@ -81,6 +82,40 @@ def test_sellFish():
     assert shopInstance.player.fishCount == 0
     assert shopInstance.player.money > 0
     assert shopInstance.stats.totalMoneyMade > 0
+    assert shopInstance.money < 1000  # Shop money should decrease
+
+
+def test_sellFish_no_fish():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.player.fishCount = 0
+    initialMoney = shopInstance.money
+
+    # call
+    shopInstance.sellFish()
+
+    # check
+    assert shopInstance.player.fishCount == 0
+    assert shopInstance.money == initialMoney  # Shop money should not change
+    assert "don't have any fish" in shopInstance.currentPrompt.text
+
+
+def test_sellFish_shop_not_enough_money():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.player.fishCount = 100  # Lots of fish
+    shopInstance.money = 10  # Very little shop money
+    initialPlayerMoney = shopInstance.player.money
+    initialShopMoney = shopInstance.money
+
+    # call
+    shopInstance.sellFish()
+
+    # check
+    assert shopInstance.player.fishCount == 100  # Fish should not be sold
+    assert shopInstance.player.money == initialPlayerMoney  # Player money unchanged
+    assert shopInstance.money == initialShopMoney  # Shop money unchanged
+    assert "doesn't have enough money" in shopInstance.currentPrompt.text
 
 
 def test_buyBetterBait():

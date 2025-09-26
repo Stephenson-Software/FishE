@@ -1,0 +1,10 @@
+{
+    "type": "object",
+    "properties": {
+        "money": {
+            "type": "number",
+            "description": "The amount of money the shop has available to buy fish from the player."
+        }
+    },
+    "required": ["money"]
+}

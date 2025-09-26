@@ -22,6 +22,7 @@ class Shop:
         self.player = player
         self.stats = stats
         self.timeService = timeService
+        self.money = 1000  # Shop starts with $1000
 
     def run(self):
         li = [
@@ -30,7 +31,7 @@ class Shop:
             "Go to Docks",
         ]
         input = self.userInterface.showOptions(
-            "The shopkeeper winks at you as you behold his collection of fishing poles.",
+            "The shopkeeper winks at you as you behold his collection of fishing poles. Shop Money: $%d" % self.money,
             li,
         )
 
@@ -45,9 +46,19 @@ class Shop:
             return LocationType.DOCKS
 
     def sellFish(self):
+        if self.player.fishCount == 0:
+            self.currentPrompt.text = "You don't have any fish to sell!"
+            return
+            
         moneyToAdd = self.player.fishCount * random.randint(3, 5)
+        
+        if self.money < moneyToAdd:
+            self.currentPrompt.text = "The shop doesn't have enough money to buy all your fish!"
+            return
+            
         self.player.money += moneyToAdd
         self.stats.totalMoneyMade += moneyToAdd
+        self.money -= moneyToAdd
         self.player.fishCount = 0
 
         self.currentPrompt.text = "You sold all of your fish!"
