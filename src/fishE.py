@@ -160,11 +160,8 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     
-    # Convert string argument to UIType enum
-    if args.ui == 'pygame':
-        ui_type = UIType.PYGAME
-    else:
-        ui_type = UIType.CONSOLE
+    # Convert string to UIType enum  
+    ui_type = UIType.CONSOLE if args.ui == 'console' else UIType.PYGAME
     
     fishE = FishE(ui_type)
     fishE.play()
