@@ -31,7 +31,7 @@ class Shop:
             "Go to Docks",
         ]
         input = self.userInterface.showOptions(
-            "The shopkeeper winks at you as you behold his collection of fishing poles.",
+            "The shopkeeper winks at you as you behold his collection of fishing poles. Shop Money: $%d" % self.money,
             li,
         )
 
