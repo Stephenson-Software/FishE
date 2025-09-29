@@ -85,13 +85,28 @@ def test_sleep():
     # prepare
     homeInstance = createHome()
     homeInstance.timeService.increaseDay = MagicMock()
+    homeInstance.player.energy = 50  # Set energy to something less than 100
 
     # call
     homeInstance.sleep()
 
     # check
     homeInstance.timeService.increaseDay.assert_called_once()
-    assert homeInstance.currentPrompt.text == "You sleep until the next morning."
+    assert homeInstance.currentPrompt.text == "You sleep until the next morning. You feel refreshed!"
+    assert homeInstance.player.energy == 100  # Energy should be restored to full
+
+
+def test_sleep_restores_energy():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.timeService.increaseDay = MagicMock()
+    homeInstance.player.energy = 10  # Low energy
+
+    # call
+    homeInstance.sleep()
+
+    # check
+    assert homeInstance.player.energy == 100
 
 
 def test_displayStats():
