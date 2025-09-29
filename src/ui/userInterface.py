@@ -60,6 +60,7 @@ class UserInterface:
             print(" | " + self.times[self.timeService.time])
             print(" | Money: $%d" % self.player.money)
             print(" | Fish: %d" % self.player.fishCount)
+            print(" | Energy: %d" % self.player.energy)
             print("\n " + self.currentPrompt.text)
             self.divider()
             self.n = 1

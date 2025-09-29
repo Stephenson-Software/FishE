@@ -63,7 +63,7 @@ def test_showOptions():
     userInterfaceInstance.showOptions("descriptor", ["option1", "option2"])
 
     # check
-    assert userInterface.print.call_count == 8
+    assert userInterface.print.call_count == 9
     userInterfaceInstance.lotsOfSpace.assert_called()
     assert userInterfaceInstance.divider.call_count == 3
     userInterface.input.assert_called_with("\n> ")

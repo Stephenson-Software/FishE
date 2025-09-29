@@ -33,8 +33,12 @@ class Docks:
         )
 
         if input == "1":
-            self.fish()
-            return LocationType.DOCKS
+            if self.player.energy >= 10:
+                self.fish()
+                return LocationType.DOCKS
+            else:
+                self.currentPrompt.text = "You're too tired to fish! Go home and sleep."
+                return LocationType.DOCKS
 
         elif input == "2":
             self.currentPrompt.text = "What would you like to do?"
@@ -65,12 +69,22 @@ class Docks:
 
         hours = random.randint(1, 10)
 
+        # Check if player has enough energy for all hours
+        energy_needed = hours * 10
+        if self.player.energy < energy_needed:
+            # Fish for as many hours as energy allows
+            hours = self.player.energy // 10
+            if hours == 0:
+                self.currentPrompt.text = "You're too tired to fish! Go home and sleep."
+                return
+
         for i in range(hours):
             print("><> ")
             sys.stdout.flush()
             time.sleep(0.5)
             self.stats.hoursSpentFishing += 1
             self.timeService.increaseTime()
+            self.player.energy -= 10  # Consume 10 energy per hour
 
         fishToAdd = random.randint(1, 10) * self.player.fishMultiplier
         self.player.fishCount += fishToAdd

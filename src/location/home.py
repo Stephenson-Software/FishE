@@ -43,7 +43,8 @@ class Home:
 
     def sleep(self):
         self.timeService.increaseDay()
-        self.currentPrompt.text = "You sleep until the next morning."
+        self.player.energy = 100  # Restore full energy when sleeping
+        self.currentPrompt.text = "You sleep until the next morning. You feel refreshed!"
 
     def displayStats(self):
         self.userInterface.lotsOfSpace()

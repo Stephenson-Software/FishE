@@ -40,6 +40,7 @@ def test_createPlayerFromJson():
         "money": 0,
         "moneyInBank": 0,
         "priceForBait": 50,
+        "energy": 100,
     }
 
     playerJsonReaderWriter = createPlayerJsonReaderWriter()
@@ -49,3 +50,25 @@ def test_createPlayerFromJson():
     assert player.fishMultiplier == playerJson["fishMultiplier"]
     assert player.money == playerJson["money"]
     assert player.moneyInBank == playerJson["moneyInBank"]
+    assert player.energy == playerJson["energy"]
+
+
+def test_createPlayerFromJson_backwards_compatibility():
+    # Test that old save files without energy still work
+    playerJson = {
+        "fishCount": 5,
+        "fishMultiplier": 2,
+        "money": 100,
+        "moneyInBank": 50,
+        "priceForBait": 75,
+        # Note: no energy field
+    }
+
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    assert player.fishCount == playerJson["fishCount"]
+    assert player.fishMultiplier == playerJson["fishMultiplier"]
+    assert player.money == playerJson["money"]
+    assert player.moneyInBank == playerJson["moneyInBank"]
+    assert player.energy == 100  # Should default to 100
