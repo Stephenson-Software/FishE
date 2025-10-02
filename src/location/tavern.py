@@ -84,12 +84,13 @@ class Tavern:
                 self.diceThrow = random.randint(1, 6)
 
                 if input == self.diceThrow:
+                    winAmount = self.currentBet
                     self.player.money += self.currentBet
                     self.stats.totalMoneyMade += self.currentBet
                     self.currentBet = 0
                     self.currentPrompt.text = (
                         "The dice rolled a %d! You won $%d! Care to try again? Current Bet: $%d"
-                        % (self.diceThrow, self.currentBet, self.currentBet)
+                        % (self.diceThrow, winAmount, self.currentBet)
                     )
                     continue
                 else:
