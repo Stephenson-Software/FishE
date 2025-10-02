@@ -104,3 +104,38 @@ def test_getDrunk():
     assert tavern.print.call_count == 3
     assert tavern.sys.stdout.flush.call_count == 3
     tavernInstance.timeService.increaseDay.assert_called_once()
+
+
+def test_changeBet_no_recursive_gamble():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 100
+    
+    # Mock gamble method to detect if it's called
+    tavernInstance.gamble = MagicMock()
+    
+    # Mock input to simulate user entering valid bet amount
+    with MagicMock() as mock_input:
+        mock_input.return_value = '50'
+        
+        # Temporarily replace the built-in input function
+        import builtins
+        original_input = builtins.input
+        builtins.input = mock_input
+        
+        try:
+            # call
+            tavernInstance.changeBet("How much money would you like to bet? Money: $100")
+            
+            # check
+            # Verify that gamble was NOT called recursively
+            tavernInstance.gamble.assert_not_called()
+            # Verify that the bet was set correctly
+            assert tavernInstance.currentBet == 50
+            # Verify the prompt was updated correctly
+            assert "What will the dice land on? Current Bet: $50" in tavernInstance.currentPrompt.text
+        finally:
+            # Restore original input function
+            builtins.input = original_input

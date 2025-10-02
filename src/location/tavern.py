@@ -123,7 +123,8 @@ class Tavern:
         try:
             self.amount = int(input("> "))
         except ValueError:
-            self.deposit("Try again. Money: $%d" % self.player.money)
+            self.currentPrompt.text = "Try again. Money: $%d" % self.player.money
+            return
 
         if self.amount <= self.player.money:
             self.currentBet = self.amount
@@ -131,7 +132,7 @@ class Tavern:
             self.currentPrompt.text = (
                 "What will the dice land on? Current Bet: $%d" % self.currentBet
             )
-            self.gamble()
+            # Don't call self.gamble() recursively - let the main loop continue
         else:
             self.currentPrompt.text = (
                 "You don't have that much money on you! Money: $%d" % self.player.money
