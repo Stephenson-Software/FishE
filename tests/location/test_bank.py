@@ -175,3 +175,42 @@ def test_withdraw_failure_not_enough_money():
     bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 5
     assert bankInstance.player.money == 0
+
+
+def test_deposit_with_decimal():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.money = 100.50
+    bankInstance.player.moneyInBank = 0
+    bank.print = MagicMock()
+    bank.input = MagicMock(return_value="10.25")
+
+    # call
+    bankInstance.deposit()
+
+    # check
+    bank.print.assert_called_once()
+    assert bankInstance.player.moneyInBank == 10.25
+    assert bankInstance.player.money == 90.25
+
+
+def test_withdraw_with_decimal():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.moneyInBank = 100.75
+    bankInstance.player.money = 0
+    bank.print = MagicMock()
+    bank.input = MagicMock(return_value="10.50")
+
+    # call
+    bankInstance.withdraw()
+
+    # check
+    bank.print.assert_called_once()
+    assert bankInstance.player.moneyInBank == 90.25
+    assert bankInstance.player.money == 10.50
+
