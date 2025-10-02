@@ -104,3 +104,73 @@ def test_getDrunk():
     assert tavern.print.call_count == 3
     assert tavern.sys.stdout.flush.call_count == 3
     tavernInstance.timeService.increaseDay.assert_called_once()
+
+
+def test_getDrunk_no_money_loss():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 100
+    initial_money = tavernInstance.player.money
+    tavern.print = MagicMock()
+    tavern.sys.stdout.flush = MagicMock()
+    tavern.time.sleep = MagicMock()
+    tavern.random.random = MagicMock(return_value=0.5)  # No money loss (> 0.3)
+    tavernInstance.timeService.increaseDay = MagicMock()
+
+    # call
+    tavernInstance.getDrunk()
+
+    # check
+    assert tavernInstance.player.money == initial_money - 10  # Only lost the $10 cost
+    assert tavernInstance.stats.moneyLostWhileDrunk == 0  # No additional money lost tracked
+    assert tavernInstance.currentPrompt.text == "You have a headache."
+    tavernInstance.timeService.increaseDay.assert_called_once()
+
+
+def test_getDrunk_with_money_loss():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 100
+    initial_money = tavernInstance.player.money
+    tavern.print = MagicMock()
+    tavern.sys.stdout.flush = MagicMock()
+    tavern.time.sleep = MagicMock()
+    tavern.random.random = MagicMock(return_value=0.2)  # Money loss (< 0.3)
+    tavern.random.uniform = MagicMock(return_value=0.3)  # 30% loss
+    tavernInstance.timeService.increaseDay = MagicMock()
+
+    # call
+    tavernInstance.getDrunk()
+
+    # check
+    expected_loss = int((initial_money - 10) * 0.3)  # 30% of remaining money after $10 cost
+    expected_money = initial_money - 10 - expected_loss
+    assert tavernInstance.player.money == expected_money
+    assert tavernInstance.stats.moneyLostWhileDrunk == expected_loss
+    assert f"You have a headache. In your drunken stupor, you lost ${expected_loss}!" in tavernInstance.currentPrompt.text
+    tavernInstance.timeService.increaseDay.assert_called_once()
+
+
+def test_getDrunk_with_money_loss_no_money_remaining():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 10  # Only enough for the drink cost
+    tavern.print = MagicMock()
+    tavern.sys.stdout.flush = MagicMock()
+    tavern.time.sleep = MagicMock()
+    tavern.random.random = MagicMock(return_value=0.2)  # Money loss scenario
+    tavernInstance.timeService.increaseDay = MagicMock()
+
+    # call
+    tavernInstance.getDrunk()
+
+    # check
+    assert tavernInstance.player.money == 0  # Only lost the $10 cost, no additional money to lose
+    assert tavernInstance.currentPrompt.text == "You have a headache."
+    tavernInstance.timeService.increaseDay.assert_called_once()

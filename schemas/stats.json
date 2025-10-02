@@ -24,6 +24,10 @@
         "moneyLostFromGambling": {
             "type": "number",
             "description": "The total amount of money lost from gambling by the player."
+        },
+        "moneyLostWhileDrunk": {
+            "type": "number",
+            "description": "The total amount of money lost while drunk by the player."
         }
     }
 }

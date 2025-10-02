@@ -7,3 +7,4 @@ class Stats:
         self.moneyMadeFromInterest = 0
         self.timesGottenDrunk = 0
         self.moneyLostFromGambling = 0
+        self.moneyLostWhileDrunk = 0

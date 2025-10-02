@@ -11,6 +11,7 @@ class StatsJsonReaderWriter:
             "moneyMadeFromInterest": stats.moneyMadeFromInterest,
             "timesGottenDrunk": stats.timesGottenDrunk,
             "moneyLostFromGambling": stats.moneyLostFromGambling,
+            "moneyLostWhileDrunk": stats.moneyLostWhileDrunk,
         }
 
     def createStatsFromJson(self, statsJson):
@@ -21,6 +22,8 @@ class StatsJsonReaderWriter:
         stats.moneyMadeFromInterest = statsJson["moneyMadeFromInterest"]
         stats.timesGottenDrunk = statsJson["timesGottenDrunk"]
         stats.moneyLostFromGambling = statsJson["moneyLostFromGambling"]
+        # Handle backward compatibility for existing save files
+        stats.moneyLostWhileDrunk = statsJson.get("moneyLostWhileDrunk", 0)
         return stats
 
     def readStatsFromFile(self, statsJsonFile):
