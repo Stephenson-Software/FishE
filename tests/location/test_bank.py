@@ -213,4 +213,3 @@ def test_withdraw_with_decimal():
     bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 90.25
     assert bankInstance.player.money == 10.50
-
