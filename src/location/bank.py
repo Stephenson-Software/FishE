@@ -63,16 +63,16 @@ class Bank:
             self.userInterface.divider()
 
             try:
-                amount = int(input("> "))
+                amount = float(input("> "))
             except ValueError:
-                self.currentPrompt.text = "Try again. Money: $%d" % self.player.money
+                self.currentPrompt.text = "Try again. Money: $%.2f" % self.player.money
                 continue
 
             if amount <= self.player.money:
                 self.player.moneyInBank += amount
                 self.player.money -= amount
 
-                self.currentPrompt.text = "$%d deposited successfully." % amount
+                self.currentPrompt.text = "$%.2f deposited successfully." % amount
             else:
                 self.currentPrompt.text = "You don't have that much money on you!"
             break
@@ -85,10 +85,10 @@ class Bank:
             self.userInterface.divider()
 
             try:
-                amount = int(input("> "))
+                amount = float(input("> "))
             except ValueError:
                 self.currentPrompt.text = (
-                    "Try again. Money In Bank: $%d" % self.player.moneyInBank
+                    "Try again. Money In Bank: $%.2f" % self.player.moneyInBank
                 )
                 continue
 
@@ -96,7 +96,7 @@ class Bank:
                 self.player.money += amount
                 self.player.moneyInBank -= amount
 
-                self.currentPrompt.text = "$%d withdrawn successfully." % amount
+                self.currentPrompt.text = "$%.2f withdrawn successfully." % amount
             else:
                 self.currentPrompt.text = "You don't have that much money in the bank!"
             break
