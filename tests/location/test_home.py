@@ -92,7 +92,10 @@ def test_sleep():
 
     # check
     homeInstance.timeService.increaseDay.assert_called_once()
-    assert homeInstance.currentPrompt.text == "You sleep until the next morning. You feel refreshed!"
+    assert (
+        homeInstance.currentPrompt.text
+        == "You sleep until the next morning. You feel refreshed!"
+    )
     assert homeInstance.player.energy == 100  # Energy should be restored to full
 
 
