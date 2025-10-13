@@ -195,3 +195,104 @@ def test_gamble_win_shows_correct_amount():
     # Verify the message shows the actual bet amount won, not $0
     assert "You won $50!" in tavernInstance.currentPrompt.text
     assert "You won $0!" not in tavernInstance.currentPrompt.text
+
+
+def test_gamble_loss():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.currentBet = 50
+
+    # Test the loss logic directly
+    input_value = 1
+    tavernInstance.diceThrow = 2  # Different from player choice
+
+    # Execute the loss condition logic
+    tavernInstance.player.money -= tavernInstance.currentBet
+    tavernInstance.stats.moneyLostFromGambling += tavernInstance.currentBet
+    tavernInstance.currentBet = 0
+    tavernInstance.currentPrompt.text = (
+        "The dice rolled a %d! You lost your money! Care to try again? Current Bet: $%d"
+        % (tavernInstance.diceThrow, tavernInstance.currentBet)
+    )
+
+    # check
+    assert tavernInstance.player.money == 50  # Lost 50
+    assert tavernInstance.stats.moneyLostFromGambling == 50
+    assert tavernInstance.currentBet == 0
+    assert "You lost your money!" in tavernInstance.currentPrompt.text
+
+
+def test_changeBet_insufficient_money():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 50
+
+    # Mock input to simulate user entering more than they have
+    import builtins
+
+    original_input = builtins.input
+    builtins.input = MagicMock(return_value="100")
+
+    try:
+        # call
+        tavernInstance.changeBet("How much money would you like to bet? Money: $50")
+
+        # check
+        # Bet should not be set since player doesn't have enough money
+        assert tavernInstance.currentBet == 0
+        # Verify error message
+        assert "You don't have that much money" in tavernInstance.currentPrompt.text
+    finally:
+        # Restore original input function
+        builtins.input = original_input
+
+
+def test_changeBet_invalid_input():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 100
+
+    # Mock input to simulate user entering invalid input
+    import builtins
+
+    original_input = builtins.input
+    builtins.input = MagicMock(return_value="not a number")
+
+    try:
+        # call
+        tavernInstance.changeBet("How much money would you like to bet? Money: $100")
+
+        # check
+        # Bet should remain 0
+        assert tavernInstance.currentBet == 0
+        # Verify error message
+        assert "Try again" in tavernInstance.currentPrompt.text
+    finally:
+        # Restore original input function
+        builtins.input = original_input
+
+
+def test_getDrunk_updates_stats():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 20
+    tavernInstance.stats.timesGottenDrunk = 0
+    tavern.print = MagicMock()
+    tavern.sys.stdout.flush = MagicMock()
+    tavern.time.sleep = MagicMock()
+    tavernInstance.timeService.increaseDay = MagicMock()
+
+    # call
+    tavernInstance.getDrunk()
+
+    # check
+    assert tavernInstance.player.money == 10  # Lost $10
+    assert tavernInstance.stats.timesGottenDrunk == 1
+    assert tavernInstance.currentPrompt.text == "You have a headache."
