@@ -116,8 +116,8 @@ def test_displayStats():
     # prepare
     homeInstance = createHome()
     homeInstance.userInterface.lotsOfSpace = MagicMock()
+    homeInstance.userInterface.getInput = MagicMock()
     home.print = MagicMock()
-    home.input = MagicMock()
 
     # call
     homeInstance.displayStats()
@@ -125,4 +125,4 @@ def test_displayStats():
     # check
     assert homeInstance.userInterface.lotsOfSpace.call_count == 1
     assert home.print.call_count == 7
-    assert home.input.call_count == 1
+    homeInstance.userInterface.getInput.assert_called_once()

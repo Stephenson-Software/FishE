@@ -67,3 +67,22 @@ def test_showOptions():
     userInterfaceInstance.lotsOfSpace.assert_called()
     assert userInterfaceInstance.divider.call_count == 3
     userInterface.input.assert_called_with("\n> ")
+
+
+def test_getInput():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="test input")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    result = userInterfaceInstance.getInput("Test prompt")
+
+    # check
+    assert result == "test input"
+    userInterfaceInstance.lotsOfSpace.assert_called_once()
+    assert userInterfaceInstance.divider.call_count == 2
+    userInterface.print.assert_called_with("Test prompt")
+    userInterface.input.assert_called_with("> ")

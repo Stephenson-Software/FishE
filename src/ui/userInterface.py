@@ -78,3 +78,22 @@ class UserInterface:
                     return choice
 
             self.currentPrompt.text = "Try again!"
+
+    def getInput(self, prompt):
+        """Get text input from the user with a prompt.
+        
+        This method centralizes all input handling, allowing for future
+        implementation of alternative UIs (e.g., pygame) without changing
+        location code.
+        
+        Args:
+            prompt: The text to display to the user
+            
+        Returns:
+            The user's input as a string
+        """
+        self.lotsOfSpace()
+        self.divider()
+        print(prompt)
+        self.divider()
+        return input("> ")

@@ -116,13 +116,9 @@ class Tavern:
                 continue
 
     def changeBet(self, prompt):
-        self.userInterface.lotsOfSpace()
-        self.userInterface.divider()
-        print(prompt)
-        self.userInterface.divider()
-
         try:
-            self.amount = int(input("> "))
+            userInput = self.userInterface.getInput(prompt)
+            self.amount = int(userInput)
         except ValueError:
             self.currentPrompt.text = "Try again. Money: $%d" % self.player.money
             return

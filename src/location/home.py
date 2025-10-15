@@ -57,4 +57,4 @@ class Home:
         print("Times Gotten Drunk: %d" % self.stats.timesGottenDrunk)
         print("Money Lost Gambling: %d" % self.stats.moneyLostFromGambling)
         print("")
-        input(" [ CONTINUE ]")
+        self.userInterface.getInput(" [ CONTINUE ]")
