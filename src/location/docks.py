@@ -102,18 +102,18 @@ class Docks:
             print("A fish is biting! Press Enter quickly! ")
             sys.stdout.flush()
             
-            start_time = time.time()
+            startTime = time.time()
             try:
                 input()
-                reaction_time = time.time() - start_time
+                reactionTime = time.time() - startTime
                 
                 # Success if pressed within 2 seconds
-                if reaction_time <= 2.0:
+                if reactionTime <= 2.0:
                     successfulCatches += 1
                     print("Got it! ")
                 else:
                     print("Too slow... ")
-            except:
+            except (KeyboardInterrupt, EOFError):
                 print("Missed! ")
             
             sys.stdout.flush()
@@ -124,10 +124,10 @@ class Docks:
             self.player.energy -= 10  # Consume 10 energy per hour
 
         # Calculate fish caught based on success rate
-        basefish = random.randint(1, 10)
+        baseFish = random.randint(1, 10)
         if totalAttempts > 0:
-            success_rate = successfulCatches / totalAttempts
-            fishToAdd = int(basefish * success_rate * self.player.fishMultiplier)
+            successRate = successfulCatches / totalAttempts
+            fishToAdd = int(baseFish * successRate * self.player.fishMultiplier)
         else:
             fishToAdd = 0
             
