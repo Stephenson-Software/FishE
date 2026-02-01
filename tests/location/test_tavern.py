@@ -27,6 +27,8 @@ def test_initialization():
     assert tavernInstance.player != None
     assert tavernInstance.stats != None
     assert tavernInstance.timeService != None
+    assert tavernInstance.npc != None
+    assert tavernInstance.npc.name == "Old Tom the Barkeep"
 
 
 def test_run_get_drunk_action_success():
@@ -77,13 +79,42 @@ def test_run_gamble_action_success():
 def test_run_go_to_docks_action():
     # prepare
     tavernInstance = createTavern()
-    tavernInstance.userInterface.showOptions = MagicMock(return_value="3")
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = tavernInstance.run()
 
     # check
     assert nextLocation == LocationType.DOCKS
+
+
+def test_run_talk_to_npc_action():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="3")
+    tavernInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = tavernInstance.run()
+
+    # check
+    assert nextLocation == LocationType.TAVERN
+    tavernInstance.talkToNPC.assert_called_once()
+
+
+def test_talkToNPC():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    tavernInstance.talkToNPC()
+
+    # check
+    tavernInstance.userInterface.showDialogue.assert_called_once()
+    call_args = tavernInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Old Tom the Barkeep" in call_args
+    assert len(call_args) > 0
 
 
 def test_getDrunk():

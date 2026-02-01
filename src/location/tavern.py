@@ -9,6 +9,7 @@ from prompt.prompt import Prompt
 from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
+from npc.npc import NPC
 
 
 # @author Daniel McCoy Stephenson
@@ -28,9 +29,15 @@ class Tavern:
         self.timeService = timeService
 
         self.currentBet = 0
+        self.npc = NPC(
+            "Old Tom the Barkeep",
+            "I sailed the seven seas for forty years before settling down here. "
+            "Lost my leg to a shark near the Caribbean, but I got plenty of stories to make up for it. "
+            "These days I pour drinks and listen to folks' troubles. Best job I ever had!",
+        )
 
     def run(self):
-        li = ["Get drunk ( $10 )", "Gamble", "Go to Docks"]
+        li = ["Get drunk ( $10 )", "Gamble", "Talk to %s" % self.npc.name, "Go to Docks"]
         input = self.userInterface.showOptions(
             "You sit at the bar, watching the barkeep clean a mug with a dirty rag.", li
         )
@@ -51,6 +58,10 @@ class Tavern:
             return LocationType.TAVERN
 
         elif input == "3":
+            self.talkToNPC()
+            return LocationType.TAVERN
+
+        elif input == "4":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
 
@@ -138,3 +149,6 @@ class Tavern:
             self.currentPrompt.text = (
                 "You don't have that much money on you! Money: $%d" % self.player.money
             )
+
+    def talkToNPC(self):
+        self.userInterface.showDialogue(self.npc.introduce())

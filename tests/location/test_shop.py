@@ -27,6 +27,8 @@ def test_initialization():
     assert shopInstance.player != None
     assert shopInstance.stats != None
     assert shopInstance.timeService != None
+    assert shopInstance.npc != None
+    assert shopInstance.npc.name == "Gilbert the Shopkeeper"
 
 
 def test_run_sell_fish_action():
@@ -60,13 +62,42 @@ def test_run_buy_better_bait_action():
 def test_run_go_to_docks_action():
     # prepare
     shopInstance = createShop()
-    shopInstance.userInterface.showOptions = MagicMock(return_value="3")
+    shopInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = shopInstance.run()
 
     # check
     assert nextLocation == LocationType.DOCKS
+
+
+def test_run_talk_to_npc_action():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.userInterface.showOptions = MagicMock(return_value="3")
+    shopInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = shopInstance.run()
+
+    # check
+    assert nextLocation == LocationType.SHOP
+    shopInstance.talkToNPC.assert_called_once()
+
+
+def test_talkToNPC():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    shopInstance.talkToNPC()
+
+    # check
+    shopInstance.userInterface.showDialogue.assert_called_once()
+    call_args = shopInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Gilbert the Shopkeeper" in call_args
+    assert len(call_args) > 0
 
 
 def test_sellFish():

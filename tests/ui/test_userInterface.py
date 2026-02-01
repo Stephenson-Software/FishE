@@ -67,3 +67,22 @@ def test_showOptions():
     userInterfaceInstance.lotsOfSpace.assert_called()
     assert userInterfaceInstance.divider.call_count == 3
     userInterface.input.assert_called_with("\n> ")
+
+
+def test_showDialogue():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    userInterfaceInstance.showDialogue("Test dialogue text")
+
+    # check
+    userInterfaceInstance.lotsOfSpace.assert_called_once()
+    assert userInterfaceInstance.divider.call_count == 2
+    userInterface.print.assert_called_with("Test dialogue text")
+    userInterface.input.assert_called_with(" [ CONTINUE ]")
+    assert userInterfaceInstance.currentPrompt.text == "What would you like to do?"

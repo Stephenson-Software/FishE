@@ -78,3 +78,11 @@ class UserInterface:
                     return choice
 
             self.currentPrompt.text = "Try again!"
+
+    def showDialogue(self, text):
+        self.lotsOfSpace()
+        self.divider()
+        print(text)
+        self.divider()
+        input(" [ CONTINUE ]")
+        self.currentPrompt.text = "What would you like to do?"

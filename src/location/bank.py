@@ -1,9 +1,10 @@
-from pstats import Stats
 from location.enum.locationType import LocationType
 from player.player import Player
 from prompt.prompt import Prompt
 from world.timeService import TimeService
+from stats.stats import Stats
 from ui.userInterface import UserInterface
+from npc.npc import NPC
 
 
 # @author Daniel McCoy Stephenson
@@ -21,9 +22,15 @@ class Bank:
         self.player = player
         self.stats = stats
         self.timeService = timeService
+        self.npc = NPC(
+            "Margaret the Teller",
+            "I've worked at this bank for fifteen years and I take pride in keeping everyone's money safe. "
+            "My grandmother taught me the value of saving, and I've helped many fishermen in this village "
+            "secure their futures. A penny saved is a penny earned, as they say!",
+        )
 
     def run(self):
-        li = ["Make a Deposit", "Make a Withdrawal", "Go to docks"]
+        li = ["Make a Deposit", "Make a Withdrawal", "Talk to %s" % self.npc.name, "Go to docks"]
         input = self.userInterface.showOptions(
             "You're at the front of the line and the teller asks you what you want to do.",
             li,
@@ -52,6 +59,10 @@ class Bank:
             return LocationType.BANK
 
         elif input == "3":
+            self.talkToNPC()
+            return LocationType.BANK
+
+        elif input == "4":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
 
@@ -100,3 +111,6 @@ class Bank:
             else:
                 self.currentPrompt.text = "You don't have that much money in the bank!"
             break
+
+    def talkToNPC(self):
+        self.userInterface.showDialogue(self.npc.introduce())

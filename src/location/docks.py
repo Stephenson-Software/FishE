@@ -8,6 +8,7 @@ from prompt.prompt import Prompt
 from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
+from npc.npc import NPC
 
 
 # @author Daniel McCoy Stephenson
@@ -25,9 +26,16 @@ class Docks:
         self.player = player
         self.stats = stats
         self.timeService = timeService
+        self.npc = NPC(
+            "Sam the Dock Worker",
+            "Been working these docks since I was knee-high to a grasshopper. "
+            "My pa was a fisherman, and his pa before him. I help maintain the boats and docks, "
+            "and I've learned a thing or two about fishing over the years. "
+            "The sea provides for those who respect her!",
+        )
 
     def run(self):
-        li = ["Fish", "Go Home", "Go to Shop", "Go to Tavern", "Go to Bank"]
+        li = ["Fish", "Talk to %s" % self.npc.name, "Go Home", "Go to Shop", "Go to Tavern", "Go to Bank"]
         input = self.userInterface.showOptions(
             "You breathe in the fresh air. Salty.", li
         )
@@ -41,18 +49,22 @@ class Docks:
                 return LocationType.DOCKS
 
         elif input == "2":
-            self.currentPrompt.text = "What would you like to do?"
-            return LocationType.HOME
+            self.talkToNPC()
+            return LocationType.DOCKS
 
         elif input == "3":
             self.currentPrompt.text = "What would you like to do?"
-            return LocationType.SHOP
+            return LocationType.HOME
 
         elif input == "4":
             self.currentPrompt.text = "What would you like to do?"
-            return LocationType.TAVERN
+            return LocationType.SHOP
 
         elif input == "5":
+            self.currentPrompt.text = "What would you like to do?"
+            return LocationType.TAVERN
+
+        elif input == "6":
             self.currentPrompt.text = (
                 "What would you like to do? Money in Bank: $%.2f"
                 % self.player.moneyInBank
@@ -97,3 +109,6 @@ class Docks:
                 fishToAdd,
                 hours,
             )
+
+    def talkToNPC(self):
+        self.userInterface.showDialogue(self.npc.introduce())
