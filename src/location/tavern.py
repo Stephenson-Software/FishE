@@ -151,9 +151,4 @@ class Tavern:
             )
 
     def talkToNPC(self):
-        self.userInterface.lotsOfSpace()
-        self.userInterface.divider()
-        print(self.npc.introduce())
-        self.userInterface.divider()
-        input(" [ CONTINUE ]")
-        self.currentPrompt.text = "What would you like to do?"
+        self.userInterface.showDialogue(self.npc.introduce())

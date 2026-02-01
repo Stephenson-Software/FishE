@@ -88,14 +88,16 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     shopInstance = createShop()
-    shopInstance.userInterface.lotsOfSpace = MagicMock()
-    shopInstance.userInterface.divider = MagicMock()
+    shopInstance.userInterface.showDialogue = MagicMock()
 
     # call
-    # We can't fully test the input() part, but we can test the method exists
-    # and the NPC has the right data
-    assert shopInstance.npc.name == "Gilbert the Shopkeeper"
-    assert len(shopInstance.npc.backstory) > 0
+    shopInstance.talkToNPC()
+
+    # check
+    shopInstance.userInterface.showDialogue.assert_called_once()
+    call_args = shopInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Gilbert the Shopkeeper" in call_args
+    assert len(call_args) > 0
 
 
 def test_sellFish():

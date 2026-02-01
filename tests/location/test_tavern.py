@@ -105,10 +105,16 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     tavernInstance = createTavern()
+    tavernInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    tavernInstance.talkToNPC()
 
     # check
-    assert tavernInstance.npc.name == "Old Tom the Barkeep"
-    assert len(tavernInstance.npc.backstory) > 0
+    tavernInstance.userInterface.showDialogue.assert_called_once()
+    call_args = tavernInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Old Tom the Barkeep" in call_args
+    assert len(call_args) > 0
 
 
 def test_getDrunk():

@@ -1,8 +1,8 @@
-from pstats import Stats
 from location.enum.locationType import LocationType
 from player.player import Player
 from prompt.prompt import Prompt
 from world.timeService import TimeService
+from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
 
@@ -113,9 +113,4 @@ class Bank:
             break
 
     def talkToNPC(self):
-        self.userInterface.lotsOfSpace()
-        self.userInterface.divider()
-        print(self.npc.introduce())
-        self.userInterface.divider()
-        input(" [ CONTINUE ]")
-        self.currentPrompt.text = "What would you like to do?"
+        self.userInterface.showDialogue(self.npc.introduce())
