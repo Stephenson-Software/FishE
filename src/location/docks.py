@@ -90,24 +90,61 @@ class Docks:
                 self.currentPrompt.text = "You're too tired to fish! Go home and sleep."
                 return
 
+        successfulCatches = 0
+        totalAttempts = 0
+        
         for i in range(hours):
             print("><> ")
             sys.stdout.flush()
             time.sleep(0.5)
+            
+            # Interactive minigame: player must press Enter at the right moment
+            print("A fish is biting! Press Enter quickly! ")
+            sys.stdout.flush()
+            
+            start_time = time.time()
+            try:
+                input()
+                reaction_time = time.time() - start_time
+                
+                # Success if pressed within 2 seconds
+                if reaction_time <= 2.0:
+                    successfulCatches += 1
+                    print("Got it! ")
+                else:
+                    print("Too slow... ")
+            except:
+                print("Missed! ")
+            
+            sys.stdout.flush()
+            totalAttempts += 1
+            
             self.stats.hoursSpentFishing += 1
             self.timeService.increaseTime()
             self.player.energy -= 10  # Consume 10 energy per hour
 
-        fishToAdd = random.randint(1, 10) * self.player.fishMultiplier
+        # Calculate fish caught based on success rate
+        basefish = random.randint(1, 10)
+        if totalAttempts > 0:
+            success_rate = successfulCatches / totalAttempts
+            fishToAdd = int(basefish * success_rate * self.player.fishMultiplier)
+        else:
+            fishToAdd = 0
+            
+        # Ensure at least 1 fish if player attempted
+        if fishToAdd == 0 and totalAttempts > 0:
+            fishToAdd = 1
+            
         self.player.fishCount += fishToAdd
         self.stats.totalFishCaught += fishToAdd
 
         if fishToAdd == 1:
             self.currentPrompt.text = "Nice catch!"
         else:
-            self.currentPrompt.text = "You caught %d fish! It only took %d hours!" % (
+            self.currentPrompt.text = "You caught %d fish! It only took %d hours! Success rate: %d%%" % (
                 fishToAdd,
                 hours,
+                int((successfulCatches / totalAttempts * 100) if totalAttempts > 0 else 0)
             )
 
     def talkToNPC(self):

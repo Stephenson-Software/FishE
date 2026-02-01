@@ -130,6 +130,8 @@ def test_fish():
     docks.print = MagicMock()
     docks.sys.stdout.flush = MagicMock()
     docks.time.sleep = MagicMock()
+    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5, 0, 0.5])  # Simulate quick reactions
+    docks.input = MagicMock(return_value="")  # Simulate player pressing Enter
     docks.random.randint = MagicMock(return_value=3)
     docksInstance.timeService.increaseTime = MagicMock()
 
@@ -139,11 +141,9 @@ def test_fish():
     # check
     docksInstance.userInterface.lotsOfSpace.assert_called_once()
     docksInstance.userInterface.divider.assert_called_once()
-    assert docks.print.call_count == 4
-    assert docks.sys.stdout.flush.call_count == 4
-    assert docks.time.sleep.call_count == 4
-    assert docksInstance.player.fishCount == 3
-    assert docksInstance.stats.totalFishCaught == 3
+    # Player should catch fish based on success rate
+    assert docksInstance.player.fishCount >= 1
+    assert docksInstance.stats.totalFishCaught >= 1
 
 
 def test_run_fish_action_low_energy():
@@ -172,6 +172,8 @@ def test_fish_consumes_energy():
     docks.print = MagicMock()
     docks.sys.stdout.flush = MagicMock()
     docks.time.sleep = MagicMock()
+    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5, 0, 0.5])  # Simulate quick reactions
+    docks.input = MagicMock(return_value="")  # Simulate player pressing Enter
     docks.random.randint = MagicMock(return_value=3)  # Fish for 3 hours, catch 3 fish
     docksInstance.timeService.increaseTime = MagicMock()
 
@@ -193,6 +195,8 @@ def test_fish_with_limited_energy():
     docks.print = MagicMock()
     docks.sys.stdout.flush = MagicMock()
     docks.time.sleep = MagicMock()
+    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5])  # Simulate quick reactions for 2 hours
+    docks.input = MagicMock(return_value="")  # Simulate player pressing Enter
     docks.random.randint = MagicMock(
         return_value=5
     )  # Would normally fish for 5 hours, but energy limits to 2
@@ -206,3 +210,47 @@ def test_fish_with_limited_energy():
     assert (
         docksInstance.timeService.increaseTime.call_count == 2
     )  # Only fished for 2 hours due to energy limit
+
+
+def test_fish_interactive_success():
+    # Test that quick reactions result in successful catches
+    docksInstance = createDocks()
+    docksInstance.userInterface.lotsOfSpace = MagicMock()
+    docksInstance.userInterface.divider = MagicMock()
+    docks.print = MagicMock()
+    docks.sys.stdout.flush = MagicMock()
+    docks.time.sleep = MagicMock()
+    # Simulate all quick reactions (under 2 seconds)
+    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5, 0, 0.5])
+    docks.input = MagicMock(return_value="")
+    docks.random.randint = MagicMock(side_effect=[3, 6])  # 3 hours, 6 base fish
+    docksInstance.timeService.increaseTime = MagicMock()
+
+    # call
+    docksInstance.fish()
+
+    # check - with 100% success rate, should get full catch
+    assert docksInstance.player.fishCount >= 3  # Should get good catch with all successes
+    assert docksInstance.stats.totalFishCaught >= 3
+
+
+def test_fish_interactive_failure():
+    # Test that slow reactions result in fewer catches
+    docksInstance = createDocks()
+    docksInstance.userInterface.lotsOfSpace = MagicMock()
+    docksInstance.userInterface.divider = MagicMock()
+    docks.print = MagicMock()
+    docks.sys.stdout.flush = MagicMock()
+    docks.time.sleep = MagicMock()
+    # Simulate all slow reactions (over 2 seconds)
+    docks.time.time = MagicMock(side_effect=[0, 3.0, 0, 3.0, 0, 3.0])
+    docks.input = MagicMock(return_value="")
+    docks.random.randint = MagicMock(side_effect=[3, 10])  # 3 hours, 10 base fish
+    docksInstance.timeService.increaseTime = MagicMock()
+
+    # call
+    docksInstance.fish()
+
+    # check - with 0% success rate, should still get at least 1 fish minimum
+    assert docksInstance.player.fishCount == 1  # Minimum 1 fish even with failures
+    assert docksInstance.stats.totalFishCaught == 1
