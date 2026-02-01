@@ -5,7 +5,7 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def createDocks():
@@ -217,21 +217,22 @@ def test_fish_interactive_success():
     docksInstance = createDocks()
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    docks.print = MagicMock()
-    docks.sys.stdout.flush = MagicMock()
-    docks.time.sleep = MagicMock()
-    # Simulate all quick reactions (under 2 seconds)
-    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5, 0, 0.5])
-    docks.input = MagicMock(return_value="")
-    docks.random.randint = MagicMock(side_effect=[3, 6])  # 3 hours, 6 base fish
-    docksInstance.timeService.increaseTime = MagicMock()
+    
+    with patch('src.location.docks.print'), \
+         patch('src.location.docks.sys.stdout.flush'), \
+         patch('src.location.docks.time.sleep'), \
+         patch('src.location.docks.time.time', side_effect=[0, 0.5, 0, 0.5, 0, 0.5]), \
+         patch('src.location.docks.input', return_value=""), \
+         patch('src.location.docks.random.randint', side_effect=[3, 6]):
+        
+        docksInstance.timeService.increaseTime = MagicMock()
 
-    # call
-    docksInstance.fish()
+        # call
+        docksInstance.fish()
 
-    # check - with 100% success rate, should get full catch
-    assert docksInstance.player.fishCount >= 3  # Should get good catch with all successes
-    assert docksInstance.stats.totalFishCaught >= 3
+        # check - with 100% success rate, should get full catch
+        assert docksInstance.player.fishCount >= 3  # Should get good catch with all successes
+        assert docksInstance.stats.totalFishCaught >= 3
 
 
 def test_fish_interactive_failure():
@@ -239,18 +240,19 @@ def test_fish_interactive_failure():
     docksInstance = createDocks()
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    docks.print = MagicMock()
-    docks.sys.stdout.flush = MagicMock()
-    docks.time.sleep = MagicMock()
-    # Simulate all slow reactions (over 2 seconds)
-    docks.time.time = MagicMock(side_effect=[0, 3.0, 0, 3.0, 0, 3.0])
-    docks.input = MagicMock(return_value="")
-    docks.random.randint = MagicMock(side_effect=[3, 10])  # 3 hours, 10 base fish
-    docksInstance.timeService.increaseTime = MagicMock()
+    
+    with patch('src.location.docks.print'), \
+         patch('src.location.docks.sys.stdout.flush'), \
+         patch('src.location.docks.time.sleep'), \
+         patch('src.location.docks.time.time', side_effect=[0, 3.0, 0, 3.0, 0, 3.0]), \
+         patch('src.location.docks.input', return_value=""), \
+         patch('src.location.docks.random.randint', side_effect=[3, 10]):
+        
+        docksInstance.timeService.increaseTime = MagicMock()
 
-    # call
-    docksInstance.fish()
+        # call
+        docksInstance.fish()
 
-    # check - with 0% success rate, should still get at least 1 fish minimum
-    assert docksInstance.player.fishCount == 1  # Minimum 1 fish even with failures
-    assert docksInstance.stats.totalFishCaught == 1
+        # check - with 0% success rate, should still get at least 1 fish minimum
+        assert docksInstance.player.fishCount == 1  # Minimum 1 fish even with failures
+        assert docksInstance.stats.totalFishCaught == 1
