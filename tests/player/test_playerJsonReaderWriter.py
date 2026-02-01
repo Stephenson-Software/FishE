@@ -72,3 +72,69 @@ def test_createPlayerFromJson_backwards_compatibility():
     assert player.money == playerJson["money"]
     assert player.moneyInBank == playerJson["moneyInBank"]
     assert player.energy == 100  # Should default to 100
+
+
+def test_writePlayerToFile():
+    # prepare
+    import tempfile
+
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = createPlayer()
+    player.fishCount = 10
+    player.money = 500
+
+    # call
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+        playerJsonReaderWriter.writePlayerToFile(player, f)
+        temp_file_path = f.name
+
+    # check - read back the file and verify
+    with open(temp_file_path, "r") as f:
+        playerJson = json.load(f)
+
+    assert playerJson["fishCount"] == 10
+    assert playerJson["money"] == 500
+
+    # cleanup
+    import os
+
+    os.remove(temp_file_path)
+
+
+def test_readPlayerFromFile():
+    # prepare
+    import tempfile
+
+    playerJson = {
+        "fishCount": 15,
+        "fishMultiplier": 3,
+        "money": 250,
+        "moneyInBank": 100,
+        "priceForBait": 60,
+        "energy": 80,
+    }
+
+    # Write test data to temp file
+    with tempfile.NamedTemporaryFile(
+        mode="w", delete=False, suffix=".json"
+    ) as f:
+        json.dump(playerJson, f)
+        temp_file_path = f.name
+
+    # call
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    with open(temp_file_path, "r") as f:
+        player = playerJsonReaderWriter.readPlayerFromFile(f)
+
+    # check
+    assert player.fishCount == 15
+    assert player.fishMultiplier == 3
+    assert player.money == 250
+    assert player.moneyInBank == 100
+    assert player.priceForBait == 60
+    assert player.energy == 80
+
+    # cleanup
+    import os
+
+    os.remove(temp_file_path)
