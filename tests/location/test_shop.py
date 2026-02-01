@@ -27,6 +27,8 @@ def test_initialization():
     assert shopInstance.player != None
     assert shopInstance.stats != None
     assert shopInstance.timeService != None
+    assert shopInstance.npc != None
+    assert shopInstance.npc.name == "Gilbert the Shopkeeper"
 
 
 def test_run_sell_fish_action():
@@ -60,13 +62,40 @@ def test_run_buy_better_bait_action():
 def test_run_go_to_docks_action():
     # prepare
     shopInstance = createShop()
-    shopInstance.userInterface.showOptions = MagicMock(return_value="3")
+    shopInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = shopInstance.run()
 
     # check
     assert nextLocation == LocationType.DOCKS
+
+
+def test_run_talk_to_npc_action():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.userInterface.showOptions = MagicMock(return_value="3")
+    shopInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = shopInstance.run()
+
+    # check
+    assert nextLocation == LocationType.SHOP
+    shopInstance.talkToNPC.assert_called_once()
+
+
+def test_talkToNPC():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.userInterface.lotsOfSpace = MagicMock()
+    shopInstance.userInterface.divider = MagicMock()
+
+    # call
+    # We can't fully test the input() part, but we can test the method exists
+    # and the NPC has the right data
+    assert shopInstance.npc.name == "Gilbert the Shopkeeper"
+    assert len(shopInstance.npc.backstory) > 0
 
 
 def test_sellFish():

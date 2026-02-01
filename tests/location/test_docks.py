@@ -27,6 +27,8 @@ def test_initialization():
     assert docksInstance.player != None
     assert docksInstance.stats != None
     assert docksInstance.timeService != None
+    assert docksInstance.npc != None
+    assert docksInstance.npc.name == "Sam the Dock Worker"
 
 
 def test_run_fish_action():
@@ -46,7 +48,7 @@ def test_run_fish_action():
 def test_run_go_home_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
 
     # call
     nextLocation = docksInstance.run()
@@ -55,10 +57,33 @@ def test_run_go_home_action():
     assert nextLocation == LocationType.HOME
 
 
+def test_run_talk_to_npc_action():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+    docksInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = docksInstance.run()
+
+    # check
+    assert nextLocation == LocationType.DOCKS
+    docksInstance.talkToNPC.assert_called_once()
+
+
+def test_talkToNPC():
+    # prepare
+    docksInstance = createDocks()
+    
+    # check
+    assert docksInstance.npc.name == "Sam the Dock Worker"
+    assert len(docksInstance.npc.backstory) > 0
+
+
 def test_run_go_to_shop_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = docksInstance.run()
@@ -70,7 +95,7 @@ def test_run_go_to_shop_action():
 def test_run_go_to_tavern_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="4")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="5")
 
     # call
     nextLocation = docksInstance.run()
@@ -82,7 +107,7 @@ def test_run_go_to_tavern_action():
 def test_run_go_to_bank_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="5")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="6")
 
     # call
     nextLocation = docksInstance.run()

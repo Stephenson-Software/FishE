@@ -27,6 +27,8 @@ def test_initialization():
     assert bankInstance.player != None
     assert bankInstance.stats != None
     assert bankInstance.timeService != None
+    assert bankInstance.npc != None
+    assert bankInstance.npc.name == "Margaret the Teller"
 
 
 def test_run_make_deposit_success():
@@ -92,13 +94,36 @@ def test_run_make_withdrawal_failure_no_money():
 def test_run_go_to_docks_action():
     # prepare
     bankInstance = createBank()
-    bankInstance.userInterface.showOptions = MagicMock(return_value="3")
+    bankInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = bankInstance.run()
 
     # check
     assert nextLocation == LocationType.DOCKS
+
+
+def test_run_talk_to_npc_action():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.showOptions = MagicMock(return_value="3")
+    bankInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = bankInstance.run()
+
+    # check
+    assert nextLocation == LocationType.BANK
+    bankInstance.talkToNPC.assert_called_once()
+
+
+def test_talkToNPC():
+    # prepare
+    bankInstance = createBank()
+    
+    # check
+    assert bankInstance.npc.name == "Margaret the Teller"
+    assert len(bankInstance.npc.backstory) > 0
 
 
 def test_deposit_success():
