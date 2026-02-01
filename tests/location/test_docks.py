@@ -127,23 +127,31 @@ def test_fish():
     docksInstance = createDocks()
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    docks.print = MagicMock()
-    docks.sys.stdout.flush = MagicMock()
-    docks.time.sleep = MagicMock()
-    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5, 0, 0.5])  # Simulate quick reactions
-    docks.input = MagicMock(return_value="")  # Simulate player pressing Enter
-    docks.random.randint = MagicMock(return_value=3)
-    docksInstance.timeService.increaseTime = MagicMock()
+    
+    # Create a side effect that alternates between 0 and 0.5 indefinitely
+    def time_side_effect():
+        while True:
+            yield 0
+            yield 0.5
+    
+    with patch('src.location.docks.print'), \
+         patch('src.location.docks.sys.stdout.flush'), \
+         patch('src.location.docks.time.sleep'), \
+         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
+         patch('src.location.docks.input', return_value=""), \
+         patch('src.location.docks.random.randint', return_value=3):
+        
+        docksInstance.timeService.increaseTime = MagicMock()
 
-    # call
-    docksInstance.fish()
+        # call
+        docksInstance.fish()
 
-    # check
-    docksInstance.userInterface.lotsOfSpace.assert_called_once()
-    docksInstance.userInterface.divider.assert_called_once()
-    # Player should catch fish based on success rate
-    assert docksInstance.player.fishCount >= 1
-    assert docksInstance.stats.totalFishCaught >= 1
+        # check
+        docksInstance.userInterface.lotsOfSpace.assert_called_once()
+        docksInstance.userInterface.divider.assert_called_once()
+        # Player should catch fish based on success rate
+        assert docksInstance.player.fishCount >= 1
+        assert docksInstance.stats.totalFishCaught >= 1
 
 
 def test_run_fish_action_low_energy():
@@ -169,21 +177,29 @@ def test_fish_consumes_energy():
     docksInstance.player.energy = 100
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    docks.print = MagicMock()
-    docks.sys.stdout.flush = MagicMock()
-    docks.time.sleep = MagicMock()
-    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5, 0, 0.5])  # Simulate quick reactions
-    docks.input = MagicMock(return_value="")  # Simulate player pressing Enter
-    docks.random.randint = MagicMock(return_value=3)  # Fish for 3 hours, catch 3 fish
-    docksInstance.timeService.increaseTime = MagicMock()
+    
+    # Create a side effect that alternates between 0 and 0.5 indefinitely
+    def time_side_effect():
+        while True:
+            yield 0
+            yield 0.5
+    
+    with patch('src.location.docks.print'), \
+         patch('src.location.docks.sys.stdout.flush'), \
+         patch('src.location.docks.time.sleep'), \
+         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
+         patch('src.location.docks.input', return_value=""), \
+         patch('src.location.docks.random.randint', return_value=3):
+        
+        docksInstance.timeService.increaseTime = MagicMock()
 
-    # call
-    docksInstance.fish()
+        # call
+        docksInstance.fish()
 
-    # check
-    assert docksInstance.player.energy == 100 - (
-        3 * 10
-    )  # Should lose 30 energy (3 hours * 10 per hour)
+        # check
+        assert docksInstance.player.energy == 100 - (
+            3 * 10
+        )  # Should lose 30 energy (3 hours * 10 per hour)
 
 
 def test_fish_with_limited_energy():
@@ -192,24 +208,30 @@ def test_fish_with_limited_energy():
     docksInstance.player.energy = 25  # Only enough for 2 hours
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    docks.print = MagicMock()
-    docks.sys.stdout.flush = MagicMock()
-    docks.time.sleep = MagicMock()
-    docks.time.time = MagicMock(side_effect=[0, 0.5, 0, 0.5])  # Simulate quick reactions for 2 hours
-    docks.input = MagicMock(return_value="")  # Simulate player pressing Enter
-    docks.random.randint = MagicMock(
-        return_value=5
-    )  # Would normally fish for 5 hours, but energy limits to 2
-    docksInstance.timeService.increaseTime = MagicMock()
+    
+    # Create a side effect that alternates between 0 and 0.5 indefinitely
+    def time_side_effect():
+        while True:
+            yield 0
+            yield 0.5
+    
+    with patch('src.location.docks.print'), \
+         patch('src.location.docks.sys.stdout.flush'), \
+         patch('src.location.docks.time.sleep'), \
+         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
+         patch('src.location.docks.input', return_value=""), \
+         patch('src.location.docks.random.randint', return_value=5):
+        
+        docksInstance.timeService.increaseTime = MagicMock()
 
-    # call
-    docksInstance.fish()
+        # call
+        docksInstance.fish()
 
-    # check
-    assert docksInstance.player.energy == 5  # Should be 25 - (2 * 10)
-    assert (
-        docksInstance.timeService.increaseTime.call_count == 2
-    )  # Only fished for 2 hours due to energy limit
+        # check
+        assert docksInstance.player.energy == 5  # Should be 25 - (2 * 10)
+        assert (
+            docksInstance.timeService.increaseTime.call_count == 2
+        )  # Only fished for 2 hours due to energy limit
 
 
 def test_fish_interactive_success():
@@ -218,10 +240,16 @@ def test_fish_interactive_success():
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
     
+    # Create a side effect that alternates between 0 and 0.5 indefinitely (quick reactions)
+    def time_side_effect():
+        while True:
+            yield 0
+            yield 0.5
+    
     with patch('src.location.docks.print'), \
          patch('src.location.docks.sys.stdout.flush'), \
          patch('src.location.docks.time.sleep'), \
-         patch('src.location.docks.time.time', side_effect=[0, 0.5, 0, 0.5, 0, 0.5]), \
+         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
          patch('src.location.docks.input', return_value=""), \
          patch('src.location.docks.random.randint', side_effect=[3, 6]):
         
@@ -241,10 +269,16 @@ def test_fish_interactive_failure():
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
     
+    # Create a side effect that alternates between 0 and 3.0 indefinitely (slow reactions)
+    def time_side_effect():
+        while True:
+            yield 0
+            yield 3.0
+    
     with patch('src.location.docks.print'), \
          patch('src.location.docks.sys.stdout.flush'), \
          patch('src.location.docks.time.sleep'), \
-         patch('src.location.docks.time.time', side_effect=[0, 3.0, 0, 3.0, 0, 3.0]), \
+         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
          patch('src.location.docks.input', return_value=""), \
          patch('src.location.docks.random.randint', side_effect=[3, 10]):
         
