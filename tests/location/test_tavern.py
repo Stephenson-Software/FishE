@@ -105,7 +105,7 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     tavernInstance = createTavern()
-    
+
     # check
     assert tavernInstance.npc.name == "Old Tom the Barkeep"
     assert len(tavernInstance.npc.backstory) > 0

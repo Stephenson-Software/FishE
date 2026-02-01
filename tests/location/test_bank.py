@@ -120,7 +120,7 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     bankInstance = createBank()
-    
+
     # check
     assert bankInstance.npc.name == "Margaret the Teller"
     assert len(bankInstance.npc.backstory) > 0

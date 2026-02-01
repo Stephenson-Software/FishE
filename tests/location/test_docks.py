@@ -74,7 +74,7 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     docksInstance = createDocks()
-    
+
     # check
     assert docksInstance.npc.name == "Sam the Dock Worker"
     assert len(docksInstance.npc.backstory) > 0
