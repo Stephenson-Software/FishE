@@ -32,6 +32,47 @@ class Docks:
             "My pa was a fisherman, and his pa before him. I help maintain the boats and docks, "
             "and I've learned a thing or two about fishing over the years. "
             "The sea provides for those who respect her!",
+            [
+                {
+                    "question": "Tell me about yourself.",
+                    "response": "Been working these docks since I was knee-high to a grasshopper. "
+                               "My pa was a fisherman, and his pa before him. I help maintain the boats and docks, "
+                               "and I've learned a thing or two about fishing over the years. "
+                               "The sea provides for those who respect her!"
+                },
+                {
+                    "question": "How do I fish at the docks?",
+                    "response": "Fishing is what this village is all about! You need at least 10 energy to fish. "
+                               "When you cast your line, you'll spend several random hours (1-10) fishing. "
+                               "Each hour uses 10 energy. When a fish bites, press Enter fast - within 2 seconds! "
+                               "Your reaction time matters. The more successful catches, the more fish you'll get. "
+                               "Don't worry if you miss a few - you'll still catch at least one fish if you tried!"
+                },
+                {
+                    "question": "What other locations can I visit?",
+                    "response": "From the docks, you can get to anywhere in the village! "
+                               "There's your home - that's where you sleep to restore energy. "
+                               "Gilbert's shop is where you sell fish and buy better bait. "
+                               "The tavern is run by Old Tom - gambling and drinks there. "
+                               "And the bank, where Margaret will keep your money safe and even give you interest!"
+                },
+                {
+                    "question": "Tell me about energy and rest.",
+                    "response": "Energy is your lifeblood as a fisherman! You start each day with it, "
+                               "and fishing uses it up - 10 energy per hour of fishing. "
+                               "When you're running low, head home and sleep. That'll restore you for the next day. "
+                               "The game keeps track of time - each action moves the clock forward. "
+                               "Plan your day wisely!"
+                },
+                {
+                    "question": "What makes a good fisherman?",
+                    "response": "Patience and quick reflexes! When that fish bites, you gotta be ready. "
+                               "Invest in better bait from Gilbert - it makes a huge difference. "
+                               "Fish when you have energy, sell regularly, and save your money. "
+                               "The sea has its rhythms - you'll learn them in time. "
+                               "And remember: it's not just about catching fish, it's about enjoying the life!"
+                }
+            ]
         )
 
     def run(self):
@@ -148,4 +189,4 @@ class Docks:
             )
 
     def talkToNPC(self):
-        self.userInterface.showDialogue(self.npc.introduce())
+        self.userInterface.showInteractiveDialogue(self.npc)

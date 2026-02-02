@@ -27,6 +27,47 @@ class Bank:
             "I've worked at this bank for fifteen years and I take pride in keeping everyone's money safe. "
             "My grandmother taught me the value of saving, and I've helped many fishermen in this village "
             "secure their futures. A penny saved is a penny earned, as they say!",
+            [
+                {
+                    "question": "Tell me about yourself.",
+                    "response": "I've worked at this bank for fifteen years and I take pride in keeping everyone's money safe. "
+                               "My grandmother taught me the value of saving, and I've helped many fishermen in this village "
+                               "secure their futures. A penny saved is a penny earned, as they say!"
+                },
+                {
+                    "question": "How does the bank work?",
+                    "response": "The bank is simple and safe! You can deposit money when you have some on hand, "
+                               "and withdraw it whenever you need. We keep your money secure - "
+                               "no risk of losing it to gambling or spending it accidentally! "
+                               "Plus, your savings earn interest over time. The more you save, the more you earn. "
+                               "It's the smart way to grow your wealth!"
+                },
+                {
+                    "question": "Tell me about interest rates.",
+                    "response": "Ah yes, interest! Every day that passes, your savings grow by a small percentage. "
+                               "It might not seem like much at first, but over time it really adds up! "
+                               "The interest is automatically added to your bank account. "
+                               "Think of it as the bank paying you for keeping your money with us. "
+                               "The more you save, the more interest you earn!"
+                },
+                {
+                    "question": "Should I save or spend my money?",
+                    "response": "That's the eternal question, isn't it? Here's my advice: "
+                               "Keep some money on hand for daily needs - buying bait, paying for drinks, gambling if you must. "
+                               "But save the rest in the bank! Your savings will grow with interest, "
+                               "and you'll have a nice cushion for the future. "
+                               "Many fishermen spend everything they earn and have nothing to show for it. "
+                               "Be smarter than that!"
+                },
+                {
+                    "question": "What's the most important financial advice?",
+                    "response": "Save regularly, even if it's just a little bit. Every coin counts! "
+                               "Don't gamble away your hard-earned money - the odds are rarely in your favor. "
+                               "Invest in good bait to improve your catches, but save the profits. "
+                               "And remember: it's not about how much you earn, it's about how much you keep. "
+                               "That's the secret to real wealth!"
+                }
+            ]
         )
 
     def run(self):
@@ -113,4 +154,4 @@ class Bank:
             break
 
     def talkToNPC(self):
-        self.userInterface.showDialogue(self.npc.introduce())
+        self.userInterface.showInteractiveDialogue(self.npc)

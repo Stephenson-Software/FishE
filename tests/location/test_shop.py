@@ -88,16 +88,16 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     shopInstance = createShop()
-    shopInstance.userInterface.showDialogue = MagicMock()
+    shopInstance.userInterface.showInteractiveDialogue = MagicMock()
 
     # call
     shopInstance.talkToNPC()
 
     # check
-    shopInstance.userInterface.showDialogue.assert_called_once()
-    call_args = shopInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Gilbert the Shopkeeper" in call_args
-    assert len(call_args) > 0
+    shopInstance.userInterface.showInteractiveDialogue.assert_called_once()
+    call_args = shopInstance.userInterface.showInteractiveDialogue.call_args[0][0]
+    assert call_args.name == "Gilbert the Shopkeeper"
+    assert len(call_args.get_dialogue_options()) > 0
 
 
 def test_sellFish():

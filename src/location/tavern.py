@@ -34,6 +34,43 @@ class Tavern:
             "I sailed the seven seas for forty years before settling down here. "
             "Lost my leg to a shark near the Caribbean, but I got plenty of stories to make up for it. "
             "These days I pour drinks and listen to folks' troubles. Best job I ever had!",
+            [
+                {
+                    "question": "Tell me about yourself.",
+                    "response": "I sailed the seven seas for forty years before settling down here. "
+                               "Lost my leg to a shark near the Caribbean, but I got plenty of stories to make up for it. "
+                               "These days I pour drinks and listen to folks' troubles. Best job I ever had!"
+                },
+                {
+                    "question": "How do I make money in this village?",
+                    "response": "Well now, there's a few ways to fill your pockets around here! "
+                               "The most reliable is fishing at the docks - catch some fish and sell 'em at Gilbert's shop. "
+                               "You can also try your luck at gambling right here in the tavern, but be warned - "
+                               "the dice don't always roll in your favor! And if you're patient, the bank offers "
+                               "interest on your savings."
+                },
+                {
+                    "question": "What can I do at the tavern?",
+                    "response": "Ah, the tavern! This is the place to unwind after a long day. "
+                               "You can get yourself drunk for $10 - though you'll wake up at home with a headache the next day! "
+                               "Or if you're feeling lucky, you can gamble with the dice. Place a bet, pick a number from 1 to 6, "
+                               "and if the dice matches your choice, you'll double your money!"
+                },
+                {
+                    "question": "Tell me about the other villagers.",
+                    "response": "Let me see... There's Gilbert the shopkeeper - been running that shop for thirty years. "
+                               "He'll buy your fish and sell you better bait. Then there's Sam down at the docks, "
+                               "knows everything about fishing. Margaret at the bank will keep your money safe. "
+                               "All good folk, they are!"
+                },
+                {
+                    "question": "Any advice for a newcomer?",
+                    "response": "Aye, I've seen many fishermen come through these doors. Here's what I tell 'em all: "
+                               "Start small, fish when you have energy, and sell your catch regularly. "
+                               "Don't gamble away all your coin - save some at the bank. "
+                               "And remember, better bait means better catches. Take your time and enjoy the village!"
+                }
+            ]
         )
 
     def run(self):
@@ -151,4 +188,4 @@ class Tavern:
             )
 
     def talkToNPC(self):
-        self.userInterface.showDialogue(self.npc.introduce())
+        self.userInterface.showInteractiveDialogue(self.npc)

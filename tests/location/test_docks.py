@@ -74,16 +74,16 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showDialogue = MagicMock()
+    docksInstance.userInterface.showInteractiveDialogue = MagicMock()
 
     # call
     docksInstance.talkToNPC()
 
     # check
-    docksInstance.userInterface.showDialogue.assert_called_once()
-    call_args = docksInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Sam the Dock Worker" in call_args
-    assert len(call_args) > 0
+    docksInstance.userInterface.showInteractiveDialogue.assert_called_once()
+    call_args = docksInstance.userInterface.showInteractiveDialogue.call_args[0][0]
+    assert call_args.name == "Sam the Dock Worker"
+    assert len(call_args.get_dialogue_options()) > 0
 
 
 def test_run_go_to_shop_action():
