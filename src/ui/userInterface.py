@@ -86,3 +86,52 @@ class UserInterface:
         self.divider()
         input(" [ CONTINUE ]")
         self.currentPrompt.text = "What would you like to do?"
+    
+    def showInteractiveDialogue(self, npc):
+        """Shows an interactive dialogue menu with the NPC"""
+        while True:
+            self.lotsOfSpace()
+            self.divider()
+            print(f" Talking with {npc.name}")
+            self.divider()
+            
+            # Show dialogue options
+            dialogue_options = npc.get_dialogue_options()
+            if not dialogue_options:
+                # Fallback to simple introduction if no options
+                print(npc.introduce())
+                self.divider()
+                input(" [ CONTINUE ]")
+                self.currentPrompt.text = "What would you like to do?"
+                break
+            
+            print(" What would you like to ask?\n")
+            option_list = []
+            for i, option in enumerate(dialogue_options):
+                question = option.get("question", f"Option {i+1}")
+                print(f" [{i+1}] {question}")
+                option_list.append(str(i+1))
+            
+            print(f" [{len(option_list)+1}] [Back]")
+            option_list.append(str(len(option_list)+1))
+            
+            choice = input("\n> ")
+            
+            if choice in option_list:
+                choice_idx = int(choice) - 1
+                
+                # Check if user chose to go back
+                if choice_idx == len(dialogue_options):
+                    self.currentPrompt.text = "What would you like to do?"
+                    break
+                
+                # Show the response
+                response = npc.get_dialogue_response(choice_idx)
+                self.lotsOfSpace()
+                self.divider()
+                print(f" {npc.name}: {response}")
+                self.divider()
+                input(" [ CONTINUE ]")
+            else:
+                print(" Invalid choice. Try again!")
+                input(" [ CONTINUE ]")

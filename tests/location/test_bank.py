@@ -120,16 +120,16 @@ def test_run_talk_to_npc_action():
 def test_talkToNPC():
     # prepare
     bankInstance = createBank()
-    bankInstance.userInterface.showDialogue = MagicMock()
+    bankInstance.userInterface.showInteractiveDialogue = MagicMock()
 
     # call
     bankInstance.talkToNPC()
 
     # check
-    bankInstance.userInterface.showDialogue.assert_called_once()
-    call_args = bankInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Margaret the Teller" in call_args
-    assert len(call_args) > 0
+    bankInstance.userInterface.showInteractiveDialogue.assert_called_once()
+    call_args = bankInstance.userInterface.showInteractiveDialogue.call_args[0][0]
+    assert call_args.name == "Margaret the Teller"
+    assert len(call_args.get_dialogue_options()) > 0
 
 
 def test_deposit_success():
