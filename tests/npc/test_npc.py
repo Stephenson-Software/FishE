@@ -101,13 +101,21 @@ def test_npc_without_dialogue_options():
 def test_npc_with_empty_list_preserves_identity():
     # prepare - create an empty list that we'll pass
     empty_list = []
+    original_id = id(empty_list)
     
     # call
     npc = NPC("NPC", "A character.", empty_list)
     
     # check - the NPC should use the same list object, not create a new one
     assert npc.dialogue_options is empty_list
+    assert id(npc.dialogue_options) == original_id
     
-    # Verify that modifications to the original list affect the NPC
-    empty_list.append({"question": "Test?", "response": "Test response"})
+    # Verify behavior: if caller modifies the list, NPC sees the changes
+    # (This demonstrates why preserving identity matters)
+    test_option = {"question": "Test?", "response": "Test response"}
+    empty_list.append(test_option)
     assert len(npc.get_dialogue_options()) == 1
+    assert npc.get_dialogue_response(0) == "Test response"
+    
+    # Clean up the list to avoid side effects
+    empty_list.clear()
