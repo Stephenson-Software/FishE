@@ -96,3 +96,18 @@ def test_npc_without_dialogue_options():
     assert npc.dialogue_options == []
     assert npc.get_dialogue_options() == []
     assert npc.get_dialogue_response(0) == ""
+
+
+def test_npc_with_empty_list_preserves_identity():
+    # prepare - create an empty list that we'll pass
+    empty_list = []
+    
+    # call
+    npc = NPC("NPC", "A character.", empty_list)
+    
+    # check - the NPC should use the same list object, not create a new one
+    assert npc.dialogue_options is empty_list
+    
+    # Verify that modifications to the original list affect the NPC
+    empty_list.append({"question": "Test?", "response": "Test response"})
+    assert len(npc.get_dialogue_options()) == 1

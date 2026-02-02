@@ -3,7 +3,10 @@ class NPC:
     def __init__(self, name: str, backstory: str, dialogue_options: list = None):
         self.name = name
         self.backstory = backstory
-        self.dialogue_options = dialogue_options or []
+        if dialogue_options is None:
+            self.dialogue_options = []
+        else:
+            self.dialogue_options = dialogue_options
 
     def introduce(self):
         """Returns the NPC's introduction text"""
