@@ -36,6 +36,12 @@ class Tavern:
             "These days I pour drinks and listen to folks' troubles. Best job I ever had!",
             [
                 {
+                    "question": "Tell me about yourself.",
+                    "response": "I sailed the seven seas for forty years before settling down here. "
+                               "Lost my leg to a shark near the Caribbean, but I got plenty of stories to make up for it. "
+                               "These days I pour drinks and listen to folks' troubles. Best job I ever had!"
+                },
+                {
                     "question": "How do I make money in this village?",
                     "response": "Well now, there's a few ways to fill your pockets around here! "
                                "The most reliable is fishing at the docks - catch some fish and sell 'em at Gilbert's shop. "

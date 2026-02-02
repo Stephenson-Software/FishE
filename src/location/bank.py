@@ -29,6 +29,12 @@ class Bank:
             "secure their futures. A penny saved is a penny earned, as they say!",
             [
                 {
+                    "question": "Tell me about yourself.",
+                    "response": "I've worked at this bank for fifteen years and I take pride in keeping everyone's money safe. "
+                               "My grandmother taught me the value of saving, and I've helped many fishermen in this village "
+                               "secure their futures. A penny saved is a penny earned, as they say!"
+                },
+                {
                     "question": "How does the bank work?",
                     "response": "The bank is simple and safe! You can deposit money when you have some on hand, "
                                "and withdraw it whenever you need. We keep your money secure - "

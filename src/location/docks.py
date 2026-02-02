@@ -34,6 +34,13 @@ class Docks:
             "The sea provides for those who respect her!",
             [
                 {
+                    "question": "Tell me about yourself.",
+                    "response": "Been working these docks since I was knee-high to a grasshopper. "
+                               "My pa was a fisherman, and his pa before him. I help maintain the boats and docks, "
+                               "and I've learned a thing or two about fishing over the years. "
+                               "The sea provides for those who respect her!"
+                },
+                {
                     "question": "How do I fish at the docks?",
                     "response": "Fishing is what this village is all about! You need at least 10 energy to fish. "
                                "When you cast your line, you'll spend several random hours (1-10) fishing. "

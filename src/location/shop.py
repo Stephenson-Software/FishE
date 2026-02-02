@@ -30,6 +30,12 @@ class Shop:
             "I may not fish much anymore, but I know good gear when I see it!",
             [
                 {
+                    "question": "Tell me about yourself.",
+                    "response": "I've been running this shop for thirty years, ever since I inherited it from my father. "
+                               "I've seen many fishermen come and go, but the best ones always come back for quality bait. "
+                               "I may not fish much anymore, but I know good gear when I see it!"
+                },
+                {
                     "question": "What do you sell here?",
                     "response": "I deal in all things fishing! I'll buy any fish you catch - the price varies, "
                                "but you can expect $3 to $5 per fish. I also sell better bait that'll help you catch more fish. "
