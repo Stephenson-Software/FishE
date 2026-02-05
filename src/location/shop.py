@@ -106,7 +106,9 @@ class Shop:
             self.currentPrompt.text = "You don't have enough money!"
         else:
             self.player.fishMultiplier += 1
+            moneyToAdd = self.player.priceForBait
             self.player.money -= self.player.priceForBait
+            self.stats.totalMoneyMade += moneyToAdd
 
             self.player.priceForBait = self.player.priceForBait * 1.25
             self.currentPrompt.text = "You bought some better bait!"

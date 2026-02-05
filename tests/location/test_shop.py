@@ -127,3 +127,17 @@ def test_buyBetterBait():
     assert shopInstance.player.money == 50
     assert shopInstance.player.fishMultiplier == 2
     assert shopInstance.player.priceForBait > 0
+
+
+def test_buyBetterBait_adds_money_to_shop_total():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.player.money = 100
+    shopInstance.player.fishMultiplier = 1
+    shopInstance.stats.totalMoneyMade = 0
+
+    # call
+    shopInstance.buyBetterBait()
+
+    # check
+    assert shopInstance.stats.totalMoneyMade == 50
