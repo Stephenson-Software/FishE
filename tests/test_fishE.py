@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from src import fishE
 
 
@@ -16,10 +16,21 @@ def createFishE():
     fishE.PlayerJsonReaderWriter = MagicMock()
     fishE.TimeServiceJsonReaderWriter = MagicMock()
     fishE.StatsJsonReaderWriter = MagicMock()
+    fishE.SaveFileManager = MagicMock()
     fishE.loadPlayer = MagicMock()
     fishE.loadStats = MagicMock()
     fishE.loadTimeService = MagicMock()
-    return fishE.FishE()
+    
+    # Mock the save file manager instance methods
+    mock_save_manager = MagicMock()
+    mock_save_manager.get_save_path.return_value = "data/player.json"
+    mock_save_manager.list_save_files.return_value = []
+    mock_save_manager.get_next_available_slot.return_value = 1
+    fishE.SaveFileManager.return_value = mock_save_manager
+    
+    # Mock the _selectSaveFile method to avoid stdin interaction
+    with patch.object(fishE.FishE, '_selectSaveFile', return_value=None):
+        return fishE.FishE()
 
 
 def test_initialization():
@@ -51,3 +62,4 @@ def test_initialization():
     fishE.PlayerJsonReaderWriter.assert_called_once()
     fishE.TimeServiceJsonReaderWriter.assert_called_once()
     fishE.StatsJsonReaderWriter.assert_called_once()
+    fishE.SaveFileManager.assert_called_once()
