@@ -2,6 +2,7 @@ import os
 import json
 import tempfile
 import shutil
+import pytest
 from src.saveFileManager import SaveFileManager
 
 
@@ -126,11 +127,8 @@ def test_get_save_path():
 
 def test_get_save_path_no_slot_selected():
     manager = SaveFileManager()
-    try:
+    with pytest.raises(ValueError, match="No save slot selected"):
         manager.get_save_path("player.json")
-        assert False, "Should have raised ValueError"
-    except ValueError as e:
-        assert "No save slot selected" in str(e)
 
 
 def test_delete_save_slot():

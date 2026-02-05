@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from datetime import datetime
 
 
@@ -106,7 +107,6 @@ class SaveFileManager:
         slot_path = os.path.join(self.data_directory, slot_name)
         
         if os.path.exists(slot_path):
-            import shutil
             shutil.rmtree(slot_path)
             return True
         return False
