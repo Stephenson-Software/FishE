@@ -225,3 +225,62 @@ def test_read_save_metadata_corrupted_json():
         assert metadata is None
     finally:
         shutil.rmtree(temp_dir)
+
+
+def test_migrate_old_save_files():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+        
+        # Create old format save files
+        os.makedirs(temp_dir, exist_ok=True)
+        with open(os.path.join(temp_dir, "player.json"), "w") as f:
+            json.dump({"money": 100, "fishCount": 5}, f)
+        with open(os.path.join(temp_dir, "stats.json"), "w") as f:
+            json.dump({"totalFishCaught": 10}, f)
+        with open(os.path.join(temp_dir, "timeService.json"), "w") as f:
+            json.dump({"day": 2}, f)
+        
+        # Migrate
+        result = manager.migrate_old_save_files()
+        assert result is True
+        
+        # Check that files were moved to slot_1
+        assert os.path.exists(os.path.join(temp_dir, "slot_1", "player.json"))
+        assert os.path.exists(os.path.join(temp_dir, "slot_1", "stats.json"))
+        assert os.path.exists(os.path.join(temp_dir, "slot_1", "timeService.json"))
+        
+        # Check that old files are gone
+        assert not os.path.exists(os.path.join(temp_dir, "player.json"))
+        assert not os.path.exists(os.path.join(temp_dir, "stats.json"))
+        assert not os.path.exists(os.path.join(temp_dir, "timeService.json"))
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_migrate_old_save_files_no_old_saves():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+        result = manager.migrate_old_save_files()
+        assert result is False
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_get_next_available_slot_all_full():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+        
+        # Create 99 save slots
+        for i in range(1, 100):
+            slot_path = os.path.join(temp_dir, f"slot_{i}")
+            os.makedirs(slot_path)
+            with open(os.path.join(slot_path, "player.json"), "w") as f:
+                json.dump({"money": 0}, f)
+        
+        next_slot = manager.get_next_available_slot()
+        assert next_slot is None
+    finally:
+        shutil.rmtree(temp_dir)

@@ -1,4 +1,5 @@
 import os
+import json
 from location import bank, docks, home, shop, tavern
 from location.enum.locationType import LocationType
 from player.player import Player
@@ -21,6 +22,9 @@ class FishE:
         self.timeServiceJsonReaderWriter = TimeServiceJsonReaderWriter()
         self.statsJsonReaderWriter = StatsJsonReaderWriter()
         self.saveFileManager = SaveFileManager()
+
+        # Migrate old save files to new format if they exist
+        self.saveFileManager.migrate_old_save_files()
 
         # Show save file selection menu
         self._selectSaveFile()
@@ -92,59 +96,64 @@ class FishE:
 
     def _selectSaveFile(self):
         """Display save file selection menu and let user choose"""
-        save_files = self.saveFileManager.list_save_files()
+        while True:  # Use loop instead of recursion to avoid stack overflow
+            save_files = self.saveFileManager.list_save_files()
 
-        print("\n" * 20)
-        print("-" * 75)
-        print("\n FISHE - SAVE FILE MANAGER")
-        print("-" * 75)
+            print("\n" * 20)
+            print("-" * 75)
+            print("\n FISHE - SAVE FILE MANAGER")
+            print("-" * 75)
 
-        if save_files:
-            print("\n Available Save Files:\n")
-            for save in save_files:
-                metadata = save["metadata"]
-                print(f" [{save['slot']}] Save Slot {save['slot']}")
-                print(f"     Day: {metadata.get('day', 1)}")
-                print(f"     Money: ${metadata.get('money', 0)}")
-                print(f"     Fish: {metadata.get('fishCount', 0)}")
-                print(f"     Last Modified: {metadata.get('last_modified', 'Unknown')}")
-                print()
+            if save_files:
+                print("\n Available Save Files:\n")
+                for save in save_files:
+                    metadata = save["metadata"]
+                    print(f" [{save['slot']}] Save Slot {save['slot']}")
+                    print(f"     Day: {metadata.get('day', 1)}")
+                    print(f"     Money: ${metadata.get('money', 0)}")
+                    print(f"     Fish: {metadata.get('fishCount', 0)}")
+                    print(f"     Last Modified: {metadata.get('last_modified', 'Unknown')}")
+                    print()
 
-        next_slot = self.saveFileManager.get_next_available_slot()
-        print(f" [N] Create New Save (Slot {next_slot})")
-        if save_files:
-            print(" [D] Delete a Save File")
-        print(" [Q] Quit")
-        print("-" * 75)
+            next_slot = self.saveFileManager.get_next_available_slot()
+            if next_slot is not None:
+                print(f" [N] Create New Save (Slot {next_slot})")
+            if save_files:
+                print(" [D] Delete a Save File")
+            print(" [Q] Quit")
+            print("-" * 75)
 
-        while True:
             choice = input("\n Select an option: ").strip().upper()
 
             if choice == "Q":
                 print("\n Goodbye!")
                 exit(0)
-            elif choice == "N":
+            elif choice == "N" and next_slot is not None:
                 self.saveFileManager.select_save_slot(next_slot)
                 print(f"\n Creating new save in Slot {next_slot}...")
-                break
-            elif choice == "D" and save_files:
-                self._deleteSaveFile(save_files)
-                # Recursively call to show updated menu
-                self._selectSaveFile()
                 return
+            elif choice == "N" and next_slot is None:
+                print(" All save slots are full. Please delete a save first.")
+            elif choice == "D" and save_files:
+                if self._deleteSaveFile(save_files):
+                    # Continue loop to show updated menu
+                    continue
+                else:
+                    # User cancelled, continue loop
+                    continue
             elif choice.isdigit():
                 slot_num = int(choice)
                 if any(save["slot"] == slot_num for save in save_files):
                     self.saveFileManager.select_save_slot(slot_num)
                     print(f"\n Loading Save Slot {slot_num}...")
-                    break
+                    return
                 else:
                     print(" Invalid slot number. Try again.")
             else:
                 print(" Invalid choice. Try again.")
 
     def _deleteSaveFile(self, save_files):
-        """Delete a save file"""
+        """Delete a save file. Returns True if a file was deleted, False if cancelled."""
         print("\n" * 20)
         print("-" * 75)
         print("\n DELETE SAVE FILE")
@@ -161,7 +170,7 @@ class FishE:
             choice = input("\n Select a slot to delete: ").strip().upper()
 
             if choice == "C":
-                return
+                return False
             elif choice.isdigit():
                 slot_num = int(choice)
                 if any(save["slot"] == slot_num for save in save_files):
@@ -170,11 +179,12 @@ class FishE:
                         if self.saveFileManager.delete_save_slot(slot_num):
                             print(f"\n Slot {slot_num} deleted successfully.")
                             input("\n [ CONTINUE ]")
-                            return
+                            return True
                         else:
                             print(f"\n Failed to delete Slot {slot_num}.")
+                            return False
                     else:
-                        return
+                        return False
                 else:
                     print(" Invalid slot number. Try again.")
             else:
@@ -195,44 +205,53 @@ class FishE:
             self.save()
 
     def save(self):
-        # create data directory
-        if not os.path.exists("data"):
-            os.makedirs("data")
+        # create data directory - use SaveFileManager's directory
+        if not os.path.exists(self.saveFileManager.data_directory):
+            os.makedirs(self.saveFileManager.data_directory, exist_ok=True)
 
-        playerSaveFile = open(self.saveFileManager.get_save_path("player.json"), "w")
-        self.playerJsonReaderWriter.writePlayerToFile(self.player, playerSaveFile)
-        playerSaveFile.close()
+        try:
+            with open(self.saveFileManager.get_save_path("player.json"), "w") as playerSaveFile:
+                self.playerJsonReaderWriter.writePlayerToFile(self.player, playerSaveFile)
 
-        timeServiceSaveFile = open(
-            self.saveFileManager.get_save_path("timeService.json"), "w"
-        )
-        self.timeServiceJsonReaderWriter.writeTimeServiceToFile(
-            self.timeService, timeServiceSaveFile
-        )
-        timeServiceSaveFile.close()
+            with open(self.saveFileManager.get_save_path("timeService.json"), "w") as timeServiceSaveFile:
+                self.timeServiceJsonReaderWriter.writeTimeServiceToFile(
+                    self.timeService, timeServiceSaveFile
+                )
 
-        statsSaveFile = open(self.saveFileManager.get_save_path("stats.json"), "w")
-        self.statsJsonReaderWriter.writeStatsToFile(self.stats, statsSaveFile)
-        statsSaveFile.close()
+            with open(self.saveFileManager.get_save_path("stats.json"), "w") as statsSaveFile:
+                self.statsJsonReaderWriter.writeStatsToFile(self.stats, statsSaveFile)
+        except (IOError, OSError) as e:
+            print(f"\n Warning: Failed to save game: {e}")
+            # Game continues even if save fails
 
     def loadPlayer(self):
-        playerSaveFile = open(self.saveFileManager.get_save_path("player.json"), "r")
-        self.player = self.playerJsonReaderWriter.readPlayerFromFile(playerSaveFile)
-        playerSaveFile.close()
+        try:
+            with open(self.saveFileManager.get_save_path("player.json"), "r") as playerSaveFile:
+                self.player = self.playerJsonReaderWriter.readPlayerFromFile(playerSaveFile)
+        except (IOError, OSError, json.JSONDecodeError) as e:
+            print(f"\n Warning: Failed to load player data: {e}")
+            print(" Creating new player...")
+            self.player = Player()
 
     def loadStats(self):
-        statsSaveFile = open(self.saveFileManager.get_save_path("stats.json"), "r")
-        self.stats = self.statsJsonReaderWriter.readStatsFromFile(statsSaveFile)
-        statsSaveFile.close()
+        try:
+            with open(self.saveFileManager.get_save_path("stats.json"), "r") as statsSaveFile:
+                self.stats = self.statsJsonReaderWriter.readStatsFromFile(statsSaveFile)
+        except (IOError, OSError, json.JSONDecodeError) as e:
+            print(f"\n Warning: Failed to load stats data: {e}")
+            print(" Creating new stats...")
+            self.stats = Stats()
 
     def loadTimeService(self):
-        timeServiceSaveFile = open(
-            self.saveFileManager.get_save_path("timeService.json"), "r"
-        )
-        self.timeService = self.timeServiceJsonReaderWriter.readTimeServiceFromFile(
-            timeServiceSaveFile, self.player, self.stats
-        )
-        timeServiceSaveFile.close()
+        try:
+            with open(self.saveFileManager.get_save_path("timeService.json"), "r") as timeServiceSaveFile:
+                self.timeService = self.timeServiceJsonReaderWriter.readTimeServiceFromFile(
+                    timeServiceSaveFile, self.player, self.stats
+                )
+        except (IOError, OSError, json.JSONDecodeError) as e:
+            print(f"\n Warning: Failed to load time service data: {e}")
+            print(" Creating new time service...")
+            self.timeService = TimeService(self.player, self.stats)
 
 
 if __name__ == "__main__":

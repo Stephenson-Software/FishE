@@ -18,21 +18,41 @@ class SaveFileManager:
             return []
 
         save_files = []
-        # Look for save slots (slot_1, slot_2, etc.)
-        for i in range(1, 100):  # Support up to 99 save slots
-            slot_name = f"slot_{i}"
-            slot_path = os.path.join(self.data_directory, slot_name)
-            if os.path.exists(slot_path):
+        # Look for save slots (slot_1, slot_2, etc.) by inspecting existing directories
+        try:
+            for entry in os.listdir(self.data_directory):
+                if not entry.startswith("slot_"):
+                    continue
+
+                # Extract the numeric slot index from the directory name
+                _, _, suffix = entry.partition("_")
+                if not suffix.isdigit():
+                    continue
+
+                slot_index = int(suffix)
+                if slot_index < 1 or slot_index >= 100:
+                    # Preserve the upper bound of 99 save slots
+                    continue
+
+                slot_name = entry
+                slot_path = os.path.join(self.data_directory, slot_name)
+                if not os.path.isdir(slot_path):
+                    continue
+
                 metadata = self._read_save_metadata(slot_path)
                 if metadata:
                     save_files.append(
                         {
-                            "slot": i,
+                            "slot": slot_index,
                             "slot_name": slot_name,
                             "path": slot_path,
                             "metadata": metadata,
                         }
                     )
+        except OSError:
+            # If we can't read the directory, return empty list
+            return []
+        
         return save_files
 
     def _read_save_metadata(self, slot_path):
@@ -67,11 +87,12 @@ class SaveFileManager:
             ).strftime("%Y-%m-%d %H:%M:%S")
 
             return metadata
-        except Exception:
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            # Return None for corrupted or inaccessible save files
             return None
 
     def get_next_available_slot(self):
-        """Returns the next available save slot number"""
+        """Returns the next available save slot number, or None if all slots are full"""
         save_files = self.list_save_files()
         if not save_files:
             return 1
@@ -81,7 +102,8 @@ class SaveFileManager:
         for i in range(1, 100):
             if i not in existing_slots:
                 return i
-        return len(existing_slots) + 1
+        # All 99 slots are full
+        return None
 
     def select_save_slot(self, slot_number):
         """Select a save slot to use"""
@@ -97,7 +119,7 @@ class SaveFileManager:
         
         # Create slot directory if it doesn't exist
         if not os.path.exists(slot_path):
-            os.makedirs(slot_path)
+            os.makedirs(slot_path, exist_ok=True)
         
         return os.path.join(slot_path, filename)
 
@@ -110,3 +132,30 @@ class SaveFileManager:
             shutil.rmtree(slot_path)
             return True
         return False
+
+    def migrate_old_save_files(self):
+        """Migrate old save files (data/*.json) to slot_1 if they exist"""
+        old_player = os.path.join(self.data_directory, "player.json")
+        old_stats = os.path.join(self.data_directory, "stats.json")
+        old_time = os.path.join(self.data_directory, "timeService.json")
+        
+        # Check if old save files exist
+        if not os.path.exists(old_player):
+            return False
+        
+        # Create slot_1 directory
+        slot_1_path = os.path.join(self.data_directory, "slot_1")
+        if not os.path.exists(slot_1_path):
+            os.makedirs(slot_1_path, exist_ok=True)
+        
+        # Move files to slot_1
+        try:
+            if os.path.exists(old_player):
+                shutil.move(old_player, os.path.join(slot_1_path, "player.json"))
+            if os.path.exists(old_stats):
+                shutil.move(old_stats, os.path.join(slot_1_path, "stats.json"))
+            if os.path.exists(old_time):
+                shutil.move(old_time, os.path.join(slot_1_path, "timeService.json"))
+            return True
+        except (IOError, OSError):
+            return False
