@@ -1,5 +1,5 @@
 *.pyc
 __pycache__/
-data/*.json
+data/
 .coverage
 cov.xml
