@@ -6,3 +6,4 @@ class Player:
         self.moneyInBank = 0.01
         self.fishMultiplier = 1
         self.priceForBait = 50
+        self.energy = 100

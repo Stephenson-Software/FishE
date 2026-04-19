@@ -27,6 +27,8 @@ def test_initialization():
     assert bankInstance.player != None
     assert bankInstance.stats != None
     assert bankInstance.timeService != None
+    assert bankInstance.npc != None
+    assert bankInstance.npc.name == "Margaret the Teller"
 
 
 def test_run_make_deposit_success():
@@ -92,13 +94,42 @@ def test_run_make_withdrawal_failure_no_money():
 def test_run_go_to_docks_action():
     # prepare
     bankInstance = createBank()
-    bankInstance.userInterface.showOptions = MagicMock(return_value="3")
+    bankInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = bankInstance.run()
 
     # check
     assert nextLocation == LocationType.DOCKS
+
+
+def test_run_talk_to_npc_action():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.showOptions = MagicMock(return_value="3")
+    bankInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = bankInstance.run()
+
+    # check
+    assert nextLocation == LocationType.BANK
+    bankInstance.talkToNPC.assert_called_once()
+
+
+def test_talkToNPC():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.showInteractiveDialogue = MagicMock()
+
+    # call
+    bankInstance.talkToNPC()
+
+    # check
+    bankInstance.userInterface.showInteractiveDialogue.assert_called_once()
+    call_args = bankInstance.userInterface.showInteractiveDialogue.call_args[0][0]
+    assert call_args.name == "Margaret the Teller"
+    assert len(call_args.get_dialogue_options()) > 0
 
 
 def test_deposit_success():
@@ -175,3 +206,41 @@ def test_withdraw_failure_not_enough_money():
     bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 5
     assert bankInstance.player.money == 0
+
+
+def test_deposit_with_decimal():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.money = 100.50
+    bankInstance.player.moneyInBank = 0
+    bank.print = MagicMock()
+    bank.input = MagicMock(return_value="10.25")
+
+    # call
+    bankInstance.deposit()
+
+    # check
+    bank.print.assert_called_once()
+    assert bankInstance.player.moneyInBank == 10.25
+    assert bankInstance.player.money == 90.25
+
+
+def test_withdraw_with_decimal():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.moneyInBank = 100.75
+    bankInstance.player.money = 0
+    bank.print = MagicMock()
+    bank.input = MagicMock(return_value="10.50")
+
+    # call
+    bankInstance.withdraw()
+
+    # check
+    bank.print.assert_called_once()
+    assert bankInstance.player.moneyInBank == 90.25
+    assert bankInstance.player.money == 10.50

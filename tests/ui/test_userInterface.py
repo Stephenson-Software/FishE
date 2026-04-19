@@ -1,15 +1,9 @@
-import sys
-import os
-
-# Add src to the path so imports work correctly
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-
-from player.player import Player
-from prompt.prompt import Prompt
-from stats.stats import Stats
-from ui.consoleUserInterface import ConsoleUserInterface
-from world.timeService import TimeService
-from unittest.mock import patch
+from src.player.player import Player
+from src.prompt.prompt import Prompt
+from src.stats.stats import Stats
+from src.ui import userInterface
+from src.world.timeService import TimeService
+from unittest.mock import MagicMock
 
 
 def createUserInterface():
@@ -17,7 +11,7 @@ def createUserInterface():
     player = Player()
     stats = Stats()
     timeService = TimeService(player, stats)
-    userInterfaceInstance = ConsoleUserInterface(
+    userInterfaceInstance = userInterface.UserInterface(
         currentPrompt, timeService, player
     )
     return userInterfaceInstance
@@ -36,41 +30,127 @@ def test_initialization():
 def test_lotsOfSpace():
     # setup
     userInterfaceInstance = createUserInterface()
-    
-    # call with patch
-    with patch('builtins.print') as mock_print:
-        userInterfaceInstance.lotsOfSpace()
-        
-        # check
-        mock_print.assert_called_with("\n" * 20)
+    userInterface.print = MagicMock()
+
+    # call
+    userInterfaceInstance.lotsOfSpace()
+
+    # check
+    userInterface.print.assert_called_with("\n" * 20)
 
 
 def test_divider():
     # setup
     userInterfaceInstance = createUserInterface()
-    
-    # call with patch
-    with patch('builtins.print') as mock_print:
-        userInterfaceInstance.divider()
-        
-        # check
-        assert mock_print.call_count == 3
+    userInterface.print = MagicMock()
+
+    # call
+    userInterfaceInstance.divider()
+
+    # check
+    assert userInterface.print.call_count == 3
 
 
 def test_showOptions():
     # setup
     userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="1")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    userInterfaceInstance.showOptions("descriptor", ["option1", "option2"])
+
+    # check
+    assert userInterface.print.call_count == 9
+    userInterfaceInstance.lotsOfSpace.assert_called()
+    assert userInterfaceInstance.divider.call_count == 3
+    userInterface.input.assert_called_with("\n> ")
+
+
+def test_showDialogue():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    userInterfaceInstance.showDialogue("Test dialogue text")
+
+    # check
+    userInterfaceInstance.lotsOfSpace.assert_called_once()
+    assert userInterfaceInstance.divider.call_count == 2
+    userInterface.print.assert_called_with("Test dialogue text")
+    userInterface.input.assert_called_with(" [ CONTINUE ]")
+    assert userInterfaceInstance.currentPrompt.text == "What would you like to do?"
+
+
+def test_showInteractiveDialogue_with_no_options():
+    # setup
+    from src.npc.npc import NPC
+    userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+    npc = NPC("Test NPC", "A test character")
+
+    # call
+    userInterfaceInstance.showInteractiveDialogue(npc)
+
+    # check - should fallback to simple introduction
+    userInterfaceInstance.lotsOfSpace.assert_called_once()
+    assert userInterfaceInstance.divider.call_count == 3
+    userInterface.input.assert_called_with(" [ CONTINUE ]")
+    assert userInterfaceInstance.currentPrompt.text == "What would you like to do?"
+
+
+def test_showInteractiveDialogue_select_option():
+    # setup
+    from src.npc.npc import NPC
+    userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    # First input selects option 1, second input continues, third input selects Back
+    userInterface.input = MagicMock(side_effect=["1", "", "2"])
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
     
-    # call with patches
-    with patch('builtins.print') as mock_print, \
-         patch('builtins.input', return_value="1") as mock_input, \
-         patch.object(userInterfaceInstance, 'lotsOfSpace') as mock_lots_of_space, \
-         patch.object(userInterfaceInstance, 'divider') as mock_divider:
-        
-        result = userInterfaceInstance.showOptions("descriptor", ["option1", "option2"])
-        
-        # check
-        assert result == "1"
-        mock_lots_of_space.assert_called()
-        assert mock_divider.call_count == 3
-        mock_input.assert_called_with("\n> ")
+    dialogue_options = [
+        {"question": "Test question?", "response": "Test response"}
+    ]
+    npc = NPC("Test NPC", "A test character", dialogue_options)
+
+    # call
+    userInterfaceInstance.showInteractiveDialogue(npc)
+
+    # check - should have shown menu, response, and back option
+    assert userInterface.input.call_count == 3
+    assert userInterfaceInstance.currentPrompt.text == "What would you like to do?"
+
+
+def test_showInteractiveDialogue_invalid_choice():
+    # setup
+    from src.npc.npc import NPC
+    userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    # First input is invalid, second continues error message, third selects Back
+    userInterface.input = MagicMock(side_effect=["99", "", "2"])
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+    
+    dialogue_options = [
+        {"question": "Test question?", "response": "Test response"}
+    ]
+    npc = NPC("Test NPC", "A test character", dialogue_options)
+
+    # call
+    userInterfaceInstance.showInteractiveDialogue(npc)
+
+    # check - should have handled invalid input
+    assert userInterface.input.call_count == 3
+    # Should have printed "Invalid choice" message
+    print_calls = [str(call) for call in userInterface.print.call_args_list]
+    assert any("Invalid choice" in str(call) for call in print_calls)

@@ -52,3 +52,62 @@ def test_createTimeServiceFromJson():
         timeServiceJson, player, stats
     )
     assert timeServiceFromJson != None
+
+
+def test_writeTimeServiceToFile():
+    # prepare
+    import tempfile
+
+    timeServiceJsonReaderWriter = createTimeServiceJsonReaderWriter()
+    timeService = createTimeService()
+    timeService.time = 15
+    timeService.day = 10
+
+    # call
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+        timeServiceJsonReaderWriter.writeTimeServiceToFile(timeService, f)
+        temp_file_path = f.name
+
+    # check - read back the file and verify
+    with open(temp_file_path, "r") as f:
+        timeServiceJson = json.load(f)
+
+    assert timeServiceJson["time"] == 15
+    assert timeServiceJson["day"] == 10
+
+    # cleanup
+    import os
+
+    os.remove(temp_file_path)
+
+
+def test_readTimeServiceFromFile():
+    # prepare
+    import tempfile
+
+    timeServiceJson = {"time": 12, "day": 5}
+
+    # Write test data to temp file
+    with tempfile.NamedTemporaryFile(
+        mode="w", delete=False, suffix=".json"
+    ) as f:
+        json.dump(timeServiceJson, f)
+        temp_file_path = f.name
+
+    # call
+    timeServiceJsonReaderWriter = createTimeServiceJsonReaderWriter()
+    player = Player()
+    stats = Stats()
+    with open(temp_file_path, "r") as f:
+        timeService = timeServiceJsonReaderWriter.readTimeServiceFromFile(
+            f, player, stats
+        )
+
+    # check
+    assert timeService.time == 12
+    assert timeService.day == 5
+
+    # cleanup
+    import os
+
+    os.remove(temp_file_path)

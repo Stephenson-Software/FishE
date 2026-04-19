@@ -1,0 +1,36 @@
+name: Run Unit Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov jsonschema
+        
+    - name: Run tests with coverage
+      run: |
+        python -m pytest --verbose -vv --cov=src --cov-report=term-missing --cov-report=xml:cov.xml
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./cov.xml
+        fail_ci_if_error: false
+      continue-on-error: true
