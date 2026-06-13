@@ -86,6 +86,23 @@ def test_showOptions_includes_location_when_set():
     assert " | Location: Docks" in printedLines
 
 
+def test_showOptions_includes_goal_progress_when_set():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.goalProgress = "$1200 / $10000"
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="1")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    userInterfaceInstance.showOptions("descriptor", ["option1"])
+
+    # check
+    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    assert " | Goal: $1200 / $10000" in printedLines
+
+
 def test_showOptions_omits_location_when_unset():
     # setup
     userInterfaceInstance = createUserInterface()  # currentLocationName defaults to ""

@@ -6,6 +6,9 @@ This game allows you to explore a fishing village and perform actions in it.
 
 ## Features
 
+### Your Goal
+Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the bank). Your progress toward the goal is shown in the status header, and reaching it earns a one-time victory — after which you're free to keep fishing or retire from the Home menu.
+
 ### Multiple Save Files
 FishE supports multiple save files, allowing you to maintain different game progressions simultaneously. When you start the game, you'll see a save file manager that displays:
 
