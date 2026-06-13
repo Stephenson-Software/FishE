@@ -39,6 +39,7 @@ HTML_PAGE = """<!DOCTYPE html>
   .tagline { font-size: .8rem; font-weight: normal; color: #7fb0d0; }
   .controls { font-size: .8rem; color: #6a8aa0; border-top: 1px solid #2a4a5a;
               margin-top: 1.5rem; padding-top: .5rem; }
+  .low { color: #ff8a8a; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -92,10 +93,22 @@ function render(screen) {
   if (screen.type === "ended") { app.append("The game has ended. You can close this tab."); return; }
   if (screen.header) {
     const h = screen.header;
-    let line = `Day ${h.day}  |  ${h.time}  |  $${h.money.toFixed(2)}  |  Fish: ${h.fish}  |  Energy: ${h.energy}`;
-    if (h.location) line += `  |  ${h.location}`;
-    if (h.goal) line += `  |  Goal: ${h.goal}`;
-    app.append(el("div", { className: "header", textContent: line }));
+    const header = el("div", { className: "header" });
+    const addPart = (node) => {
+      if (header.childNodes.length) header.append("  |  ");
+      header.append(node);
+    };
+    addPart(`Day ${h.day}`);
+    addPart(h.time);
+    addPart(`$${h.money.toFixed(2)}`);
+    addPart(`Fish: ${h.fish}`);
+    // Below the fishing threshold (10) the player is too tired to fish — flag it.
+    const energy = el("span", { textContent: `Energy: ${h.energy}` });
+    if (h.energy < 10) energy.className = "low";
+    addPart(energy);
+    if (h.location) addPart(h.location);
+    if (h.goal) addPart(`Goal: ${h.goal}`);
+    app.append(header);
   }
   if (screen.descriptor) app.append(el("div", { className: "descriptor", textContent: screen.descriptor }));
   if (screen.prompt) app.append(el("div", { className: "prompt", textContent: screen.prompt }));
