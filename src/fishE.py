@@ -192,6 +192,9 @@ class FishE:
 
     def play(self):
         while self.running:
+            # show the current location in the UI header
+            self.userInterface.currentLocationName = self.currentLocation.capitalize()
+
             # change location
             nextLocation = self.locations[self.currentLocation].run()
 

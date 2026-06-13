@@ -69,6 +69,39 @@ def test_showOptions():
     userInterface.input.assert_called_with("\n> ")
 
 
+def test_showOptions_includes_location_when_set():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.currentLocationName = "Docks"
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="1")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    userInterfaceInstance.showOptions("descriptor", ["option1"])
+
+    # check - the header shows the current location
+    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    assert " | Location: Docks" in printedLines
+
+
+def test_showOptions_omits_location_when_unset():
+    # setup
+    userInterfaceInstance = createUserInterface()  # currentLocationName defaults to ""
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="1")
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    userInterfaceInstance.showOptions("descriptor", ["option1"])
+
+    # check - no Location line is printed when none is set
+    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    assert not any(line.startswith(" | Location:") for line in printedLines)
+
+
 def test_showDialogue():
     # setup
     userInterfaceInstance = createUserInterface()
