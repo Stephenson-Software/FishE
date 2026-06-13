@@ -2,7 +2,7 @@ mkdir /usr/games
 
 apt-get update
 apt-get install git
-cd /usr/games && git clone https://www.github.com/Preponderous-Software/FishE
+cd /usr/games && git clone https://github.com/Stephenson-Software/FishE
 
 echo "cd /usr/games/FishE && ./run.sh" > /bin/fishe
 chmod +x /usr/games/FishE/run.sh
