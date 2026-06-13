@@ -44,13 +44,30 @@ HTML_PAGE = """<!DOCTYPE html>
 <script>
 let version = -1;
 let currentScreen = null;
+let failures = 0;
 async function poll() {
   try {
     const response = await fetch("/state");
     const state = await response.json();
+    const recovered = failures >= 5;
+    failures = 0;
+    if (recovered) version = -1;  // force a re-render to clear the disconnect banner
     if (state.version !== version) { version = state.version; render(state.screen); }
-  } catch (e) { /* server not ready yet */ }
+  } catch (e) {
+    failures++;
+    // Don't clobber the intentional "game ended" screen with a scary banner.
+    if (failures === 5 && !(currentScreen && currentScreen.type === "ended")) {
+      renderDisconnected();
+    }
+  }
   setTimeout(poll, 300);
+}
+function renderDisconnected() {
+  currentScreen = null;
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  app.append(el("div", { className: "prompt",
+    textContent: "Lost connection to the game — is it still running? Retrying…" }));
 }
 async function send(value) {
   currentScreen = null;  // ignore stray keypresses until the next screen arrives
