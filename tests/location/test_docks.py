@@ -290,3 +290,53 @@ def test_fish_interactive_failure():
         # check - with 0% success rate, should still get at least 1 fish minimum
         assert docksInstance.player.fishCount == 1  # Minimum 1 fish even with failures
         assert docksInstance.stats.totalFishCaught == 1
+
+
+def test_getTimeOfDayModifier_windows():
+    # prepare
+    docksInstance = createDocks()
+
+    # check - dawn and dusk boost the catch, midday suppresses it, else neutral
+    dawnFactor, dawnLabel = docksInstance.getTimeOfDayModifier(6)
+    duskFactor, duskLabel = docksInstance.getTimeOfDayModifier(18)
+    middayFactor, middayLabel = docksInstance.getTimeOfDayModifier(12)
+    nightFactor, nightLabel = docksInstance.getTimeOfDayModifier(2)
+
+    assert dawnFactor > 1.0 and dawnLabel
+    assert duskFactor > 1.0 and duskLabel
+    assert middayFactor < 1.0 and middayLabel
+    assert nightFactor == 1.0 and nightLabel == ""
+
+
+def test_fish_applies_time_of_day_modifier():
+    # prepare - fish at midday (penalty) vs dawn (bonus) with identical rolls
+    def make_docks_at(hour):
+        d = createDocks()
+        d.userInterface.lotsOfSpace = MagicMock()
+        d.userInterface.divider = MagicMock()
+        d.timeService.time = hour
+        return d
+
+    def time_side_effect():
+        while True:
+            yield 0
+            yield 0.5  # quick reaction => 100% success
+
+    results = {}
+    for label, hour in (("midday", 12), ("dawn", 6)):
+        docksInstance = make_docks_at(hour)
+        with patch("src.location.docks.print"), patch(
+            "src.location.docks.sys.stdout.flush"
+        ), patch("src.location.docks.time.sleep"), patch(
+            "src.location.docks.time.time", side_effect=time_side_effect()
+        ), patch(
+            "src.location.docks.input", return_value=""
+        ), patch(
+            "src.location.docks.random.randint", side_effect=[5, 10]
+        ):  # 5 hours, baseFish 10
+            docksInstance.timeService.increaseTime = MagicMock()
+            docksInstance.fish()
+        results[label] = docksInstance.player.fishCount
+
+    # check - the midday penalty yields fewer fish than the dawn bonus
+    assert results["midday"] < results["dawn"]
