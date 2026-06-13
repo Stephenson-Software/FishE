@@ -127,3 +127,22 @@ def test_buyBetterBait():
     assert shopInstance.player.money == 50
     assert shopInstance.player.fishMultiplier == 2
     assert shopInstance.player.priceForBait > 0
+
+
+def test_buyBetterBait_refused_at_cap():
+    # prepare - multiplier already at the cap, with plenty of money
+    from src.location.shop import MAX_FISH_MULTIPLIER
+
+    shopInstance = createShop()
+    shopInstance.player.money = 10000
+    shopInstance.player.fishMultiplier = MAX_FISH_MULTIPLIER
+    priceBefore = shopInstance.player.priceForBait
+
+    # call
+    shopInstance.buyBetterBait()
+
+    # check - no purchase: multiplier, money, and price are unchanged
+    assert shopInstance.player.fishMultiplier == MAX_FISH_MULTIPLIER
+    assert shopInstance.player.money == 10000
+    assert shopInstance.player.priceForBait == priceBefore
+    assert shopInstance.currentPrompt.text == "Your bait is already the best money can buy!"
