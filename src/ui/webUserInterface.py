@@ -31,6 +31,8 @@ HTML_PAGE = """<!DOCTYPE html>
            border: 1px solid #2a4a5a; border-radius: 4px; cursor: pointer;
            font-family: monospace; font-size: 1rem; }
   button:hover { background: #1f4a63; }
+  button.danger { background: #4a1620; border-color: #7a2a35; }
+  button.danger:hover { background: #63202c; }
   input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
           background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
           border-radius: 4px; }
@@ -78,7 +80,10 @@ function render(screen) {
   if (screen.prompt) app.append(el("div", { className: "prompt", textContent: screen.prompt }));
   if (screen.type === "options") {
     screen.options.forEach((opt, i) => {
-      const b = el("button", { textContent: `[${i + 1}] ${opt}` });
+      const b = el("button", {
+        textContent: `[${i + 1}] ${opt}`,
+        className: /delete/i.test(opt) ? "danger" : "",
+      });
       b.onclick = () => send(String(i + 1));
       app.append(b);
     });
