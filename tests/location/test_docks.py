@@ -127,20 +127,14 @@ def test_fish():
     docksInstance = createDocks()
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    
-    # Create a side effect that alternates between 0 and 0.5 indefinitely
-    def time_side_effect():
-        while True:
-            yield 0
-            yield 0.5
-    
+    # The active UI captures and times the reaction; mock a quick (perfect) one.
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+
     with patch('src.location.docks.print'), \
          patch('src.location.docks.sys.stdout.flush'), \
          patch('src.location.docks.time.sleep'), \
-         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
-         patch('src.location.docks.input', return_value=""), \
          patch('src.location.docks.random.randint', return_value=3):
-        
+
         docksInstance.timeService.increaseTime = MagicMock()
 
         # call
@@ -177,20 +171,13 @@ def test_fish_consumes_energy():
     docksInstance.player.energy = 100
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    
-    # Create a side effect that alternates between 0 and 0.5 indefinitely
-    def time_side_effect():
-        while True:
-            yield 0
-            yield 0.5
-    
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+
     with patch('src.location.docks.print'), \
          patch('src.location.docks.sys.stdout.flush'), \
          patch('src.location.docks.time.sleep'), \
-         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
-         patch('src.location.docks.input', return_value=""), \
          patch('src.location.docks.random.randint', return_value=3):
-        
+
         docksInstance.timeService.increaseTime = MagicMock()
 
         # call
@@ -208,20 +195,13 @@ def test_fish_with_limited_energy():
     docksInstance.player.energy = 25  # Only enough for 2 hours
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    
-    # Create a side effect that alternates between 0 and 0.5 indefinitely
-    def time_side_effect():
-        while True:
-            yield 0
-            yield 0.5
-    
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+
     with patch('src.location.docks.print'), \
          patch('src.location.docks.sys.stdout.flush'), \
          patch('src.location.docks.time.sleep'), \
-         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
-         patch('src.location.docks.input', return_value=""), \
          patch('src.location.docks.random.randint', return_value=5):
-        
+
         docksInstance.timeService.increaseTime = MagicMock()
 
         # call
@@ -239,20 +219,14 @@ def test_fish_interactive_success():
     docksInstance = createDocks()
     docksInstance.userInterface.lotsOfSpace = MagicMock()
     docksInstance.userInterface.divider = MagicMock()
-    
-    # Create a side effect that alternates between 0 and 0.5 indefinitely (quick reactions)
-    def time_side_effect():
-        while True:
-            yield 0
-            yield 0.5
-    
+    # Quick reaction => perfect-quality catch.
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+
     with patch('src.location.docks.print'), \
          patch('src.location.docks.sys.stdout.flush'), \
          patch('src.location.docks.time.sleep'), \
-         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
-         patch('src.location.docks.input', return_value=""), \
          patch('src.location.docks.random.randint', side_effect=[3, 6]):
-        
+
         docksInstance.timeService.increaseTime = MagicMock()
 
         # call
@@ -274,19 +248,11 @@ def test_fish_slow_reaction_yields_fewer_than_fast():
 
     def fish_with_reaction(reactionTime):
         docksInstance = make_docks()
-
-        def time_side_effect():
-            while True:
-                yield 0
-                yield reactionTime
+        docksInstance.userInterface.timedKeyPress = MagicMock(return_value=reactionTime)
 
         with patch("src.location.docks.print"), patch(
             "src.location.docks.sys.stdout.flush"
         ), patch("src.location.docks.time.sleep"), patch(
-            "src.location.docks.time.time", side_effect=time_side_effect()
-        ), patch(
-            "src.location.docks.input", return_value=""
-        ), patch(
             "src.location.docks.random.randint", side_effect=[3, 10]
         ):
             docksInstance.timeService.increaseTime = MagicMock()
@@ -326,21 +292,13 @@ def test_fish_applies_time_of_day_modifier():
         d.timeService.time = hour
         return d
 
-    def time_side_effect():
-        while True:
-            yield 0
-            yield 0.5  # quick reaction => 100% success
-
     results = {}
     for label, hour in (("midday", 12), ("dawn", 6)):
         docksInstance = make_docks_at(hour)
+        docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
         with patch("src.location.docks.print"), patch(
             "src.location.docks.sys.stdout.flush"
         ), patch("src.location.docks.time.sleep"), patch(
-            "src.location.docks.time.time", side_effect=time_side_effect()
-        ), patch(
-            "src.location.docks.input", return_value=""
-        ), patch(
             "src.location.docks.random.randint", side_effect=[5, 10]
         ):  # 5 hours, baseFish 10
             docksInstance.timeService.increaseTime = MagicMock()
@@ -361,21 +319,14 @@ def test_fish_higher_rod_widens_reaction_window():
         d.player.rodLevel = rodLevel
         return d
 
-    def time_side_effect():
-        while True:
-            yield 0
-            yield 2.5  # reaction of 2.5s
-
     results = {}
     for label, rod in (("lowRod", 1), ("highRod", 5)):
         docksInstance = make_docks_with_rod(rod)
+        # A 2.5s reaction is too slow at rod level 1 but within a high rod's window.
+        docksInstance.userInterface.timedKeyPress = MagicMock(return_value=2.5)
         with patch("src.location.docks.print"), patch(
             "src.location.docks.sys.stdout.flush"
         ), patch("src.location.docks.time.sleep"), patch(
-            "src.location.docks.time.time", side_effect=time_side_effect()
-        ), patch(
-            "src.location.docks.input", return_value=""
-        ), patch(
             "src.location.docks.random.randint", side_effect=[5, 10]
         ):
             docksInstance.timeService.increaseTime = MagicMock()

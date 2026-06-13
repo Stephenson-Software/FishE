@@ -50,17 +50,21 @@ class Home:
         )
 
     def displayStats(self):
-        self.userInterface.lotsOfSpace()
-        print("Total Fish Caught: %d" % self.stats.totalFishCaught)
-        print("Total Money Made: %d" % self.stats.totalMoneyMade)
-        print("Hours Spent Fishing: %d" % self.stats.hoursSpentFishing)
-        print("Money Made From Interest: %d" % self.stats.moneyMadeFromInterest)
-        print("Times Gotten Drunk: %d" % self.stats.timesGottenDrunk)
-        print("Money Lost Gambling: %d" % self.stats.moneyLostFromGambling)
-        print("")
-        print("Milestones:")
+        lines = [
+            "Total Fish Caught: %d" % self.stats.totalFishCaught,
+            "Total Money Made: %d" % self.stats.totalMoneyMade,
+            "Hours Spent Fishing: %d" % self.stats.hoursSpentFishing,
+            "Money Made From Interest: %d" % self.stats.moneyMadeFromInterest,
+            "Times Gotten Drunk: %d" % self.stats.timesGottenDrunk,
+            "Money Lost Gambling: %d" % self.stats.moneyLostFromGambling,
+            "",
+            "Milestones:",
+        ]
         for milestone, earned in achievements.getMilestoneStatuses(self.stats):
             mark = "x" if earned else " "
-            print(" [%s] %s - %s" % (mark, milestone["name"], milestone["description"]))
-        print("")
-        input(" [ CONTINUE ]")
+            lines.append(
+                " [%s] %s - %s" % (mark, milestone["name"], milestone["description"])
+            )
+        # Render through the active front-end (and wait for acknowledgement) so the
+        # stats screen works in any UI rather than only the console.
+        self.userInterface.showDialogue("\n".join(lines))

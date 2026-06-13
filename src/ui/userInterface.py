@@ -1,3 +1,5 @@
+import sys
+import time
 from ui.baseUserInterface import BaseUserInterface
 from prompt.prompt import Prompt
 from player.player import Player
@@ -114,6 +116,24 @@ class UserInterface(BaseUserInterface):
             else:
                 print(" Invalid choice. Try again!")
                 input(" [ CONTINUE ]")
+
+    def promptForText(self, promptText):
+        self.lotsOfSpace()
+        self.divider()
+        print(promptText)
+        self.divider()
+        return input("> ")
+
+    def timedKeyPress(self, message):
+        print(message)
+        sys.stdout.flush()
+        startTime = time.time()
+        try:
+            input()
+            return time.time() - startTime
+        except (KeyboardInterrupt, EOFError):
+            # No reaction captured — treat it as having missed entirely.
+            return float("inf")
 
     def cleanup(self):
         # The console front-end holds no resources to release.

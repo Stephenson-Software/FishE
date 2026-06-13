@@ -72,9 +72,30 @@ class BaseUserInterface(ABC):
         pass
 
     @abstractmethod
+    def promptForText(self, promptText):
+        """Show a prompt and return the line of text the player enters."""
+        pass
+
+    @abstractmethod
+    def timedKeyPress(self, message):
+        """Show a message and return the seconds until the player reacts.
+
+        Used by timing challenges (e.g. the fishing minigame); a front-end that
+        cannot measure a reaction may return 0.0 to count it as instant."""
+        pass
+
+    @abstractmethod
     def cleanup(self):
         """Release any resources held by the front-end."""
         pass
+
+    def promptForNumber(self, promptText):
+        """Prompt for a number via promptForText; return a float or None if the
+        player's input was not numeric. Works for every front-end."""
+        try:
+            return float(self.promptForText(promptText))
+        except (ValueError, TypeError):
+            return None
 
     def showInteractiveDialogue(self, npc):
         """Default interactive NPC conversation built on the primitives above.

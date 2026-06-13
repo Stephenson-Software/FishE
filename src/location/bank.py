@@ -109,14 +109,8 @@ class Bank:
 
     def deposit(self):
         while True:
-            self.userInterface.lotsOfSpace()
-            self.userInterface.divider()
-            print(self.currentPrompt.text)
-            self.userInterface.divider()
-
-            try:
-                amount = float(input("> "))
-            except ValueError:
+            amount = self.userInterface.promptForNumber(self.currentPrompt.text)
+            if amount is None:
                 self.currentPrompt.text = "Try again. Money: $%.2f" % self.player.money
                 continue
 
@@ -131,14 +125,8 @@ class Bank:
 
     def withdraw(self):
         while True:
-            self.userInterface.lotsOfSpace()
-            self.userInterface.divider()
-            print(self.currentPrompt.text)
-            self.userInterface.divider()
-
-            try:
-                amount = float(input("> "))
-            except ValueError:
+            amount = self.userInterface.promptForNumber(self.currentPrompt.text)
+            if amount is None:
                 self.currentPrompt.text = (
                     "Try again. Money In Bank: $%.2f" % self.player.moneyInBank
                 )
