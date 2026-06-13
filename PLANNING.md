@@ -8,6 +8,5 @@ GOALS
 - FISH LOADING BAIT PRICE BUG
 
 Maybes
-- Maybe include something that tells you where you are
 - Maybe make the fishMultiplier a chance thing
 - Aesthetic upgrades?

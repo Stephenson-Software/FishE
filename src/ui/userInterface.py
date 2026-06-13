@@ -12,6 +12,9 @@ class UserInterface:
 
         self.prompt = "Make your choice!"
         self.optionList = []
+        # Display name of the player's current location, shown in the header.
+        # Set by the game loop before each render; empty hides the line.
+        self.currentLocationName = ""
 
         self.times = {
             0: "12:00 AM",
@@ -59,6 +62,8 @@ class UserInterface:
             print(" " + descriptor)
             self.divider()
             print(" Day %d" % self.timeService.day)
+            if self.currentLocationName:
+                print(" | Location: " + self.currentLocationName)
             print(" | " + self.times[self.timeService.time])
             print(" | Money: $%.2f" % self.player.money)
             print(" | Fish: %d" % self.player.fishCount)
