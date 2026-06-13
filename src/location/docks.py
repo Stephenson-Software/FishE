@@ -112,6 +112,19 @@ class Docks:
             )
             return LocationType.BANK
 
+    def getTimeOfDayModifier(self, hour):
+        """Return (yield factor, flavour label) for fishing at the given hour.
+
+        Fish feed most actively around dawn and dusk and go quiet under the
+        midday sun, so the time of day now meaningfully affects the catch."""
+        if 5 <= hour <= 8:
+            return 1.5, "The dawn bite is on!"
+        if 17 <= hour <= 20:
+            return 1.5, "The fish are feeding at dusk!"
+        if 11 <= hour <= 14:
+            return 0.6, "The midday sun keeps the fish deep."
+        return 1.0, ""
+
     def fish(self):
         self.userInterface.lotsOfSpace()
         self.userInterface.divider()
@@ -119,6 +132,9 @@ class Docks:
         print("Fishing... "),
         sys.stdout.flush()
         time.sleep(1)
+
+        # Capture the time of day at the start of the trip (the loop advances it).
+        timeFactor, timeLabel = self.getTimeOfDayModifier(self.timeService.time)
 
         hours = random.randint(1, 10)
 
@@ -168,14 +184,16 @@ class Docks:
         baseFish = random.randint(1, 10)
         if totalAttempts > 0:
             successRate = successfulCatches / totalAttempts
-            fishToAdd = int(baseFish * successRate * self.player.fishMultiplier)
+            fishToAdd = int(
+                baseFish * successRate * self.player.fishMultiplier * timeFactor
+            )
         else:
             fishToAdd = 0
-            
+
         # Ensure at least 1 fish if player attempted
         if fishToAdd == 0 and totalAttempts > 0:
             fishToAdd = 1
-            
+
         self.player.fishCount += fishToAdd
         self.stats.totalFishCaught += fishToAdd
 
@@ -187,6 +205,9 @@ class Docks:
                 hours,
                 int((successfulCatches / totalAttempts * 100) if totalAttempts > 0 else 0)
             )
+
+        if timeLabel:
+            self.currentPrompt.text += " " + timeLabel
 
     def talkToNPC(self):
         self.userInterface.showInteractiveDialogue(self.npc)
