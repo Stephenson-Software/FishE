@@ -5,7 +5,7 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def createTavern():
@@ -320,8 +320,10 @@ def test_getDrunk_updates_stats():
     tavern.time.sleep = MagicMock()
     tavernInstance.timeService.increaseDay = MagicMock()
 
-    # call
-    tavernInstance.getDrunk()
+    # call - skip the random additional-loss path (>= 0.3 means no extra loss)
+    # so the base $10 cost is asserted deterministically.
+    with patch("src.location.tavern.random.random", return_value=0.99):
+        tavernInstance.getDrunk()
 
     # check
     assert tavernInstance.player.money == 10  # Lost $10
