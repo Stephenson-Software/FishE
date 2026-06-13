@@ -1,4 +1,3 @@
-import random
 from location.enum.locationType import LocationType
 from player.player import Player
 from prompt.prompt import Prompt
@@ -19,6 +18,12 @@ MAX_FISH_MULTIPLIER = 10
 # level needs to be stored.
 ROD_BASE_PRICE = 75
 MAX_ROD_LEVEL = 10
+
+# The shop has a limited pool of money for buying fish that refills each new day.
+# It comfortably covers a normal day's catch but can be exhausted by a very large
+# haul, so massive hoards must be sold over several days (and the bank/business
+# give somewhere to put wealth in the meantime).
+SHOP_DAILY_BUDGET = 750
 
 
 def rodUpgradeCost(rodLevel):
@@ -84,6 +89,9 @@ class Shop:
                 }
             ]
         )
+        # Daily budget for buying fish; refills when a new day begins.
+        self.money = SHOP_DAILY_BUDGET
+        self.lastRefillDay = self.timeService.day
 
     def run(self):
         li = [
@@ -114,21 +122,59 @@ class Shop:
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
 
+    def _refillIfNewDay(self):
+        if self.timeService.day > self.lastRefillDay:
+            self.money = SHOP_DAILY_BUDGET
+            self.lastRefillDay = self.timeService.day
+
     def sellFish(self):
+        self._refillIfNewDay()
+
+        if self.player.fishCount == 0:
+            self.currentPrompt.text = "You have no fish to sell."
+            return
+
+        # One entry per held fish. Sell the most valuable species first so the
+        # best fish are cashed in before the shop's daily budget runs out; any
+        # unaffordable leftovers stay in the inventory for another day.
         if self.player.fishByType:
-            # Price each species individually (rarer fish are worth more).
-            moneyToAdd = 0
-            for fishTypeName, count in self.player.fishByType.items():
-                moneyToAdd += count * fish.fishValue(fishTypeName)
+            queue = []
+            for species, count in self.player.fishByType.items():
+                queue.extend([species] * count)
+            queue.sort(
+                key=lambda s: (fish.getFishType(s) or {}).get("maxValue", 0),
+                reverse=True,
+            )
         else:
-            # Legacy save with only an aggregate count: flat $3-5 per fish.
-            moneyToAdd = self.player.fishCount * random.randint(3, 5)
+            # Legacy save with only an aggregate count (no species breakdown).
+            queue = [None] * self.player.fishCount
 
-        self.player.money += moneyToAdd
-        self.stats.totalMoneyMade += moneyToAdd
-        self.player.clearFish()
+        earned = 0.0
+        for species in queue:
+            value = fish.fishValue(species)
+            if self.money < value:
+                break  # shop is out of money for today
+            self.money -= value
+            self.player.money += value
+            self.stats.totalMoneyMade += value
+            earned += value
+            self._removeOneFish(species)
 
-        self.currentPrompt.text = "You sold all of your fish!"
+        if self.player.fishCount > 0:
+            self.currentPrompt.text = (
+                "Sold fish for $%.2f, but the shop is out of money for today. "
+                "Come back tomorrow for the rest." % earned
+            )
+        else:
+            self.currentPrompt.text = "You sold your fish for $%.2f!" % earned
+
+    def _removeOneFish(self, species):
+        self.player.fishCount -= 1
+        if species is None:
+            return
+        self.player.fishByType[species] -= 1
+        if self.player.fishByType[species] == 0:
+            del self.player.fishByType[species]
 
     def buyBetterBait(self):
         if self.player.fishMultiplier >= MAX_FISH_MULTIPLIER:
