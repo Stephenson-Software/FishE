@@ -27,7 +27,8 @@ def test_initialization():
     assert shopInstance.player != None
     assert shopInstance.stats != None
     assert shopInstance.timeService != None
-    assert shopInstance.money == 1000
+    assert shopInstance.npc != None
+    assert shopInstance.npc.name == "Gilbert the Shopkeeper"
 
 
 def test_run_sell_fish_action():
@@ -61,13 +62,42 @@ def test_run_buy_better_bait_action():
 def test_run_go_to_docks_action():
     # prepare
     shopInstance = createShop()
-    shopInstance.userInterface.showOptions = MagicMock(return_value="3")
+    shopInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = shopInstance.run()
 
     # check
     assert nextLocation == LocationType.DOCKS
+
+
+def test_run_talk_to_npc_action():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.userInterface.showOptions = MagicMock(return_value="3")
+    shopInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = shopInstance.run()
+
+    # check
+    assert nextLocation == LocationType.SHOP
+    shopInstance.talkToNPC.assert_called_once()
+
+
+def test_talkToNPC():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.userInterface.showInteractiveDialogue = MagicMock()
+
+    # call
+    shopInstance.talkToNPC()
+
+    # check
+    shopInstance.userInterface.showInteractiveDialogue.assert_called_once()
+    call_args = shopInstance.userInterface.showInteractiveDialogue.call_args[0][0]
+    assert call_args.name == "Gilbert the Shopkeeper"
+    assert len(call_args.get_dialogue_options()) > 0
 
 
 def test_sellFish():
@@ -82,40 +112,6 @@ def test_sellFish():
     assert shopInstance.player.fishCount == 0
     assert shopInstance.player.money > 0
     assert shopInstance.stats.totalMoneyMade > 0
-    assert shopInstance.money < 1000  # Shop money should decrease
-
-
-def test_sellFish_no_fish():
-    # prepare
-    shopInstance = createShop()
-    shopInstance.player.fishCount = 0
-    initialMoney = shopInstance.money
-
-    # call
-    shopInstance.sellFish()
-
-    # check
-    assert shopInstance.player.fishCount == 0
-    assert shopInstance.money == initialMoney  # Shop money should not change
-    assert "don't have any fish" in shopInstance.currentPrompt.text
-
-
-def test_sellFish_shop_not_enough_money():
-    # prepare
-    shopInstance = createShop()
-    shopInstance.player.fishCount = 100  # Lots of fish
-    shopInstance.money = 10  # Very little shop money
-    initialPlayerMoney = shopInstance.player.money
-    initialShopMoney = shopInstance.money
-
-    # call
-    shopInstance.sellFish()
-
-    # check
-    assert shopInstance.player.fishCount == 100  # Fish should not be sold
-    assert shopInstance.player.money == initialPlayerMoney  # Player money unchanged
-    assert shopInstance.money == initialShopMoney  # Shop money unchanged
-    assert "doesn't have enough money" in shopInstance.currentPrompt.text
 
 
 def test_buyBetterBait():

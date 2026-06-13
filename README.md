@@ -1,43 +1,17 @@
 # FishE
 
+[![Run Unit Tests](https://github.com/Stephenson-Software/FishE/actions/workflows/test.yml/badge.svg)](https://github.com/Stephenson-Software/FishE/actions/workflows/test.yml)
+
 This game allows you to explore a fishing village and perform actions in it.
-
-## UI Types
-
-FishE now supports two different user interface types:
-
-### Console UI (Default)
-Traditional text-based interface that runs in the terminal.
-```bash
-python3 src/fishE.py
-# or explicitly
-python3 src/fishE.py --ui console
-```
-
-### Pygame UI
-Windowed interface with graphics and visual styling.
-```bash
-python3 src/fishE.py --ui pygame
-```
 
 ## Features
 
-Both interfaces provide identical game functionality:
-- Fish at the docks to catch fish and earn money
-- Visit the shop to sell fish and buy better bait
-- Go to the bank to deposit/withdraw money
-- Relax at the tavern (get drunk or gamble)
-- View your stats at home
-- Save/load game progress automatically
+### Multiple Save Files
+FishE supports multiple save files, allowing you to maintain different game progressions simultaneously. When you start the game, you'll see a save file manager that displays:
 
-## Requirements
+- **Existing Saves**: View all your saved games with their progress (Day, Money, Fish count, Last Modified)
+- **Create New Save**: Start a fresh game in a new save slot
+- **Delete Save**: Remove unwanted save files
+- **Quick Load**: Load any existing save file to continue your adventure
 
-- Python 3.x
-- pygame (for windowed UI mode)
-
-Install pygame: `pip install pygame`
-
-## Development
-
-Run tests: `./test.sh`
-Run demo: `python3 demo_ui.py`
+Each save file is stored in its own slot (slot_1, slot_2, etc.) in the `data/` directory, ensuring your saves never conflict with each other.
