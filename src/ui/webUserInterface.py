@@ -36,10 +36,11 @@ HTML_PAGE = """<!DOCTYPE html>
   input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
           background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
           border-radius: 4px; }
+  .tagline { font-size: .8rem; font-weight: normal; color: #7fb0d0; }
 </style>
 </head>
 <body>
-<h2>FishE</h2>
+<h2>FishE <span class="tagline">— fish a seaside village and build a fortune of $10,000</span></h2>
 <div id="app">Connecting&hellip;</div>
 <script>
 let version = -1;
