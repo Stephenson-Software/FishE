@@ -22,7 +22,8 @@ HTML_PAGE = """<!DOCTYPE html>
   body { font-family: monospace; background: #0b1d2a; color: #e0f0ff;
          max-width: 680px; margin: 2rem auto; padding: 0 1rem; }
   .header { color: #7fb0d0; border-bottom: 1px solid #2a4a5a;
-            padding-bottom: .5rem; margin-bottom: 1rem; }
+            padding-bottom: .5rem; margin-bottom: 1rem;
+            display: flex; flex-wrap: wrap; gap: .15rem 1.1rem; }
   .descriptor { margin: 1rem 0; font-size: 1.1rem; }
   .prompt { color: #9fd0ff; margin: 1rem 0; }
   .dialogue { white-space: pre-wrap; margin: 1rem 0; line-height: 1.5; }
@@ -33,14 +34,26 @@ HTML_PAGE = """<!DOCTYPE html>
   button:hover { background: #1f4a63; }
   button.danger { background: #4a1620; border-color: #7a2a35; }
   button.danger:hover { background: #63202c; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:disabled:hover { background: #163345; }
+  button.action { width: auto; text-align: center; padding: .6rem 1.4rem;
+                  background: #1d5a7a; border-color: #2f7ba0; }
+  button.action:hover { background: #246a90; }
   input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
           background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
           border-radius: 4px; }
+  .tagline { font-size: .8rem; font-weight: normal; color: #7fb0d0; }
+  .controls { font-size: .8rem; color: #6a8aa0; border-top: 1px solid #2a4a5a;
+              margin-top: 1.5rem; padding-top: .5rem; }
+  .low { color: #ff8a8a; font-weight: bold; }
+  .notice { color: #9fd0ff; margin-top: 1rem; }
+  .notice.warning { color: #ffcf8f; border-left: 3px solid #c77b2a; padding-left: .6rem; }
 </style>
 </head>
 <body>
-<h2>FishE</h2>
+<h2>FishE <span class="tagline">— fish a seaside village and build a fortune of $10,000</span></h2>
 <div id="app">Connecting&hellip;</div>
+<p class="controls">Tip: click an option or press its number key (1-9). Enter or Space continues.</p>
 <script>
 let version = -1;
 let currentScreen = null;
@@ -62,12 +75,14 @@ async function poll() {
   }
   setTimeout(poll, 300);
 }
-function renderDisconnected() {
-  currentScreen = null;
+function renderNotice(text, className) {
   const app = document.getElementById("app");
   app.innerHTML = "";
-  app.append(el("div", { className: "prompt",
-    textContent: "Lost connection to the game — is it still running? Retrying…" }));
+  app.append(el("div", { className: className || "notice", textContent: text }));
+}
+function renderDisconnected() {
+  currentScreen = null;
+  renderNotice("Lost connection to the game — is it still running? Retrying…", "notice warning");
 }
 async function send(value) {
   currentScreen = null;  // ignore stray keypresses until the next screen arrives
@@ -84,14 +99,28 @@ function render(screen) {
   const app = document.getElementById("app");
   app.innerHTML = "";
   currentScreen = screen;  // let keyboard shortcuts act on what's on screen
-  if (!screen || screen.type === "loading") { app.append("Waiting for the game…"); return; }
-  if (screen.type === "ended") { app.append("The game has ended. You can close this tab."); return; }
+  if (!screen || screen.type === "loading") { renderNotice("Waiting for the game…"); return; }
+  if (screen.type === "ended") { renderNotice("The game has ended. You can close this tab."); return; }
   if (screen.header) {
     const h = screen.header;
-    let line = `Day ${h.day}  |  ${h.time}  |  $${h.money.toFixed(2)}  |  Fish: ${h.fish}  |  Energy: ${h.energy}`;
-    if (h.location) line += `  |  ${h.location}`;
-    if (h.goal) line += `  |  Goal: ${h.goal}`;
-    app.append(el("div", { className: "header", textContent: line }));
+    const header = el("div", { className: "header" });
+    // Each stat is its own chip; the flex-wrap row spaces them with whitespace
+    // and wraps cleanly on narrow screens instead of running off one long line.
+    const addPart = (content) => {
+      header.append(content instanceof Node ? content : el("span", { textContent: content }));
+    };
+    addPart(`Day ${h.day}`);
+    addPart(h.time);
+    addPart(`$${h.money.toFixed(2)}`);
+    addPart(`Fish: ${h.fish}`);
+    // Below the fishing threshold (10) the player is too tired to fish — flag it.
+    const energy = el("span", { textContent: `Energy: ${h.energy}` });
+    if (h.energy < 10) energy.className = "low";
+    addPart(energy);
+    if (h.location) addPart(h.location);
+    if (h.goal) addPart(`Goal: ${h.goal}`);
+    app.append(header);
+    document.title = `FishE — Day ${h.day}, $${h.money.toFixed(2)}`;
   }
   if (screen.descriptor) app.append(el("div", { className: "descriptor", textContent: screen.descriptor }));
   if (screen.prompt) app.append(el("div", { className: "prompt", textContent: screen.prompt }));
@@ -106,20 +135,28 @@ function render(screen) {
     });
   } else if (screen.type === "dialogue") {
     app.append(el("div", { className: "dialogue", textContent: screen.text }));
-    const b = el("button", { textContent: "Continue" });
+    const b = el("button", { textContent: "Continue", className: "action" });
     b.onclick = () => send("");
     app.append(b);
   } else if (screen.type === "prompt") {
     app.append(el("div", { className: "descriptor", textContent: screen.text }));
     const inp = el("input", { type: "text" });
-    const submit = () => send(inp.value);
+    const b = el("button", { textContent: "Submit", className: "action" });
+    const valid = () => !screen.numeric ||
+      (inp.value.trim() !== "" && !isNaN(Number(inp.value)));
+    const submit = () => { if (valid()) send(inp.value); };
+    if (screen.numeric) {
+      inp.inputMode = "decimal";
+      inp.placeholder = "Enter a number";
+      inp.oninput = () => { b.disabled = !valid(); };
+      b.disabled = true;  // nothing valid typed yet
+    }
     inp.onkeydown = (e) => { if (e.key === "Enter") submit(); };
-    const b = el("button", { textContent: "Submit" });
     b.onclick = submit;
     app.append(inp); app.append(b); inp.focus();
   } else if (screen.type === "timed") {
     app.append(el("div", { className: "descriptor", textContent: screen.message }));
-    const b = el("button", { textContent: "React!" });
+    const b = el("button", { textContent: "React!", className: "action" });
     b.onclick = () => send("");
     app.append(b);
   }
@@ -280,6 +317,15 @@ class WebUserInterface(BaseUserInterface):
     def promptForText(self, promptText):
         self._present({"type": "prompt", "text": promptText})
         return str(self._inputQueue.get())
+
+    def promptForNumber(self, promptText):
+        # Flag the prompt as numeric so the browser can offer a numeric keyboard
+        # and block submission of non-numbers (the base default can't say so).
+        self._present({"type": "prompt", "text": promptText, "numeric": True})
+        try:
+            return float(self._inputQueue.get())
+        except (ValueError, TypeError):
+            return None
 
     def timedKeyPress(self, message):
         self._present({"type": "timed", "message": message})

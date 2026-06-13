@@ -85,10 +85,13 @@ def test_promptForText_round_trips_text():
     assert box["result"] == "Gilbert"
 
 
-def test_promptForNumber_uses_web_input():
+def test_promptForNumber_marks_screen_numeric_and_parses():
     ui = makeWebUI()
     thread, box = runInThread(lambda: ui.promptForNumber("How much?"))
     waitForScreen(ui, "prompt")
+
+    # the prompt is flagged numeric so the browser can constrain input
+    assert ui.get_state()["screen"].get("numeric") is True
 
     ui.submit_input("12.5")
     thread.join(timeout=2)
