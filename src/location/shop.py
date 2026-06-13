@@ -8,6 +8,11 @@ from ui.userInterface import UserInterface
 from npc.npc import NPC
 
 
+# Upper bound on fishMultiplier so bait upgrades stop being an infinite power
+# climb: past this point "Buy Better Bait" is refused with a message.
+MAX_FISH_MULTIPLIER = 10
+
+
 # @author Daniel McCoy Stephenson
 class Shop:
     def __init__(
@@ -102,7 +107,9 @@ class Shop:
         self.currentPrompt.text = "You sold all of your fish!"
 
     def buyBetterBait(self):
-        if self.player.money < self.player.priceForBait:
+        if self.player.fishMultiplier >= MAX_FISH_MULTIPLIER:
+            self.currentPrompt.text = "Your bait is already the best money can buy!"
+        elif self.player.money < self.player.priceForBait:
             self.currentPrompt.text = "You don't have enough money!"
         else:
             self.player.fishMultiplier += 1
