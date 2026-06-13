@@ -109,6 +109,7 @@ function render(screen) {
     if (h.location) addPart(h.location);
     if (h.goal) addPart(`Goal: ${h.goal}`);
     app.append(header);
+    document.title = `FishE — Day ${h.day}, $${h.money.toFixed(2)}`;
   }
   if (screen.descriptor) app.append(el("div", { className: "descriptor", textContent: screen.descriptor }));
   if (screen.prompt) app.append(el("div", { className: "prompt", textContent: screen.prompt }));
