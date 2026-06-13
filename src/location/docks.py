@@ -154,67 +154,46 @@ class Docks:
                 self.currentPrompt.text = "You're too tired to fish! Go home and sleep."
                 return
 
-        successfulCatches = 0
-        totalAttempts = 0
-
         # A better rod widens the timing window, making catches more forgiving.
         reactionWindow = REACTION_BASE_WINDOW + (self.player.rodLevel - 1) * ROD_WINDOW_STEP
 
+        # One timing challenge per cast (not a pass/fail repeated every hour):
+        # how quickly you set the hook maps to a catch-quality tier.
+        print("Cast your line... press Enter the moment you feel a bite! ")
+        sys.stdout.flush()
+        startTime = time.time()
+        try:
+            input()
+            reactionTime = time.time() - startTime
+        except (KeyboardInterrupt, EOFError):
+            reactionTime = reactionWindow + 1.0  # an aborted input counts as a miss
+
+        if reactionTime <= reactionWindow / 2:
+            quality, qualityLabel = 1.0, "A perfect hook!"
+        elif reactionTime <= reactionWindow:
+            quality, qualityLabel = 0.6, "A solid hook."
+        else:
+            quality, qualityLabel = 0.25, "The fish nearly got away."
+
+        # Spend the fishing hours: time passes and energy is consumed.
         for i in range(hours):
-            print("><> ")
-            sys.stdout.flush()
-            time.sleep(0.5)
-            
-            # Interactive minigame: player must press Enter at the right moment
-            print("A fish is biting! Press Enter quickly! ")
-            sys.stdout.flush()
-            
-            startTime = time.time()
-            try:
-                input()
-                reactionTime = time.time() - startTime
-                
-                # Success if pressed within the (rod-dependent) reaction window
-                if reactionTime <= reactionWindow:
-                    successfulCatches += 1
-                    print("Got it! ")
-                else:
-                    print("Too slow... ")
-            except (KeyboardInterrupt, EOFError):
-                print("Missed! ")
-            
-            sys.stdout.flush()
-            totalAttempts += 1
-            
             self.stats.hoursSpentFishing += 1
             self.timeService.increaseTime()
             self.player.energy -= 10  # Consume 10 energy per hour
 
-        # Calculate fish caught based on success rate
         baseFish = random.randint(1, 10)
-        if totalAttempts > 0:
-            successRate = successfulCatches / totalAttempts
-            fishToAdd = int(
-                baseFish * successRate * self.player.fishMultiplier * timeFactor
-            )
-        else:
-            fishToAdd = 0
-
-        # Ensure at least 1 fish if player attempted
-        if fishToAdd == 0 and totalAttempts > 0:
-            fishToAdd = 1
+        fishToAdd = int(baseFish * quality * self.player.fishMultiplier * timeFactor)
+        if fishToAdd == 0:
+            fishToAdd = 1  # always land at least one fish for the effort
 
         self.player.fishCount += fishToAdd
         self.stats.totalFishCaught += fishToAdd
 
-        if fishToAdd == 1:
-            self.currentPrompt.text = "Nice catch!"
-        else:
-            self.currentPrompt.text = "You caught %d fish! It only took %d hours! Success rate: %d%%" % (
-                fishToAdd,
-                hours,
-                int((successfulCatches / totalAttempts * 100) if totalAttempts > 0 else 0)
-            )
+        self.currentPrompt.text = "You caught %d fish over %d hours! %s" % (
+            fishToAdd,
+            hours,
+            qualityLabel,
+        )
 
         if timeLabel:
             self.currentPrompt.text += " " + timeLabel
