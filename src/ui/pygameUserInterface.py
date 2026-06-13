@@ -212,6 +212,35 @@ class PygameUserInterface(BaseUserInterface):
             self.screen.blit(inst_surface, inst_rect)
             y_offset += instruction_spacing
 
+    def showDialogue(self, text):
+        """Render a block of text and wait for the player to press a key."""
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                    sys.exit()
+                elif event.type == pygame.VIDEORESIZE:
+                    self._handle_resize(event.w, event.h)
+                elif event.type == pygame.KEYDOWN:
+                    waiting = False
+
+            self.screen.fill(self.BLACK)
+            margin_x = self.width * 0.06
+            text_surface = self.font_medium.render(text, True, self.WHITE)
+            self.screen.blit(text_surface, (margin_x, self.height * 0.2))
+            prompt_surface = self.font_small.render(
+                "Press any key to continue", True, self.GRAY
+            )
+            prompt_rect = prompt_surface.get_rect(
+                center=(self.width // 2, self.height - self.height * 0.1)
+            )
+            self.screen.blit(prompt_surface, prompt_rect)
+            pygame.display.flip()
+            pygame.time.Clock().tick(60)
+
+        self.currentPrompt.text = "What would you like to do?"
+
     def cleanup(self):
         """Clean up pygame resources"""
         pygame.quit()
