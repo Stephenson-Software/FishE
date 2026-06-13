@@ -4,6 +4,7 @@ from prompt.prompt import Prompt
 from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
+from achievements import achievements
 
 
 # @author Daniel McCoy Stephenson
@@ -56,5 +57,10 @@ class Home:
         print("Money Made From Interest: %d" % self.stats.moneyMadeFromInterest)
         print("Times Gotten Drunk: %d" % self.stats.timesGottenDrunk)
         print("Money Lost Gambling: %d" % self.stats.moneyLostFromGambling)
+        print("")
+        print("Milestones:")
+        for milestone, earned in achievements.getMilestoneStatuses(self.stats):
+            mark = "x" if earned else " "
+            print(" [%s] %s - %s" % (mark, milestone["name"], milestone["description"]))
         print("")
         input(" [ CONTINUE ]")

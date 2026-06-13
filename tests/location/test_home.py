@@ -5,6 +5,7 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
+from src.achievements import achievements
 from unittest.mock import MagicMock
 
 
@@ -122,7 +123,7 @@ def test_displayStats():
     # call
     homeInstance.displayStats()
 
-    # check
+    # check - 6 stat lines + blank, then "Milestones:" + one line per milestone + blank
     assert homeInstance.userInterface.lotsOfSpace.call_count == 1
-    assert home.print.call_count == 7
+    assert home.print.call_count == 9 + len(achievements.MILESTONES)
     assert home.input.call_count == 1
