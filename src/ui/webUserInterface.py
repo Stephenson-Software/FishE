@@ -47,6 +47,7 @@ HTML_PAGE = """<!DOCTYPE html>
               margin-top: 1.5rem; padding-top: .5rem; }
   .low { color: #ff8a8a; font-weight: bold; }
   .notice { color: #9fd0ff; margin-top: 1rem; }
+  .notice.warning { color: #ffcf8f; border-left: 3px solid #c77b2a; padding-left: .6rem; }
 </style>
 </head>
 <body>
@@ -81,7 +82,7 @@ function renderNotice(text, className) {
 }
 function renderDisconnected() {
   currentScreen = null;
-  renderNotice("Lost connection to the game — is it still running? Retrying…");
+  renderNotice("Lost connection to the game — is it still running? Retrying…", "notice warning");
 }
 async function send(value) {
   currentScreen = null;  // ignore stray keypresses until the next screen arrives
