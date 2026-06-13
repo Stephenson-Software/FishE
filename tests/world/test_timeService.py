@@ -85,3 +85,21 @@ def test_increaseDay_interest_is_capped():
     assert timeService.stats.moneyMadeFromInterest == MAX_INTEREST_PER_DAY
     assert timeService.player.moneyInBank == 1000000 + MAX_INTEREST_PER_DAY
     assert timeService.stats.totalMoneyMade == MAX_INTEREST_PER_DAY
+
+
+def test_increaseDay_runs_business_production():
+    # prepare - a boat and one worker, no bank balance (isolate from interest)
+    from src.business import business
+
+    timeService = createTimeService()
+    timeService.player.hasBoat = True
+    timeService.player.workers = 1
+    timeService.player.money = 1000
+    timeService.player.moneyInBank = 0
+
+    # call
+    timeService.increaseDay()
+
+    # check - the worker fished and was paid as part of the day rollover
+    assert timeService.player.fishCount == business.WORKER_FISH_PER_DAY
+    assert timeService.player.money == 1000 - business.WORKER_DAILY_WAGE

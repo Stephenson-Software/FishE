@@ -3,8 +3,6 @@ You are a fisherman living in a home by the docks. There’s a store nearby that
 
 
 GOALS
-- Make it possible to open a fishing business
-- Make hiring workers a thing
 - FISH LOADING BAIT PRICE BUG
 
 Maybes

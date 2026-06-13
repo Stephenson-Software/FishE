@@ -335,3 +335,82 @@ def test_fish_higher_rod_widens_reaction_window():
 
     # check - the wider window of the better rod lands more catches
     assert results["highRod"] > results["lowRod"]
+
+
+def test_run_manage_business_action():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.userInterface.showOptions = MagicMock(return_value="7")
+    docksInstance.manageBusiness = MagicMock()
+
+    # call
+    nextLocation = docksInstance.run()
+
+    # check
+    assert nextLocation == LocationType.DOCKS
+    docksInstance.manageBusiness.assert_called_once()
+
+
+def test_manageBusiness_buy_boat():
+    # prepare - enough money for a boat; buy it, then go Back
+    from src.business import business
+
+    docksInstance = createDocks()
+    docksInstance.player.money = business.BOAT_PRICE + 50
+    docksInstance.player.hasBoat = False
+    # "1" = Buy a Boat; then in the post-purchase menu "2" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check
+    assert docksInstance.player.hasBoat is True
+    assert docksInstance.player.money == 50
+
+
+def test_manageBusiness_buy_boat_insufficient_funds():
+    # prepare - can't afford a boat
+    from src.business import business
+
+    docksInstance = createDocks()
+    docksInstance.player.money = business.BOAT_PRICE - 1
+    docksInstance.player.hasBoat = False
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check - no boat, no money spent
+    assert docksInstance.player.hasBoat is False
+    assert docksInstance.player.money == business.BOAT_PRICE - 1
+
+
+def test_manageBusiness_hire_worker():
+    # prepare - own a boat, no crew yet
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.workers = 0
+    # "1" = Hire; then in the menu with a worker "3" = Back (Hire/Dismiss/Back)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "3"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check
+    assert docksInstance.player.workers == 1
+
+
+def test_manageBusiness_dismiss_worker():
+    # prepare - own a boat with two workers
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.workers = 2
+    # "2" = Dismiss (Hire/Dismiss/Back); then "3" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "3"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check
+    assert docksInstance.player.workers == 1

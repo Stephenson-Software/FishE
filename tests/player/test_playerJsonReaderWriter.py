@@ -189,6 +189,44 @@ def test_fishByType_round_trips():
     assert restored.fishByType == {"Bass": 3, "Marlin": 1}
 
 
+def test_business_fields_round_trip():
+    # prepare
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.hasBoat = True
+    player.workers = 3
+
+    # call
+    playerJson = playerJsonReaderWriter.createJsonFromPlayer(player)
+    restored = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert playerJson["hasBoat"] is True
+    assert playerJson["workers"] == 3
+    assert restored.hasBoat is True
+    assert restored.workers == 3
+
+
+def test_createPlayerFromJson_missingBusinessFields_defaults():
+    # prepare - an older save with no boat/workers fields
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 5,
+        "fishMultiplier": 2,
+        "money": 100,
+        "moneyInBank": 50,
+        "priceForBait": 75,
+        "energy": 80,
+    }
+
+    # call
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check - backward-compatible defaults
+    assert player.hasBoat is False
+    assert player.workers == 0
+
+
 def test_createPlayerFromJson_missingFishByType_defaultsToEmpty():
     # prepare - an older save with no fishByType field
     playerJsonReaderWriter = createPlayerJsonReaderWriter()

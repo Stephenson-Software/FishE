@@ -11,6 +11,10 @@ class Player:
         # Per-species breakdown of the fish currently held. fishCount remains the
         # aggregate total; addFish/clearFish keep the two in sync.
         self.fishByType = {}
+        # Fishing business: a boat unlocks hiring workers who bring in a passive
+        # daily catch for a daily wage (see src/business).
+        self.hasBoat = False
+        self.workers = 0
 
     def addFish(self, fishTypeName, amount):
         self.fishByType[fishTypeName] = self.fishByType.get(fishTypeName, 0) + amount
