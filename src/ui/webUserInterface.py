@@ -34,6 +34,8 @@ HTML_PAGE = """<!DOCTYPE html>
   button:hover { background: #1f4a63; }
   button.danger { background: #4a1620; border-color: #7a2a35; }
   button.danger:hover { background: #63202c; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:disabled:hover { background: #163345; }
   input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
           background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
           border-radius: 4px; }
@@ -135,9 +137,17 @@ function render(screen) {
   } else if (screen.type === "prompt") {
     app.append(el("div", { className: "descriptor", textContent: screen.text }));
     const inp = el("input", { type: "text" });
-    const submit = () => send(inp.value);
-    inp.onkeydown = (e) => { if (e.key === "Enter") submit(); };
     const b = el("button", { textContent: "Submit" });
+    const valid = () => !screen.numeric ||
+      (inp.value.trim() !== "" && !isNaN(Number(inp.value)));
+    const submit = () => { if (valid()) send(inp.value); };
+    if (screen.numeric) {
+      inp.inputMode = "decimal";
+      inp.placeholder = "Enter a number";
+      inp.oninput = () => { b.disabled = !valid(); };
+      b.disabled = true;  // nothing valid typed yet
+    }
+    inp.onkeydown = (e) => { if (e.key === "Enter") submit(); };
     b.onclick = submit;
     app.append(inp); app.append(b); inp.focus();
   } else if (screen.type === "timed") {
