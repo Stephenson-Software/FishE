@@ -8,3 +8,14 @@ class Player:
         self.priceForBait = 50
         self.energy = 100
         self.rodLevel = 1
+        # Per-species breakdown of the fish currently held. fishCount remains the
+        # aggregate total; addFish/clearFish keep the two in sync.
+        self.fishByType = {}
+
+    def addFish(self, fishTypeName, amount):
+        self.fishByType[fishTypeName] = self.fishByType.get(fishTypeName, 0) + amount
+        self.fishCount += amount
+
+    def clearFish(self):
+        self.fishByType = {}
+        self.fishCount = 0

@@ -9,6 +9,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
+from fish import fish
 
 
 # The catch reaction window widens with the player's rod level, so a better rod
@@ -186,11 +187,14 @@ class Docks:
         if fishToAdd == 0:
             fishToAdd = 1  # always land at least one fish for the effort
 
-        self.player.fishCount += fishToAdd
+        # Which species you hooked this trip, weighted by rarity.
+        fishTypeName = fish.rollFishType()
+        self.player.addFish(fishTypeName, fishToAdd)
         self.stats.totalFishCaught += fishToAdd
 
-        self.currentPrompt.text = "You caught %d fish over %d hours! %s" % (
+        self.currentPrompt.text = "You caught %d %s over %d hours! %s" % (
             fishToAdd,
+            fishTypeName,
             hours,
             qualityLabel,
         )

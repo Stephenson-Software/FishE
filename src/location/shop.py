@@ -6,6 +6,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
+from fish import fish
 
 
 # Upper bound on fishMultiplier so bait upgrades stop being an infinite power
@@ -114,10 +115,18 @@ class Shop:
             return LocationType.DOCKS
 
     def sellFish(self):
-        moneyToAdd = self.player.fishCount * random.randint(3, 5)
+        if self.player.fishByType:
+            # Price each species individually (rarer fish are worth more).
+            moneyToAdd = 0
+            for fishTypeName, count in self.player.fishByType.items():
+                moneyToAdd += count * fish.fishValue(fishTypeName)
+        else:
+            # Legacy save with only an aggregate count: flat $3-5 per fish.
+            moneyToAdd = self.player.fishCount * random.randint(3, 5)
+
         self.player.money += moneyToAdd
         self.stats.totalMoneyMade += moneyToAdd
-        self.player.fishCount = 0
+        self.player.clearFish()
 
         self.currentPrompt.text = "You sold all of your fish!"
 
