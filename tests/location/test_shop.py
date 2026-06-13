@@ -128,6 +128,24 @@ def test_sellFish():
     assert shopInstance.stats.totalMoneyMade > 0
 
 
+def test_sellFish_prices_by_species():
+    # prepare - hold two marlin (a high-value species)
+    from src.fish import fish
+
+    shopInstance = createShop()
+    shopInstance.player.money = 0
+    shopInstance.player.addFish("Marlin", 2)
+    marlin = fish.getFishType("Marlin")
+
+    # call
+    shopInstance.sellFish()
+
+    # check - sale is within 2x the species value range; inventory cleared
+    assert 2 * marlin["minValue"] <= shopInstance.player.money <= 2 * marlin["maxValue"]
+    assert shopInstance.player.fishByType == {}
+    assert shopInstance.player.fishCount == 0
+
+
 def test_buyBetterBait():
     # prepare
     shopInstance = createShop()

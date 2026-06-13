@@ -174,6 +174,40 @@ def test_rodLevel_round_trips():
     assert restored.rodLevel == 4
 
 
+def test_fishByType_round_trips():
+    # prepare
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.fishByType = {"Bass": 3, "Marlin": 1}
+
+    # call
+    playerJson = playerJsonReaderWriter.createJsonFromPlayer(player)
+    restored = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert playerJson["fishByType"] == {"Bass": 3, "Marlin": 1}
+    assert restored.fishByType == {"Bass": 3, "Marlin": 1}
+
+
+def test_createPlayerFromJson_missingFishByType_defaultsToEmpty():
+    # prepare - an older save with no fishByType field
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 5,
+        "fishMultiplier": 2,
+        "money": 100,
+        "moneyInBank": 50,
+        "priceForBait": 75,
+        "energy": 80,
+    }
+
+    # call
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert player.fishByType == {}
+
+
 def test_createPlayerFromJson_missingRodLevel_defaultsToOne():
     # prepare - an older save with no rodLevel field
     playerJsonReaderWriter = createPlayerJsonReaderWriter()

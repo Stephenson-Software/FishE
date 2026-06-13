@@ -29,6 +29,13 @@
         "rodLevel": {
             "type": "integer",
             "minimum": 1
+        },
+        "fishByType": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+            }
         }
     },
     "required": [
