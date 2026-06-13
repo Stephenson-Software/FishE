@@ -329,3 +329,48 @@ def test_getDrunk_updates_stats():
     assert tavernInstance.player.money == 10  # Lost $10
     assert tavernInstance.stats.timesGottenDrunk == 1
     assert tavernInstance.currentPrompt.text == "You have a headache."
+
+
+def test_getDrunk_can_earn_a_tip():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 20
+    tavernInstance.stats.totalMoneyMade = 0
+    tavern.print = MagicMock()
+    tavern.sys.stdout.flush = MagicMock()
+    tavern.time.sleep = MagicMock()
+    tavernInstance.timeService.increaseDay = MagicMock()
+
+    # call - land in the "tip" outcome (>= loss chance, < loss + tip) and fix
+    # the tip amount deterministically.
+    with patch("src.location.tavern.random.random", return_value=0.5), patch(
+        "src.location.tavern.random.randint", return_value=25
+    ):
+        tavernInstance.getDrunk()
+
+    # check - $10 drink cost, then +$25 tip => net +$15, and it counts as earnings
+    assert tavernInstance.player.money == 35
+    assert tavernInstance.stats.totalMoneyMade == 25
+    assert "earned $25" in tavernInstance.currentPrompt.text
+
+
+def test_gamble_win_pays_multiple_of_bet():
+    # prepare - drive the real gamble() loop: guess 3, dice rolls 3, then go back
+    from src.location.tavern import DICE_WIN_MULTIPLIER
+
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.currentBet = 50
+    tavernInstance.userInterface.showOptions = MagicMock(side_effect=["3", "8"])
+
+    # call
+    with patch("src.location.tavern.random.randint", return_value=3):
+        tavernInstance.gamble()
+
+    # check - a correct guess pays DICE_WIN_MULTIPLIER x the bet (not even money)
+    expectedWin = 50 * DICE_WIN_MULTIPLIER
+    assert tavernInstance.player.money == 100 + expectedWin
+    assert tavernInstance.stats.totalMoneyMade == expectedWin
+    assert tavernInstance.currentBet == 0
