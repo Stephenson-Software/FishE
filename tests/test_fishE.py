@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from src import fishE
 from src.player.player import Player
 from src.stats.stats import Stats
+from src.prompt.prompt import Prompt
 from src.world.timeService import TimeService
 from src.player.playerJsonReaderWriter import PlayerJsonReaderWriter
 from src.stats.statsJsonReaderWriter import StatsJsonReaderWriter
@@ -138,6 +139,51 @@ def test_save_writes_all_three_files():
         assert os.path.exists(os.path.join(slot, "player.json"))
         assert os.path.exists(os.path.join(slot, "stats.json"))
         assert os.path.exists(os.path.join(slot, "timeService.json"))
+
+
+def test_getTotalWealth_sums_cash_and_bank():
+    # prepare
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.player = Player()
+    game.player.money = 30
+    game.player.moneyInBank = 70
+
+    # check
+    assert game.getTotalWealth() == 100
+
+
+def test_announceGoalIfReached_fires_once():
+    # prepare - wealth at/above the goal
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.player = Player()
+    game.player.money = fishE.GOAL_AMOUNT
+    game.player.moneyInBank = 0
+    game.stats = Stats()
+    game.prompt = Prompt("hi")
+
+    # call - first time announces and records the flag
+    assert game.announceGoalIfReached() is True
+    assert fishE.GOAL_MILESTONE_NAME in game.stats.earnedMilestones
+    assert "GOAL REACHED" in game.prompt.text
+
+    # call again - already recorded, so it does not re-announce
+    game.prompt.text = "fresh"
+    assert game.announceGoalIfReached() is False
+    assert "GOAL REACHED" not in game.prompt.text
+
+
+def test_announceGoalIfReached_not_before_goal():
+    # prepare - wealth below the goal
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.player = Player()
+    game.player.money = fishE.GOAL_AMOUNT - 1
+    game.player.moneyInBank = 0
+    game.stats = Stats()
+    game.prompt = Prompt("hi")
+
+    # call
+    assert game.announceGoalIfReached() is False
+    assert fishE.GOAL_MILESTONE_NAME not in game.stats.earnedMilestones
 
 
 def test_loadPlayer_recovers_from_corrupt_file():

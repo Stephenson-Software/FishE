@@ -14,6 +14,12 @@ from saveFileManager import SaveFileManager
 from achievements import achievements
 
 
+# Total wealth (cash + bank) the player is working toward. Reaching it triggers
+# a one-time victory message; the game then continues until the player retires.
+GOAL_AMOUNT = 10000
+GOAL_MILESTONE_NAME = "Reached Goal"
+
+
 # @author Daniel McCoy Stephenson
 class FishE:
     def __init__(self):
@@ -193,8 +199,12 @@ class FishE:
 
     def play(self):
         while self.running:
-            # show the current location in the UI header
+            # show the current location and goal progress in the UI header
             self.userInterface.currentLocationName = self.currentLocation.capitalize()
+            self.userInterface.goalProgress = "$%d / $%d" % (
+                self.getTotalWealth(),
+                GOAL_AMOUNT,
+            )
 
             # change location
             nextLocation = self.locations[self.currentLocation].run()
@@ -210,9 +220,33 @@ class FishE:
             for milestone in newlyEarned:
                 self.prompt.text += "  [Milestone unlocked: %s!]" % milestone["name"]
 
+            # announce reaching the wealth goal once (the run continues)
+            self.announceGoalIfReached()
+
             # increase time & save
             self.timeService.increaseTime()
             self.save()
+
+    def getTotalWealth(self):
+        return self.player.money + self.player.moneyInBank
+
+    def announceGoalIfReached(self):
+        """Announce the wealth goal the first time it is reached.
+
+        The persisted earnedMilestones list doubles as the "already announced"
+        flag, so the victory is shown once and not repeated on later actions or
+        after a reload. Returns True only on the announcing call."""
+        if (
+            self.getTotalWealth() >= GOAL_AMOUNT
+            and GOAL_MILESTONE_NAME not in self.stats.earnedMilestones
+        ):
+            self.stats.earnedMilestones.append(GOAL_MILESTONE_NAME)
+            self.prompt.text += (
+                "  [GOAL REACHED! You've built your fortune of $%d! "
+                "Keep fishing, or retire from the Home menu.]" % GOAL_AMOUNT
+            )
+            return True
+        return False
 
     def save(self):
         # create data directory - use SaveFileManager's directory

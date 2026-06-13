@@ -15,6 +15,9 @@ class UserInterface:
         # Display name of the player's current location, shown in the header.
         # Set by the game loop before each render; empty hides the line.
         self.currentLocationName = ""
+        # Progress toward the wealth goal (e.g. "$1200 / $10000"), shown in the
+        # header. Set by the game loop before each render; empty hides the line.
+        self.goalProgress = ""
 
         self.times = {
             0: "12:00 AM",
@@ -68,6 +71,8 @@ class UserInterface:
             print(" | Money: $%.2f" % self.player.money)
             print(" | Fish: %d" % self.player.fishCount)
             print(" | Energy: %d" % self.player.energy)
+            if self.goalProgress:
+                print(" | Goal: " + self.goalProgress)
             print("\n " + self.currentPrompt.text)
             self.divider()
             self.n = 1
