@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from src.business import business
 from src.player.player import Player
 from src.stats.stats import Stats
@@ -38,6 +40,22 @@ def test_workers_catch_fish_and_draw_wages():
     assert player.fishCount == expectedFish
     assert player.money == 1000 - expectedWages
     assert stats.totalFishCaught == expectedFish
+
+
+def test_workers_catch_rolled_species_not_just_minnow():
+    # prepare - a boat and one worker; force the rolled species to Bass
+    player = Player()
+    player.hasBoat = True
+    player.workers = 1
+    player.money = 1000
+
+    # call - workers fish a rarity-rolled species, not a hard-coded one
+    with patch.object(business.fish, "rollFishType", return_value="Bass"):
+        business.runDailyProduction(player)
+
+    # check - the catch landed as the rolled species
+    assert player.fishByType.get("Bass") == business.WORKER_FISH_PER_DAY
+    assert "Minnow" not in player.fishByType
 
 
 def test_unaffordable_workers_quit():
