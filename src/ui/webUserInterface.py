@@ -22,7 +22,8 @@ HTML_PAGE = """<!DOCTYPE html>
   body { font-family: monospace; background: #0b1d2a; color: #e0f0ff;
          max-width: 680px; margin: 2rem auto; padding: 0 1rem; }
   .header { color: #7fb0d0; border-bottom: 1px solid #2a4a5a;
-            padding-bottom: .5rem; margin-bottom: 1rem; }
+            padding-bottom: .5rem; margin-bottom: 1rem;
+            display: flex; flex-wrap: wrap; gap: .15rem 1.1rem; }
   .descriptor { margin: 1rem 0; font-size: 1.1rem; }
   .prompt { color: #9fd0ff; margin: 1rem 0; }
   .dialogue { white-space: pre-wrap; margin: 1rem 0; line-height: 1.5; }
@@ -94,9 +95,10 @@ function render(screen) {
   if (screen.header) {
     const h = screen.header;
     const header = el("div", { className: "header" });
-    const addPart = (node) => {
-      if (header.childNodes.length) header.append("  |  ");
-      header.append(node);
+    // Each stat is its own chip; the flex-wrap row spaces them with whitespace
+    // and wraps cleanly on narrow screens instead of running off one long line.
+    const addPart = (content) => {
+      header.append(content instanceof Node ? content : el("span", { textContent: content }));
     };
     addPart(`Day ${h.day}`);
     addPart(h.time);
