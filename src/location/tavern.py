@@ -12,6 +12,18 @@ from ui.userInterface import UserInterface
 from npc.npc import NPC
 
 
+# Dice has 6 equally likely faces, so a correct guess pays 5x the bet to make
+# the wager roughly fair (EV ~= 0) instead of the old even-money payout, which
+# made gambling a guaranteed long-run loss no rational player would take.
+DICE_WIN_MULTIPLIER = 5
+
+# Chances applied while drunk, in order: lose a chunk of money, or instead pick
+# up a lucrative rumor. Giving drinking an upside (not just a downside) makes it
+# a real risk/reward choice rather than a pure money sink.
+DRUNK_LOSS_CHANCE = 0.3
+DRUNK_TIP_CHANCE = 0.3
+
+
 # @author Daniel McCoy Stephenson
 class Tavern:
     def __init__(
@@ -115,8 +127,10 @@ class Tavern:
 
         self.stats.timesGottenDrunk += 1
 
-        # Random chance of losing additional money while drunk
-        if random.random() < 0.3:  # 30% chance
+        # A night of drinking is a gamble: you might lose money in a drunken
+        # stupor, or you might overhear a lucrative rumor and come out ahead.
+        roll = random.random()
+        if roll < DRUNK_LOSS_CHANCE:
             if self.player.money > 0:
                 # Lose between 10% and 50% of remaining money
                 loss_percentage = random.uniform(0.1, 0.5)
@@ -129,6 +143,14 @@ class Tavern:
                     self.currentPrompt.text = "You have a headache."
             else:
                 self.currentPrompt.text = "You have a headache."
+        elif roll < DRUNK_LOSS_CHANCE + DRUNK_TIP_CHANCE:
+            # Pick up a profitable rumor at the bar.
+            tip = random.randint(15, 30)
+            self.player.money += tip
+            self.stats.totalMoneyMade += tip
+            self.currentPrompt.text = (
+                f"You have a headache, but a regular tipped you off to a hot catch — you earned ${tip}!"
+            )
         else:
             self.currentPrompt.text = "You have a headache."
 
@@ -139,7 +161,9 @@ class Tavern:
             li = ["1", "2", "3", "4", "5", "6", "Change Bet", "Back"]
             input = int(
                 self.userInterface.showOptions(
-                    "Once you place your bet, the burly man in front of you will throw the dice.",
+                    "Once you place your bet, the burly man in front of you will throw the dice. "
+                    "Guess the number right and he pays out %dx your bet."
+                    % DICE_WIN_MULTIPLIER,
                     li,
                 )
             )
@@ -148,9 +172,9 @@ class Tavern:
                 self.diceThrow = random.randint(1, 6)
 
                 if input == self.diceThrow:
-                    winAmount = self.currentBet
-                    self.player.money += self.currentBet
-                    self.stats.totalMoneyMade += self.currentBet
+                    winAmount = self.currentBet * DICE_WIN_MULTIPLIER
+                    self.player.money += winAmount
+                    self.stats.totalMoneyMade += winAmount
                     self.currentBet = 0
                     self.currentPrompt.text = (
                         "The dice rolled a %d! You won $%d! Care to try again? Current Bet: $%d"
