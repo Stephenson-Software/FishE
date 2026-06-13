@@ -255,5 +255,5 @@ class FishE:
 
 
 if __name__ == "__main__":
-    FishE = FishE()
-    FishE.play()
+    game = FishE()
+    game.play()

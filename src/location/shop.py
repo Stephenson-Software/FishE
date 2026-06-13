@@ -71,7 +71,7 @@ class Shop:
     def run(self):
         li = [
             "Sell Fish",
-            "Buy Better Bait ( $%d )" % self.player.priceForBait,
+            "Buy Better Bait ( $%.2f )" % self.player.priceForBait,
             "Talk to %s" % self.npc.name,
             "Go to Docks",
         ]

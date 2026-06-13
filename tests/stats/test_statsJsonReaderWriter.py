@@ -43,6 +43,7 @@ def test_createStatsFromJson():
         "moneyMadeFromInterest": 2,
         "timesGottenDrunk": 2,
         "moneyLostFromGambling": 2,
+        "moneyLostWhileDrunk": 2,
     }
 
     # validate
@@ -57,6 +58,7 @@ def test_createStatsFromJson():
     assert statsFromJson.moneyMadeFromInterest == 2
     assert statsFromJson.timesGottenDrunk == 2
     assert statsFromJson.moneyLostFromGambling == 2
+    assert statsFromJson.moneyLostWhileDrunk == 2
 
 
 def test_writeStatsToFile():

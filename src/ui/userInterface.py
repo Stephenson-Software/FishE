@@ -60,7 +60,7 @@ class UserInterface:
             self.divider()
             print(" Day %d" % self.timeService.day)
             print(" | " + self.times[self.timeService.time])
-            print(" | Money: $%d" % self.player.money)
+            print(" | Money: $%.2f" % self.player.money)
             print(" | Fish: %d" % self.player.fishCount)
             print(" | Energy: %d" % self.player.energy)
             print("\n " + self.currentPrompt.text)
