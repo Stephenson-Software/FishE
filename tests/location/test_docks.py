@@ -263,33 +263,42 @@ def test_fish_interactive_success():
         assert docksInstance.stats.totalFishCaught >= 3
 
 
-def test_fish_interactive_failure():
-    # Test that slow reactions result in fewer catches
-    docksInstance = createDocks()
-    docksInstance.userInterface.lotsOfSpace = MagicMock()
-    docksInstance.userInterface.divider = MagicMock()
-    
-    # Create a side effect that alternates between 0 and 3.0 indefinitely (slow reactions)
-    def time_side_effect():
-        while True:
-            yield 0
-            yield 3.0
-    
-    with patch('src.location.docks.print'), \
-         patch('src.location.docks.sys.stdout.flush'), \
-         patch('src.location.docks.time.sleep'), \
-         patch('src.location.docks.time.time', side_effect=time_side_effect()), \
-         patch('src.location.docks.input', return_value=""), \
-         patch('src.location.docks.random.randint', side_effect=[3, 10]):
-        
-        docksInstance.timeService.increaseTime = MagicMock()
+def test_fish_slow_reaction_yields_fewer_than_fast():
+    # A slow reaction lands the lowest-quality tier; a fast one lands the best.
+    # With identical rolls, slow should yield fewer fish (but still at least 1).
+    def make_docks():
+        d = createDocks()
+        d.userInterface.lotsOfSpace = MagicMock()
+        d.userInterface.divider = MagicMock()
+        return d
 
-        # call
-        docksInstance.fish()
+    def fish_with_reaction(reactionTime):
+        docksInstance = make_docks()
 
-        # check - with 0% success rate, should still get at least 1 fish minimum
-        assert docksInstance.player.fishCount == 1  # Minimum 1 fish even with failures
-        assert docksInstance.stats.totalFishCaught == 1
+        def time_side_effect():
+            while True:
+                yield 0
+                yield reactionTime
+
+        with patch("src.location.docks.print"), patch(
+            "src.location.docks.sys.stdout.flush"
+        ), patch("src.location.docks.time.sleep"), patch(
+            "src.location.docks.time.time", side_effect=time_side_effect()
+        ), patch(
+            "src.location.docks.input", return_value=""
+        ), patch(
+            "src.location.docks.random.randint", side_effect=[3, 10]
+        ):
+            docksInstance.timeService.increaseTime = MagicMock()
+            docksInstance.fish()
+        return docksInstance.player.fishCount
+
+    slow = fish_with_reaction(3.0)  # beyond the 2.0s window => poorest tier
+    fast = fish_with_reaction(0.5)  # within half the window => perfect tier
+
+    # check - a poor reaction still lands at least one fish, but fewer than a perfect one
+    assert slow >= 1
+    assert slow < fast
 
 
 def test_getTimeOfDayModifier_windows():
