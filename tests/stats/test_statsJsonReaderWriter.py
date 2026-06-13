@@ -125,3 +125,22 @@ def test_readStatsFromFile():
     import os
 
     os.remove(temp_file_path)
+
+
+def test_createStatsFromJson_missingAllFields_usesDefaults():
+    # prepare - a corrupt/partial save with no recognizable fields
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    statsJson = {}
+
+    # call - must not raise KeyError
+    stats = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check - every field falls back to the Stats() default
+    defaults = Stats()
+    assert stats.totalFishCaught == defaults.totalFishCaught
+    assert stats.totalMoneyMade == defaults.totalMoneyMade
+    assert stats.hoursSpentFishing == defaults.hoursSpentFishing
+    assert stats.moneyMadeFromInterest == defaults.moneyMadeFromInterest
+    assert stats.timesGottenDrunk == defaults.timesGottenDrunk
+    assert stats.moneyLostFromGambling == defaults.moneyLostFromGambling
+    assert stats.moneyLostWhileDrunk == defaults.moneyLostWhileDrunk

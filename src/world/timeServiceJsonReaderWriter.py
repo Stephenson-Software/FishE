@@ -7,9 +7,12 @@ class TimeServiceJsonReaderWriter:
         return {"time": timeService.time, "day": timeService.day}
 
     def createTimeServiceFromJson(self, timeServiceJson, player, stats):
+        # Read each field with a fallback to the freshly-constructed
+        # TimeService's default, so a save file missing any field loads
+        # gracefully instead of raising KeyError (backwards compatibility).
         timeService = TimeService(player, stats)
-        timeService.time = timeServiceJson["time"]
-        timeService.day = timeServiceJson["day"]
+        timeService.time = timeServiceJson.get("time", timeService.time)
+        timeService.day = timeServiceJson.get("day", timeService.day)
         return timeService
 
     def writeTimeServiceToFile(self, timeService, jsonFile):
