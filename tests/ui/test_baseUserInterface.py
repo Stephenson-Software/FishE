@@ -59,6 +59,12 @@ class RecordingUserInterface(BaseUserInterface):
     def showDialogue(self, text):
         self.shownDialogues.append(text)
 
+    def promptForText(self, promptText):
+        return self.choices.pop(0)
+
+    def timedKeyPress(self, message):
+        return 0.0
+
     def cleanup(self):
         pass
 
@@ -74,6 +80,16 @@ class FakeNPC:
 
     def introduce(self):
         return "Hello"
+
+
+def test_promptForNumber_parses_or_returns_none():
+    # prepare - first reply is numeric, second is not
+    prompt, timeService, player = makeArgs()
+    ui = RecordingUserInterface(prompt, timeService, player, choices=["12.5", "abc"])
+
+    # check - numeric parses to float; non-numeric yields None (no exception)
+    assert ui.promptForNumber("How much?") == 12.5
+    assert ui.promptForNumber("How much?") is None
 
 
 def test_inherited_interactive_dialogue_uses_primitives():

@@ -139,14 +139,12 @@ def test_deposit_success():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.money = 100
     bankInstance.player.moneyInBank = 0
-    bank.print = MagicMock()
-    bank.input = MagicMock(return_value="10")
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=10.0)
 
     # call
     bankInstance.deposit()
 
     # check
-    bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 10
     assert bankInstance.player.money == 90
 
@@ -158,14 +156,12 @@ def test_deposit_failure_not_enough_money():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.money = 5
     bankInstance.player.moneyInBank = 0
-    bank.print = MagicMock()
-    bank.input = MagicMock(return_value="10")
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=10.0)
 
     # call
     bankInstance.deposit()
 
     # check
-    bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 0
     assert bankInstance.player.money == 5
 
@@ -177,14 +173,12 @@ def test_withdraw_success():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.moneyInBank = 100
     bankInstance.player.money = 0
-    bank.print = MagicMock()
-    bank.input = MagicMock(return_value="10")
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=10.0)
 
     # call
     bankInstance.withdraw()
 
     # check
-    bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 90
     assert bankInstance.player.money == 10
 
@@ -196,14 +190,12 @@ def test_withdraw_failure_not_enough_money():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.moneyInBank = 5
     bankInstance.player.money = 0
-    bank.print = MagicMock()
-    bank.input = MagicMock(return_value="10")
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=10.0)
 
     # call
     bankInstance.withdraw()
 
     # check
-    bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 5
     assert bankInstance.player.money == 0
 
@@ -215,14 +207,12 @@ def test_deposit_with_decimal():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.money = 100.50
     bankInstance.player.moneyInBank = 0
-    bank.print = MagicMock()
-    bank.input = MagicMock(return_value="10.25")
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=10.25)
 
     # call
     bankInstance.deposit()
 
     # check
-    bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 10.25
     assert bankInstance.player.money == 90.25
 
@@ -234,13 +224,11 @@ def test_withdraw_with_decimal():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.moneyInBank = 100.75
     bankInstance.player.money = 0
-    bank.print = MagicMock()
-    bank.input = MagicMock(return_value="10.50")
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=10.50)
 
     # call
     bankInstance.withdraw()
 
     # check
-    bank.print.assert_called_once()
     assert bankInstance.player.moneyInBank == 90.25
     assert bankInstance.player.money == 10.50

@@ -159,15 +159,11 @@ class Docks:
         reactionWindow = REACTION_BASE_WINDOW + (self.player.rodLevel - 1) * ROD_WINDOW_STEP
 
         # One timing challenge per cast (not a pass/fail repeated every hour):
-        # how quickly you set the hook maps to a catch-quality tier.
-        print("Cast your line... press Enter the moment you feel a bite! ")
-        sys.stdout.flush()
-        startTime = time.time()
-        try:
-            input()
-            reactionTime = time.time() - startTime
-        except (KeyboardInterrupt, EOFError):
-            reactionTime = reactionWindow + 1.0  # an aborted input counts as a miss
+        # how quickly you set the hook maps to a catch-quality tier. The active
+        # front-end captures and times the reaction, so this works in any UI.
+        reactionTime = self.userInterface.timedKeyPress(
+            "A fish is biting! React the moment you feel a bite!"
+        )
 
         if reactionTime <= reactionWindow / 2:
             quality, qualityLabel = 1.0, "A perfect hook!"

@@ -3,7 +3,7 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui import userInterface
 from src.world.timeService import TimeService
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def createUserInterface():
@@ -204,3 +204,49 @@ def test_showInteractiveDialogue_invalid_choice():
     # Should have printed "Invalid choice" message
     print_calls = [str(call) for call in userInterface.print.call_args_list]
     assert any("Invalid choice" in str(call) for call in print_calls)
+
+
+def test_promptForText_returns_entered_line():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="42")
+
+    # call
+    result = userInterfaceInstance.promptForText("How much?")
+
+    # check - the prompt is shown and the typed line is returned
+    assert result == "42"
+    userInterface.input.assert_called_with("> ")
+    printed = [str(call) for call in userInterface.print.call_args_list]
+    assert any("How much?" in call for call in printed)
+
+
+def test_promptForNumber_parses_console_input():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+    userInterface.print = MagicMock()
+
+    # check - numeric input parses; non-numeric returns None
+    userInterface.input = MagicMock(return_value="10.5")
+    assert userInterfaceInstance.promptForNumber("Amount?") == 10.5
+    userInterface.input = MagicMock(return_value="oops")
+    assert userInterfaceInstance.promptForNumber("Amount?") is None
+
+
+def test_timedKeyPress_returns_reaction_seconds():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterface.print = MagicMock()
+    userInterface.input = MagicMock(return_value="")
+
+    # call - start at t=0, key pressed at t=1.5
+    with patch("src.ui.userInterface.time.time", side_effect=[0.0, 1.5]):
+        reaction = userInterfaceInstance.timedKeyPress("React!")
+
+    # check
+    assert reaction == 1.5

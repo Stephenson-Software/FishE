@@ -116,14 +116,16 @@ def test_sleep_restores_energy():
 def test_displayStats():
     # prepare
     homeInstance = createHome()
-    homeInstance.userInterface.lotsOfSpace = MagicMock()
-    home.print = MagicMock()
-    home.input = MagicMock()
+    homeInstance.userInterface.showDialogue = MagicMock()
 
     # call
     homeInstance.displayStats()
 
-    # check - 6 stat lines + blank, then "Milestones:" + one line per milestone + blank
-    assert homeInstance.userInterface.lotsOfSpace.call_count == 1
-    assert home.print.call_count == 9 + len(achievements.MILESTONES)
-    assert home.input.call_count == 1
+    # check - the stats screen is rendered through the active UI (so any front-end
+    # can show it), and includes the stat lines and every milestone
+    homeInstance.userInterface.showDialogue.assert_called_once()
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Total Fish Caught" in shownText
+    assert "Milestones:" in shownText
+    for milestone in achievements.MILESTONES:
+        assert milestone["name"] in shownText

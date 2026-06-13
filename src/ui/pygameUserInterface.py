@@ -1,5 +1,6 @@
 import pygame
 import sys
+import time
 from ui.baseUserInterface import BaseUserInterface
 from prompt.prompt import Prompt
 from player.player import Player
@@ -240,6 +241,63 @@ class PygameUserInterface(BaseUserInterface):
             pygame.time.Clock().tick(60)
 
         self.currentPrompt.text = "What would you like to do?"
+
+    def promptForText(self, promptText):
+        """Capture a line of text typed in the pygame window (Enter submits)."""
+        entered = ""
+        typing = True
+        while typing:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                    sys.exit()
+                elif event.type == pygame.VIDEORESIZE:
+                    self._handle_resize(event.w, event.h)
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        typing = False
+                    elif event.key == pygame.K_BACKSPACE:
+                        entered = entered[:-1]
+                    elif event.unicode and event.unicode.isprintable():
+                        entered += event.unicode
+
+            self.screen.fill(self.BLACK)
+            margin_x = self.width * 0.06
+            prompt_surface = self.font_medium.render(promptText, True, self.WHITE)
+            self.screen.blit(prompt_surface, (margin_x, self.height * 0.3))
+            entry_surface = self.font_medium.render("> " + entered, True, self.LIGHT_BLUE)
+            self.screen.blit(entry_surface, (margin_x, self.height * 0.45))
+            hint_surface = self.font_small.render(
+                "Type your answer and press ENTER", True, self.GRAY
+            )
+            self.screen.blit(hint_surface, (margin_x, self.height * 0.6))
+            pygame.display.flip()
+            pygame.time.Clock().tick(60)
+
+        return entered
+
+    def timedKeyPress(self, message):
+        """Show a message and return the seconds until the player presses a key."""
+        startTime = time.time()
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                    sys.exit()
+                elif event.type == pygame.VIDEORESIZE:
+                    self._handle_resize(event.w, event.h)
+                elif event.type == pygame.KEYDOWN:
+                    waiting = False
+
+            self.screen.fill(self.BLACK)
+            margin_x = self.width * 0.06
+            message_surface = self.font_medium.render(message, True, self.WHITE)
+            self.screen.blit(message_surface, (margin_x, self.height * 0.4))
+            pygame.display.flip()
+            pygame.time.Clock().tick(60)
+
+        return time.time() - startTime
 
     def cleanup(self):
         """Clean up pygame resources"""
