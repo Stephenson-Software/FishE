@@ -41,6 +41,7 @@ HTML_PAGE = """<!DOCTYPE html>
   .controls { font-size: .8rem; color: #6a8aa0; border-top: 1px solid #2a4a5a;
               margin-top: 1.5rem; padding-top: .5rem; }
   .low { color: #ff8a8a; font-weight: bold; }
+  .notice { color: #9fd0ff; margin-top: 1rem; }
 </style>
 </head>
 <body>
@@ -68,12 +69,14 @@ async function poll() {
   }
   setTimeout(poll, 300);
 }
-function renderDisconnected() {
-  currentScreen = null;
+function renderNotice(text, className) {
   const app = document.getElementById("app");
   app.innerHTML = "";
-  app.append(el("div", { className: "prompt",
-    textContent: "Lost connection to the game — is it still running? Retrying…" }));
+  app.append(el("div", { className: className || "notice", textContent: text }));
+}
+function renderDisconnected() {
+  currentScreen = null;
+  renderNotice("Lost connection to the game — is it still running? Retrying…");
 }
 async function send(value) {
   currentScreen = null;  // ignore stray keypresses until the next screen arrives
@@ -90,8 +93,8 @@ function render(screen) {
   const app = document.getElementById("app");
   app.innerHTML = "";
   currentScreen = screen;  // let keyboard shortcuts act on what's on screen
-  if (!screen || screen.type === "loading") { app.append("Waiting for the game…"); return; }
-  if (screen.type === "ended") { app.append("The game has ended. You can close this tab."); return; }
+  if (!screen || screen.type === "loading") { renderNotice("Waiting for the game…"); return; }
+  if (screen.type === "ended") { renderNotice("The game has ended. You can close this tab."); return; }
   if (screen.header) {
     const h = screen.header;
     const header = el("div", { className: "header" });
