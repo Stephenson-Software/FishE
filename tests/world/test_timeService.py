@@ -59,11 +59,29 @@ def test_increaseDay():
     # call
     timeService.increaseDay()
 
-    # check
+    # check - interest is 2% of 100 = 2 (well under the per-day cap)
     expected_day = 2
     expected_time = 8
     assert timeService.day == expected_day
     assert timeService.time == expected_time
-    assert timeService.player.moneyInBank == 110
-    assert timeService.stats.moneyMadeFromInterest == 10
-    assert timeService.stats.totalMoneyMade == 110
+    assert timeService.player.moneyInBank == 102
+    assert timeService.stats.moneyMadeFromInterest == 2
+    assert timeService.stats.totalMoneyMade == 102
+
+
+def test_increaseDay_interest_is_capped():
+    # prepare - a large balance whose 2% would exceed the per-day cap
+    from src.world.timeService import MAX_INTEREST_PER_DAY
+
+    timeService = createTimeService()
+    timeService.player.moneyInBank = 1000000
+    timeService.stats.moneyMadeFromInterest = 0
+    timeService.stats.totalMoneyMade = 0
+
+    # call
+    timeService.increaseDay()
+
+    # check - interest is clamped to the cap, not 2% of the balance
+    assert timeService.stats.moneyMadeFromInterest == MAX_INTEREST_PER_DAY
+    assert timeService.player.moneyInBank == 1000000 + MAX_INTEREST_PER_DAY
+    assert timeService.stats.totalMoneyMade == MAX_INTEREST_PER_DAY
