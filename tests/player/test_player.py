@@ -17,6 +17,8 @@ def test_initialization():
     assert player.energy == 100
     assert player.rodLevel == 1
     assert player.fishByType == {}
+    assert player.hasBoat is False
+    assert player.workers == 0
 
 
 def test_addFish_and_clearFish_keep_count_in_sync():

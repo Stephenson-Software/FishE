@@ -1,5 +1,7 @@
 import math
 
+from business import business
+
 
 # Daily bank interest is deliberately modest and capped so that saving is a
 # minor convenience rather than a way to bypass fishing entirely: sleeping is
@@ -36,3 +38,6 @@ class TimeService:
         self.player.moneyInBank += moneyToAdd
         self.stats.moneyMadeFromInterest += moneyToAdd
         self.stats.totalMoneyMade += moneyToAdd
+
+        # The fishing business (if any) produces its daily catch and pays wages.
+        business.runDailyProduction(self.player, self.stats)

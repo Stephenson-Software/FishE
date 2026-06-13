@@ -10,6 +10,7 @@ from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
 from fish import fish
+from business import business
 
 
 # The catch reaction window widens with the player's rod level, so a better rod
@@ -84,7 +85,15 @@ class Docks:
         )
 
     def run(self):
-        li = ["Fish", "Talk to %s" % self.npc.name, "Go Home", "Go to Shop", "Go to Tavern", "Go to Bank"]
+        li = [
+            "Fish",
+            "Talk to %s" % self.npc.name,
+            "Go Home",
+            "Go to Shop",
+            "Go to Tavern",
+            "Go to Bank",
+            "Manage Boat & Crew",
+        ]
         input = self.userInterface.showOptions(
             "You breathe in the fresh air. Salty.", li
         )
@@ -119,6 +128,71 @@ class Docks:
                 % self.player.moneyInBank
             )
             return LocationType.BANK
+
+        elif input == "7":
+            self.manageBusiness()
+            return LocationType.DOCKS
+
+    def _businessStatus(self):
+        if not self.player.hasBoat:
+            return (
+                "You have no boat. A boat lets you hire a crew that brings in a "
+                "passive catch each day. A boat costs $%d." % business.BOAT_PRICE
+            )
+        return (
+            "Your crew: %d/%d workers. Each catches %d fish per day for $%d in "
+            "wages, paid automatically every new day."
+            % (
+                self.player.workers,
+                business.MAX_WORKERS,
+                business.WORKER_FISH_PER_DAY,
+                business.WORKER_DAILY_WAGE,
+            )
+        )
+
+    def manageBusiness(self):
+        while True:
+            options = []
+            actions = []
+            if not self.player.hasBoat:
+                options.append("Buy a Boat ($%d)" % business.BOAT_PRICE)
+                actions.append("buy_boat")
+            else:
+                if self.player.workers < business.MAX_WORKERS:
+                    options.append(
+                        "Hire a Worker (+%d fish/day for $%d/day)"
+                        % (business.WORKER_FISH_PER_DAY, business.WORKER_DAILY_WAGE)
+                    )
+                    actions.append("hire")
+                if self.player.workers > 0:
+                    options.append("Dismiss a Worker")
+                    actions.append("dismiss")
+            options.append("Back")
+            actions.append("back")
+
+            choice = int(
+                self.userInterface.showOptions(self._businessStatus(), options)
+            )
+            action = actions[choice - 1]
+
+            if action == "buy_boat":
+                if self.player.money >= business.BOAT_PRICE:
+                    self.player.money -= business.BOAT_PRICE
+                    self.player.hasBoat = True
+                    self.currentPrompt.text = "You bought a boat! Now hire a crew."
+                else:
+                    self.currentPrompt.text = "You can't afford a boat yet."
+            elif action == "hire":
+                self.player.workers += 1
+                self.currentPrompt.text = (
+                    "You hired a worker. They'll fish each day for their wage."
+                )
+            elif action == "dismiss":
+                self.player.workers -= 1
+                self.currentPrompt.text = "You let a worker go."
+            elif action == "back":
+                self.currentPrompt.text = "What would you like to do?"
+                return
 
     def getTimeOfDayModifier(self, hour):
         """Return (yield factor, flavour label) for fishing at the given hour.

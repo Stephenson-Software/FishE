@@ -19,6 +19,9 @@ The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dial
 ### Your Goal
 Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the bank). Your progress toward the goal is shown in the status header, and reaching it earns a one-time victory — after which you're free to keep fishing or retire from the Home menu.
 
+### Fishing Business
+Once you can afford it, buy a **boat** at the docks ("Manage Boat & Crew") and **hire workers**. Each day your crew brings in a passive catch in exchange for a daily wage — turning saved-up money into ongoing production. If you over-hire and can't make payroll, the workers you can't pay quit, so keep enough cash on hand to cover wages.
+
 ### Multiple Save Files
 FishE supports multiple save files, allowing you to maintain different game progressions simultaneously. When you start the game, you'll see a save file manager that displays:
 
