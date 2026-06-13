@@ -22,6 +22,9 @@ Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the
 ### Fishing Business
 Once you can afford it, buy a **boat** at the docks ("Manage Boat & Crew") and **hire workers**. Each day your crew brings in a passive catch in exchange for a daily wage — turning saved-up money into ongoing production. If you over-hire and can't make payroll, the workers you can't pay quit, so keep enough cash on hand to cover wages.
 
+### Selling Fish
+Sell your catch at the shop. The shop has a limited amount of money each day that refills overnight, so a very large haul may sell out the shop and need to be finished the next day — sell regularly, and park your earnings in the bank or reinvest them in gear and your crew.
+
 ### Multiple Save Files
 FishE supports multiple save files, allowing you to maintain different game progressions simultaneously. When you start the game, you'll see a save file manager that displays:
 

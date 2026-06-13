@@ -229,3 +229,54 @@ def test_buyBetterRod_refused_at_cap():
     assert shopInstance.player.rodLevel == MAX_ROD_LEVEL
     assert shopInstance.player.money == 1000000
     assert shopInstance.currentPrompt.text == "Your rod is already the finest in the village!"
+
+
+def test_sellFish_limited_by_shop_budget():
+    # prepare - a haul worth far more than the shop's daily budget
+    from src.fish import fish
+    from src.location.shop import SHOP_DAILY_BUDGET
+
+    shopInstance = createShop()
+    shopInstance.player.money = 0
+    # 100 Marlins ($15-25 each) >> the budget, so the shop can't buy them all
+    shopInstance.player.addFish("Marlin", 100)
+
+    # call
+    shopInstance.sellFish()
+
+    # check - the shop spent (about) its whole budget and some fish remain unsold
+    assert shopInstance.player.money <= SHOP_DAILY_BUDGET
+    assert shopInstance.player.money > SHOP_DAILY_BUDGET - 25  # within one fish of the cap
+    assert shopInstance.money < 25  # budget nearly exhausted
+    assert shopInstance.player.fishCount > 0  # leftovers carried over
+    assert "out of money for today" in shopInstance.currentPrompt.text
+
+
+def test_shop_budget_refills_next_day():
+    # prepare - exhaust the shop's budget
+    shopInstance = createShop()
+    shopInstance.player.addFish("Marlin", 100)
+    shopInstance.sellFish()
+    assert shopInstance.money < 25  # drained
+
+    # a new day begins
+    shopInstance.timeService.day += 1
+
+    # call - selling again first refills the budget for the new day
+    leftover_before = shopInstance.player.fishCount
+    shopInstance.sellFish()
+
+    # check - more fish sold (budget refilled), inventory shrank further
+    assert shopInstance.player.fishCount < leftover_before
+
+
+def test_sellFish_no_fish_message():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.player.clearFish()
+
+    # call
+    shopInstance.sellFish()
+
+    # check
+    assert shopInstance.currentPrompt.text == "You have no fish to sell."
