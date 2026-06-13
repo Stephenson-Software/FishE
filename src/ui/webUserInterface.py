@@ -31,6 +31,8 @@ HTML_PAGE = """<!DOCTYPE html>
            border: 1px solid #2a4a5a; border-radius: 4px; cursor: pointer;
            font-family: monospace; font-size: 1rem; }
   button:hover { background: #1f4a63; }
+  button.danger { background: #4a1620; border-color: #7a2a35; }
+  button.danger:hover { background: #63202c; }
   input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
           background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
           border-radius: 4px; }
@@ -41,15 +43,34 @@ HTML_PAGE = """<!DOCTYPE html>
 <div id="app">Connecting&hellip;</div>
 <script>
 let version = -1;
+let currentScreen = null;
+let failures = 0;
 async function poll() {
   try {
     const response = await fetch("/state");
     const state = await response.json();
+    const recovered = failures >= 5;
+    failures = 0;
+    if (recovered) version = -1;  // force a re-render to clear the disconnect banner
     if (state.version !== version) { version = state.version; render(state.screen); }
-  } catch (e) { /* server not ready yet */ }
+  } catch (e) {
+    failures++;
+    // Don't clobber the intentional "game ended" screen with a scary banner.
+    if (failures === 5 && !(currentScreen && currentScreen.type === "ended")) {
+      renderDisconnected();
+    }
+  }
   setTimeout(poll, 300);
 }
+function renderDisconnected() {
+  currentScreen = null;
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  app.append(el("div", { className: "prompt",
+    textContent: "Lost connection to the game — is it still running? Retrying…" }));
+}
 async function send(value) {
+  currentScreen = null;  // ignore stray keypresses until the next screen arrives
   document.getElementById("app").innerHTML = "&hellip;";
   await fetch("/input", { method: "POST", body: JSON.stringify({ value: value }) });
 }
@@ -62,6 +83,7 @@ function el(tag, props, ...kids) {
 function render(screen) {
   const app = document.getElementById("app");
   app.innerHTML = "";
+  currentScreen = screen;  // let keyboard shortcuts act on what's on screen
   if (!screen || screen.type === "loading") { app.append("Waiting for the game…"); return; }
   if (screen.type === "ended") { app.append("The game has ended. You can close this tab."); return; }
   if (screen.header) {
@@ -75,7 +97,10 @@ function render(screen) {
   if (screen.prompt) app.append(el("div", { className: "prompt", textContent: screen.prompt }));
   if (screen.type === "options") {
     screen.options.forEach((opt, i) => {
-      const b = el("button", { textContent: `[${i + 1}] ${opt}` });
+      const b = el("button", {
+        textContent: `[${i + 1}] ${opt}`,
+        className: /delete/i.test(opt) ? "danger" : "",
+      });
       b.onclick = () => send(String(i + 1));
       app.append(b);
     });
@@ -99,6 +124,22 @@ function render(screen) {
     app.append(b);
   }
 }
+// Keyboard control, matching the console/pygame front-ends: number keys pick an
+// option; Enter or Space advances a dialogue or the timed prompt. Typing in the
+// text field is left to the field itself.
+document.addEventListener("keydown", (e) => {
+  const s = currentScreen;
+  if (!s) return;
+  if (e.target && e.target.tagName === "INPUT") return;
+  if (s.type === "options") {
+    if (e.key >= "1" && e.key <= "9") {
+      const n = parseInt(e.key, 10);
+      if (n <= s.options.length) { e.preventDefault(); send(String(n)); }
+    }
+  } else if (s.type === "dialogue" || s.type === "timed") {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); send(""); }
+  }
+});
 poll();
 </script>
 </body>
