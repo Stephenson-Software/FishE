@@ -27,7 +27,7 @@ INTERFACE_TYPE = UIType.CONSOLE
 
 # @author Daniel McCoy Stephenson
 class FishE:
-    def __init__(self):
+    def __init__(self, interfaceType=INTERFACE_TYPE):
         self.running = True
 
         self.playerJsonReaderWriter = PlayerJsonReaderWriter()
@@ -43,7 +43,7 @@ class FishE:
         self.timeService = TimeService(self.player, self.stats)
         self.prompt = Prompt("What would you like to do?")
         self.userInterface = UserInterfaceFactory.create_user_interface(
-            INTERFACE_TYPE, self.prompt, self.timeService, self.player
+            interfaceType, self.prompt, self.timeService, self.player
         )
 
         # Migrate old save files to new format if they exist

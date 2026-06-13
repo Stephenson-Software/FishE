@@ -5,3 +5,4 @@ from enum import Enum
 class UIType(Enum):
     CONSOLE = "console"
     PYGAME = "pygame"
+    WEB = "web"

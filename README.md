@@ -6,6 +6,16 @@ This game allows you to explore a fishing village and perform actions in it.
 
 ## Features
 
+### Play in your browser (web interface)
+FishE runs behind a single user-interface contract, so it supports multiple front-ends: the default text/console interface, a pygame window, and a browser-based **web interface**. To play in the browser, run the example web app and open the printed URL:
+
+```bash
+python3 examples/web_app.py
+# then open http://127.0.0.1:8000
+```
+
+The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dialogue — plays in the browser, with no extra dependencies (it uses only the Python standard library). Adding a new front-end means implementing `BaseUserInterface` and adding a `UIType` + factory branch.
+
 ### Your Goal
 Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the bank). Your progress toward the goal is shown in the status header, and reaching it earns a one-time victory — after which you're free to keep fishing or retire from the Home menu.
 
