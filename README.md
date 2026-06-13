@@ -15,3 +15,14 @@ FishE supports multiple save files, allowing you to maintain different game prog
 - **Quick Load**: Load any existing save file to continue your adventure
 
 Each save file is stored in its own slot (slot_1, slot_2, etc.) in the `data/` directory, ensuring your saves never conflict with each other.
+
+## Contributing
+
+This project uses a simple, trunk-based branching model:
+
+- `main` is the single long-lived branch and the source of truth.
+- Branch off `main` for any change (e.g. `feature/...`, `fix/...`, `chore/...`).
+- Open a pull request back into `main`. CI runs the test suite on every PR.
+- Once CI is green and the change is reviewed, merge into `main` and delete the feature branch.
+
+There is no `develop` branch — work flows directly off of and back into `main`.
