@@ -29,5 +29,10 @@ class UserInterfaceFactory:
             from ui.pygameUserInterface import PygameUserInterface
 
             return PygameUserInterface(currentPrompt, timeService, player)
+        elif ui_type == UIType.WEB:
+            # Imported lazily so other modes don't start the HTTP machinery.
+            from ui.webUserInterface import WebUserInterface
+
+            return WebUserInterface(currentPrompt, timeService, player)
         else:
             raise ValueError(f"Unsupported UI type: {ui_type}")
