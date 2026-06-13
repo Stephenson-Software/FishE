@@ -129,3 +129,35 @@ def test_promptForText_handles_backspace():
         assert result == "a"
     finally:
         ui.cleanup()
+
+
+def test_showOptions_number_key_selects_directly():
+    ui = makeUI()
+    try:
+        with injected_events([keydown(key=pygame.K_2)]):
+            choice = ui.showOptions("Pick", ["A", "B", "C"])
+        assert choice == "2"
+    finally:
+        ui.cleanup()
+
+
+def test_showOptions_arrow_then_enter_selects():
+    ui = makeUI()
+    try:
+        # down moves the highlight from option 1 to option 2, Enter confirms it
+        with injected_events([keydown(key=pygame.K_DOWN), keydown(key=pygame.K_RETURN)]):
+            choice = ui.showOptions("Pick", ["A", "B", "C"])
+        assert choice == "2"
+    finally:
+        ui.cleanup()
+
+
+def test_showOptions_ignores_out_of_range_number():
+    ui = makeUI()
+    try:
+        # "9" exceeds the 2 options and is ignored; "1" then selects
+        with injected_events([keydown(key=pygame.K_9), keydown(key=pygame.K_1)]):
+            choice = ui.showOptions("Pick", ["A", "B"])
+        assert choice == "1"
+    finally:
+        ui.cleanup()
