@@ -36,6 +36,9 @@ HTML_PAGE = """<!DOCTYPE html>
   button.danger:hover { background: #63202c; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   button:disabled:hover { background: #163345; }
+  button.action { width: auto; text-align: center; padding: .6rem 1.4rem;
+                  background: #1d5a7a; border-color: #2f7ba0; }
+  button.action:hover { background: #246a90; }
   input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
           background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
           border-radius: 4px; }
@@ -131,13 +134,13 @@ function render(screen) {
     });
   } else if (screen.type === "dialogue") {
     app.append(el("div", { className: "dialogue", textContent: screen.text }));
-    const b = el("button", { textContent: "Continue" });
+    const b = el("button", { textContent: "Continue", className: "action" });
     b.onclick = () => send("");
     app.append(b);
   } else if (screen.type === "prompt") {
     app.append(el("div", { className: "descriptor", textContent: screen.text }));
     const inp = el("input", { type: "text" });
-    const b = el("button", { textContent: "Submit" });
+    const b = el("button", { textContent: "Submit", className: "action" });
     const valid = () => !screen.numeric ||
       (inp.value.trim() !== "" && !isNaN(Number(inp.value)));
     const submit = () => { if (valid()) send(inp.value); };
@@ -152,7 +155,7 @@ function render(screen) {
     app.append(inp); app.append(b); inp.focus();
   } else if (screen.type === "timed") {
     app.append(el("div", { className: "descriptor", textContent: screen.message }));
-    const b = el("button", { textContent: "React!" });
+    const b = el("button", { textContent: "React!", className: "action" });
     b.onclick = () => send("");
     app.append(b);
   }
