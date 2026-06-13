@@ -35,38 +35,39 @@ class FishE:
         self.statsJsonReaderWriter = StatsJsonReaderWriter()
         self.saveFileManager = SaveFileManager()
 
-        # Migrate old save files to new format if they exist
-        self.saveFileManager.migrate_old_save_files()
-
-        # Show save file selection menu
-        self._selectSaveFile()
-
-        # if save file exists, load it
-        player_path = self.saveFileManager.get_save_path("player.json")
-        if os.path.exists(player_path) and os.path.getsize(player_path) > 0:
-            self.loadPlayer()
-        else:
-            self.player = Player()
-
-        # if save file exists, load it
-        stats_path = self.saveFileManager.get_save_path("stats.json")
-        if os.path.exists(stats_path) and os.path.getsize(stats_path) > 0:
-            self.loadStats()
-        else:
-            self.stats = Stats()
-
-        # if save file exists, load it
-        time_path = self.saveFileManager.get_save_path("timeService.json")
-        if os.path.exists(time_path) and os.path.getsize(time_path) > 0:
-            self.loadTimeService()
-        else:
-            self.timeService = TimeService(self.player, self.stats)
-
+        # Start from default (new-game) state, then build the UI so the save-file
+        # manager can render and read input through the active front-end. A
+        # chosen save is loaded over these defaults below.
+        self.player = Player()
+        self.stats = Stats()
+        self.timeService = TimeService(self.player, self.stats)
         self.prompt = Prompt("What would you like to do?")
-
         self.userInterface = UserInterfaceFactory.create_user_interface(
             INTERFACE_TYPE, self.prompt, self.timeService, self.player
         )
+
+        # Migrate old save files to new format if they exist
+        self.saveFileManager.migrate_old_save_files()
+
+        # Show save file selection menu (uses the UI above)
+        self._selectSaveFile()
+
+        # Load the chosen slot over the defaults if it has data
+        player_path = self.saveFileManager.get_save_path("player.json")
+        if os.path.exists(player_path) and os.path.getsize(player_path) > 0:
+            self.loadPlayer()
+
+        stats_path = self.saveFileManager.get_save_path("stats.json")
+        if os.path.exists(stats_path) and os.path.getsize(stats_path) > 0:
+            self.loadStats()
+
+        time_path = self.saveFileManager.get_save_path("timeService.json")
+        if os.path.exists(time_path) and os.path.getsize(time_path) > 0:
+            self.loadTimeService()
+
+        # Point the UI at the (possibly reloaded) game state.
+        self.userInterface.player = self.player
+        self.userInterface.timeService = self.timeService
 
         self.locations = {
             LocationType.BANK: bank.Bank(
@@ -109,100 +110,80 @@ class FishE:
         self.currentLocation = LocationType.HOME
 
     def _selectSaveFile(self):
-        """Display save file selection menu and let user choose"""
-        while True:  # Use loop instead of recursion to avoid stack overflow
+        """Display the save-file menu through the UI and let the player choose.
+
+        Slots and actions are presented as numbered options (so the menu renders
+        and reads input through the active front-end — console or pygame)."""
+        while True:  # loop instead of recursion to avoid stack overflow
             save_files = self.saveFileManager.list_save_files()
 
-            print("\n" * 20)
-            print("-" * 75)
-            print("\n FISHE - SAVE FILE MANAGER")
-            print("-" * 75)
-
-            if save_files:
-                print("\n Available Save Files:\n")
-                for save in save_files:
-                    metadata = save["metadata"]
-                    print(f" [{save['slot']}] Save Slot {save['slot']}")
-                    print(f"     Day: {metadata.get('day', 1)}")
-                    print(f"     Money: ${metadata.get('money', 0)}")
-                    print(f"     Fish: {metadata.get('fishCount', 0)}")
-                    print(f"     Last Modified: {metadata.get('last_modified', 'Unknown')}")
-                    print()
+            # Build the option list, tracking what each option does in parallel.
+            options = []
+            actions = []  # (kind, arg) for the option at the same index
+            for save in save_files:
+                metadata = save["metadata"]
+                options.append(
+                    "Load Slot %d (Day %d, $%d, %d fish)"
+                    % (
+                        save["slot"],
+                        metadata.get("day", 1),
+                        metadata.get("money", 0),
+                        metadata.get("fishCount", 0),
+                    )
+                )
+                actions.append(("load", save["slot"]))
 
             next_slot = self.saveFileManager.get_next_available_slot()
             if next_slot is not None:
-                print(f" [N] Create New Save (Slot {next_slot})")
+                options.append("Create New Save (Slot %d)" % next_slot)
+                actions.append(("new", next_slot))
             if save_files:
-                print(" [D] Delete a Save File")
-            print(" [Q] Quit")
-            print("-" * 75)
+                options.append("Delete a Save File")
+                actions.append(("delete", None))
+            options.append("Quit")
+            actions.append(("quit", None))
 
-            choice = input("\n Select an option: ").strip().upper()
+            choice = int(
+                self.userInterface.showOptions("FishE - Save File Manager", options)
+            )
+            kind, arg = actions[choice - 1]
 
-            if choice == "Q":
-                print("\n Goodbye!")
-                exit(0)
-            elif choice == "N" and next_slot is not None:
-                self.saveFileManager.select_save_slot(next_slot)
-                print(f"\n Creating new save in Slot {next_slot}...")
+            if kind == "load" or kind == "new":
+                self.saveFileManager.select_save_slot(arg)
                 return
-            elif choice == "N" and next_slot is None:
-                print(" All save slots are full. Please delete a save first.")
-            elif choice == "D" and save_files:
-                if self._deleteSaveFile(save_files):
-                    # Continue loop to show updated menu
-                    continue
-                else:
-                    # User cancelled, continue loop
-                    continue
-            elif choice.isdigit():
-                slot_num = int(choice)
-                if any(save["slot"] == slot_num for save in save_files):
-                    self.saveFileManager.select_save_slot(slot_num)
-                    print(f"\n Loading Save Slot {slot_num}...")
-                    return
-                else:
-                    print(" Invalid slot number. Try again.")
-            else:
-                print(" Invalid choice. Try again.")
+            elif kind == "delete":
+                self._deleteSaveFile(save_files)
+                # loop to show the refreshed menu either way
+            elif kind == "quit":
+                exit(0)
 
     def _deleteSaveFile(self, save_files):
         """Delete a save file. Returns True if a file was deleted, False if cancelled."""
-        print("\n" * 20)
-        print("-" * 75)
-        print("\n DELETE SAVE FILE")
-        print("-" * 75)
-        print("\n Which save file would you like to delete?\n")
+        options = ["Delete Slot %d" % save["slot"] for save in save_files]
+        options.append("Cancel")
 
-        for save in save_files:
-            print(f" [{save['slot']}] Save Slot {save['slot']}")
+        choice = int(
+            self.userInterface.showOptions("Delete a Save File", options)
+        )
+        if choice == len(options):  # Cancel
+            return False
 
-        print(" [C] Cancel")
-        print("-" * 75)
+        slot_num = save_files[choice - 1]["slot"]
+        confirm = int(
+            self.userInterface.showOptions(
+                "Permanently delete Slot %d?" % slot_num,
+                ["Yes, delete it", "No, keep it"],
+            )
+        )
+        if confirm != 1:
+            return False
 
-        while True:
-            choice = input("\n Select a slot to delete: ").strip().upper()
+        if self.saveFileManager.delete_save_slot(slot_num):
+            self.userInterface.showDialogue("Slot %d deleted." % slot_num)
+            return True
 
-            if choice == "C":
-                return False
-            elif choice.isdigit():
-                slot_num = int(choice)
-                if any(save["slot"] == slot_num for save in save_files):
-                    confirm = input(f"\n Are you sure you want to delete Slot {slot_num}? (Y/N): ").strip().upper()
-                    if confirm == "Y":
-                        if self.saveFileManager.delete_save_slot(slot_num):
-                            print(f"\n Slot {slot_num} deleted successfully.")
-                            input("\n [ CONTINUE ]")
-                            return True
-                        else:
-                            print(f"\n Failed to delete Slot {slot_num}.")
-                            return False
-                    else:
-                        return False
-                else:
-                    print(" Invalid slot number. Try again.")
-            else:
-                print(" Invalid choice. Try again.")
+        self.userInterface.showDialogue("Failed to delete Slot %d." % slot_num)
+        return False
 
     def play(self):
         while self.running:
