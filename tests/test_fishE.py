@@ -18,7 +18,7 @@ def createFishE():
     fishE.Stats = MagicMock()
     fishE.TimeService = MagicMock()
     fishE.Prompt = MagicMock()
-    fishE.UserInterface = MagicMock()
+    fishE.UserInterfaceFactory = MagicMock()
     fishE.bank.Bank = MagicMock()
     fishE.shop.Shop = MagicMock()
     fishE.home.Home = MagicMock()
@@ -64,7 +64,7 @@ def test_initialization():
         or fishEInstance.statsJsonReaderWriter.readStatsFromFile.call_count == 1
     )
     fishE.Prompt.assert_called_once()
-    fishE.UserInterface.assert_called_once()
+    fishE.UserInterfaceFactory.create_user_interface.assert_called_once()
     fishE.bank.Bank.assert_called_once()
     fishE.shop.Shop.assert_called_once()
     fishE.home.Home.assert_called_once()

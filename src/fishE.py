@@ -9,7 +9,8 @@ from stats.statsJsonReaderWriter import StatsJsonReaderWriter
 from world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
 from world.timeService import TimeService
 from stats.stats import Stats
-from ui.userInterface import UserInterface
+from ui.userInterfaceFactory import UserInterfaceFactory
+from ui.enum.uiType import UIType
 from saveFileManager import SaveFileManager
 from achievements import achievements
 
@@ -18,6 +19,10 @@ from achievements import achievements
 # a one-time victory message; the game then continues until the player retires.
 GOAL_AMOUNT = 10000
 GOAL_MILESTONE_NAME = "Reached Goal"
+
+# Which front-end the game runs. Swap to UIType.PYGAME (or a future web type)
+# here to change the interface — the rest of the game is front-end agnostic.
+INTERFACE_TYPE = UIType.CONSOLE
 
 
 # @author Daniel McCoy Stephenson
@@ -59,7 +64,9 @@ class FishE:
 
         self.prompt = Prompt("What would you like to do?")
 
-        self.userInterface = UserInterface(self.prompt, self.timeService, self.player)
+        self.userInterface = UserInterfaceFactory.create_user_interface(
+            INTERFACE_TYPE, self.prompt, self.timeService, self.player
+        )
 
         self.locations = {
             LocationType.BANK: bank.Bank(

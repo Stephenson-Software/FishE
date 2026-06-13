@@ -6,8 +6,13 @@ from world.timeService import TimeService
 
 # @author Daniel McCoy Stephenson
 class BaseUserInterface(ABC):
-    """Abstract base class for user interfaces"""
-    
+    """Abstract contract every front-end (text/console, pygame, web, ...) implements.
+
+    Concrete subclasses must implement the rendering/input primitives below.
+    Shared state and the higher-level interactive-dialogue flow live here so all
+    front-ends behave consistently and only the primitives differ.
+    """
+
     def __init__(self, currentPrompt: Prompt, timeService: TimeService, player: Player):
         self.currentPrompt = currentPrompt
         self.timeService = timeService
@@ -15,6 +20,9 @@ class BaseUserInterface(ABC):
 
         self.prompt = "Make your choice!"
         self.optionList = []
+        # Header fields the game loop sets before each render; empty hides the line.
+        self.currentLocationName = ""
+        self.goalProgress = ""
 
         self.times = {
             0: "12:00 AM",
@@ -45,20 +53,53 @@ class BaseUserInterface(ABC):
 
     @abstractmethod
     def lotsOfSpace(self):
-        """Clear or add space to the display"""
+        """Clear or add space to the display."""
         pass
 
     @abstractmethod
     def divider(self):
-        """Display a divider line"""
+        """Display a divider between sections."""
         pass
 
     @abstractmethod
     def showOptions(self, descriptor, optionList):
-        """Show options to the user and return their choice"""
+        """Show numbered options and return the chosen option's number as a string."""
         pass
-    
+
+    @abstractmethod
+    def showDialogue(self, text):
+        """Show a block of text and wait for the player to acknowledge it."""
+        pass
+
     @abstractmethod
     def cleanup(self):
-        """Clean up any resources used by the UI"""
+        """Release any resources held by the front-end."""
         pass
+
+    def showInteractiveDialogue(self, npc):
+        """Default interactive NPC conversation built on the primitives above.
+
+        Front-ends inherit this for free; one (the console) overrides it with a
+        richer layout. Picks a question via showOptions and shows the response
+        via showDialogue until the player chooses to go back."""
+        while True:
+            dialogueOptions = npc.get_dialogue_options()
+            if not dialogueOptions:
+                self.showDialogue(npc.introduce())
+                self.currentPrompt.text = "What would you like to do?"
+                return
+
+            questions = [
+                option.get("question", "Option %d" % (index + 1))
+                for index, option in enumerate(dialogueOptions)
+            ]
+            questions.append("[Back]")
+
+            choice = int(self.showOptions("Talking with %s" % npc.name, questions))
+            if choice == len(questions):
+                self.currentPrompt.text = "What would you like to do?"
+                return
+
+            self.showDialogue(
+                "%s: %s" % (npc.name, npc.get_dialogue_response(choice - 1))
+            )
