@@ -111,3 +111,21 @@ def test_readTimeServiceFromFile():
     import os
 
     os.remove(temp_file_path)
+
+
+def test_createTimeServiceFromJson_missingAllFields_usesDefaults():
+    # prepare - a corrupt/partial save with no recognizable fields
+    timeServiceJsonReaderWriter = createTimeServiceJsonReaderWriter()
+    player = Player()
+    stats = Stats()
+    timeServiceJson = {}
+
+    # call - must not raise KeyError
+    timeService = timeServiceJsonReaderWriter.createTimeServiceFromJson(
+        timeServiceJson, player, stats
+    )
+
+    # check - both fields fall back to the TimeService() default
+    defaults = TimeService(player, stats)
+    assert timeService.time == defaults.time
+    assert timeService.day == defaults.day

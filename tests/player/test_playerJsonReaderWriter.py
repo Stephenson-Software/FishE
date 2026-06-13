@@ -138,3 +138,21 @@ def test_readPlayerFromFile():
     import os
 
     os.remove(temp_file_path)
+
+
+def test_createPlayerFromJson_missingAllFields_usesDefaults():
+    # prepare - a corrupt/partial save with no recognizable fields
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {}
+
+    # call - must not raise KeyError
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check - every field falls back to the Player() default
+    defaults = Player()
+    assert player.fishCount == defaults.fishCount
+    assert player.fishMultiplier == defaults.fishMultiplier
+    assert player.money == defaults.money
+    assert player.moneyInBank == defaults.moneyInBank
+    assert player.priceForBait == defaults.priceForBait
+    assert player.energy == defaults.energy

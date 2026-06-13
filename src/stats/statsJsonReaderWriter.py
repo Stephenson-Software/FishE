@@ -15,15 +15,27 @@ class StatsJsonReaderWriter:
         }
 
     def createStatsFromJson(self, statsJson):
+        # Read each field with a fallback to the freshly-constructed Stats'
+        # default, so a save file missing any field loads gracefully instead of
+        # raising KeyError (backwards compatibility for older/partial saves).
         stats = Stats()
-        stats.totalFishCaught = statsJson["totalFishCaught"]
-        stats.totalMoneyMade = statsJson["totalMoneyMade"]
-        stats.hoursSpentFishing = statsJson["hoursSpentFishing"]
-        stats.moneyMadeFromInterest = statsJson["moneyMadeFromInterest"]
-        stats.timesGottenDrunk = statsJson["timesGottenDrunk"]
-        stats.moneyLostFromGambling = statsJson["moneyLostFromGambling"]
-        # Handle backward compatibility for existing save files
-        stats.moneyLostWhileDrunk = statsJson.get("moneyLostWhileDrunk", 0)
+        stats.totalFishCaught = statsJson.get("totalFishCaught", stats.totalFishCaught)
+        stats.totalMoneyMade = statsJson.get("totalMoneyMade", stats.totalMoneyMade)
+        stats.hoursSpentFishing = statsJson.get(
+            "hoursSpentFishing", stats.hoursSpentFishing
+        )
+        stats.moneyMadeFromInterest = statsJson.get(
+            "moneyMadeFromInterest", stats.moneyMadeFromInterest
+        )
+        stats.timesGottenDrunk = statsJson.get(
+            "timesGottenDrunk", stats.timesGottenDrunk
+        )
+        stats.moneyLostFromGambling = statsJson.get(
+            "moneyLostFromGambling", stats.moneyLostFromGambling
+        )
+        stats.moneyLostWhileDrunk = statsJson.get(
+            "moneyLostWhileDrunk", stats.moneyLostWhileDrunk
+        )
         return stats
 
     def readStatsFromFile(self, statsJsonFile):

@@ -14,15 +14,16 @@ class PlayerJsonReaderWriter:
         }
 
     def createPlayerFromJson(self, playerJson):
+        # Read each field with a fallback to the freshly-constructed Player's
+        # default, so a save file missing any field loads gracefully instead of
+        # raising KeyError (backwards compatibility for older/partial saves).
         player = Player()
-        player.fishCount = playerJson["fishCount"]
-        player.fishMultiplier = playerJson["fishMultiplier"]
-        player.money = playerJson["money"]
-        player.moneyInBank = playerJson["moneyInBank"]
-        player.priceForBait = playerJson["priceForBait"]
-        player.energy = playerJson.get(
-            "energy", 100
-        )  # Default to 100 for backwards compatibility
+        player.fishCount = playerJson.get("fishCount", player.fishCount)
+        player.fishMultiplier = playerJson.get("fishMultiplier", player.fishMultiplier)
+        player.money = playerJson.get("money", player.money)
+        player.moneyInBank = playerJson.get("moneyInBank", player.moneyInBank)
+        player.priceForBait = playerJson.get("priceForBait", player.priceForBait)
+        player.energy = playerJson.get("energy", player.energy)
         return player
 
     def writePlayerToFile(self, player, jsonFile):
