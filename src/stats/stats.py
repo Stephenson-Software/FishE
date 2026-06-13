@@ -8,3 +8,4 @@ class Stats:
         self.timesGottenDrunk = 0
         self.moneyLostFromGambling = 0
         self.moneyLostWhileDrunk = 0
+        self.earnedMilestones = []

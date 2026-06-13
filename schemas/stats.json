@@ -28,6 +28,13 @@
         "moneyLostWhileDrunk": {
             "type": "number",
             "description": "The total amount of money lost while drunk by the player."
+        },
+        "earnedMilestones": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Names of milestones the player has already been awarded."
         }
     }
 }

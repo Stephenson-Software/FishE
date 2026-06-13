@@ -61,6 +61,41 @@ def test_createStatsFromJson():
     assert statsFromJson.moneyLostWhileDrunk == 2
 
 
+def test_earnedMilestones_round_trips():
+    # prepare
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    stats = createStats()
+    stats.earnedMilestones = ["First Catch", "Big Earner"]
+
+    # call - serialize then deserialize
+    statsJson = statsJsonReaderWriter.createJsonFromStats(stats)
+    restored = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check
+    assert statsJson["earnedMilestones"] == ["First Catch", "Big Earner"]
+    assert restored.earnedMilestones == ["First Catch", "Big Earner"]
+
+
+def test_createStatsFromJson_missingEarnedMilestones_defaultsToEmpty():
+    # prepare - an older save with no earnedMilestones field
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    statsJson = {
+        "totalFishCaught": 1,
+        "totalMoneyMade": 1,
+        "hoursSpentFishing": 1,
+        "moneyMadeFromInterest": 1,
+        "timesGottenDrunk": 1,
+        "moneyLostFromGambling": 1,
+        "moneyLostWhileDrunk": 1,
+    }
+
+    # call
+    stats = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check - backward compatible default
+    assert stats.earnedMilestones == []
+
+
 def test_writeStatsToFile():
     # prepare
     import tempfile

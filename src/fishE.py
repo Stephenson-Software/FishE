@@ -11,6 +11,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from saveFileManager import SaveFileManager
+from achievements import achievements
 
 
 # @author Daniel McCoy Stephenson
@@ -202,6 +203,12 @@ class FishE:
                 self.running = False
 
             self.currentLocation = nextLocation
+
+            # announce any milestones just crossed (appended so the action's own
+            # message is preserved on the next screen)
+            newlyEarned = achievements.getNewlyEarned(self.stats)
+            for milestone in newlyEarned:
+                self.prompt.text += "  [Milestone unlocked: %s!]" % milestone["name"]
 
             # increase time & save
             self.timeService.increaseTime()
