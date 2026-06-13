@@ -7,3 +7,4 @@ class Player:
         self.fishMultiplier = 1
         self.priceForBait = 50
         self.energy = 100
+        self.rodLevel = 1

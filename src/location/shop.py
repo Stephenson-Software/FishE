@@ -12,6 +12,17 @@ from npc.npc import NPC
 # climb: past this point "Buy Better Bait" is refused with a message.
 MAX_FISH_MULTIPLIER = 10
 
+# Rod upgrades are a second, distinct progression axis from bait: bait raises
+# yield (fishMultiplier), the rod widens the catch reaction window (see Docks).
+# The cost to reach the next level scales with the current level, so only the
+# level needs to be stored.
+ROD_BASE_PRICE = 75
+MAX_ROD_LEVEL = 10
+
+
+def rodUpgradeCost(rodLevel):
+    return ROD_BASE_PRICE * rodLevel
+
 
 # @author Daniel McCoy Stephenson
 class Shop:
@@ -77,6 +88,7 @@ class Shop:
         li = [
             "Sell Fish",
             "Buy Better Bait ( $%.2f )" % self.player.priceForBait,
+            "Buy Better Rod ( $%.2f )" % rodUpgradeCost(self.player.rodLevel),
             "Talk to %s" % self.npc.name,
             "Go to Docks",
         ]
@@ -92,9 +104,12 @@ class Shop:
             self.buyBetterBait()
             return LocationType.SHOP
         elif input == "3":
-            self.talkToNPC()
+            self.buyBetterRod()
             return LocationType.SHOP
         elif input == "4":
+            self.talkToNPC()
+            return LocationType.SHOP
+        elif input == "5":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
 
@@ -117,6 +132,17 @@ class Shop:
 
             self.player.priceForBait = self.player.priceForBait * 1.25
             self.currentPrompt.text = "You bought some better bait!"
+
+    def buyBetterRod(self):
+        cost = rodUpgradeCost(self.player.rodLevel)
+        if self.player.rodLevel >= MAX_ROD_LEVEL:
+            self.currentPrompt.text = "Your rod is already the finest in the village!"
+        elif self.player.money < cost:
+            self.currentPrompt.text = "You don't have enough money!"
+        else:
+            self.player.rodLevel += 1
+            self.player.money -= cost
+            self.currentPrompt.text = "You bought a better fishing rod!"
 
     def talkToNPC(self):
         self.userInterface.showInteractiveDialogue(self.npc)
