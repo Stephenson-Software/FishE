@@ -203,3 +203,68 @@ def test_loadPlayer_recovers_from_corrupt_file():
         # check
         assert isinstance(game.player, Player)
         assert game.player.fishCount == Player().fishCount
+
+
+def test_selectSaveFile_new_game_selects_next_slot():
+    # prepare - no existing saves; choosing the only non-quit option creates one
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.list_save_files.return_value = []
+    game.saveFileManager.get_next_available_slot.return_value = 1
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.return_value = "1"  # "Create New Save (Slot 1)"
+
+    # call
+    game._selectSaveFile()
+
+    # check
+    game.saveFileManager.select_save_slot.assert_called_once_with(1)
+
+
+def test_selectSaveFile_loads_existing_slot():
+    # prepare - one existing save; first option loads it
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.list_save_files.return_value = [
+        {"slot": 2, "metadata": {"day": 3, "money": 100, "fishCount": 5}}
+    ]
+    game.saveFileManager.get_next_available_slot.return_value = 1
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.return_value = "1"  # "Load Slot 2 (...)"
+
+    # call
+    game._selectSaveFile()
+
+    # check
+    game.saveFileManager.select_save_slot.assert_called_once_with(2)
+
+
+def test_deleteSaveFile_confirmed():
+    # prepare - choose the slot, then confirm "Yes"
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.delete_save_slot.return_value = True
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.side_effect = ["1", "1"]  # Delete Slot 1, then Yes
+
+    # call
+    result = game._deleteSaveFile([{"slot": 1, "metadata": {}}])
+
+    # check
+    assert result is True
+    game.saveFileManager.delete_save_slot.assert_called_once_with(1)
+
+
+def test_deleteSaveFile_cancelled():
+    # prepare - choose "Cancel" (the last option)
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.return_value = "2"  # Cancel (after one slot)
+
+    # call
+    result = game._deleteSaveFile([{"slot": 1, "metadata": {}}])
+
+    # check
+    assert result is False
+    game.saveFileManager.delete_save_slot.assert_not_called()
