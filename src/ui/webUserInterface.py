@@ -37,11 +37,14 @@ HTML_PAGE = """<!DOCTYPE html>
           background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
           border-radius: 4px; }
   .tagline { font-size: .8rem; font-weight: normal; color: #7fb0d0; }
+  .controls { font-size: .8rem; color: #6a8aa0; border-top: 1px solid #2a4a5a;
+              margin-top: 1.5rem; padding-top: .5rem; }
 </style>
 </head>
 <body>
 <h2>FishE <span class="tagline">— fish a seaside village and build a fortune of $10,000</span></h2>
 <div id="app">Connecting&hellip;</div>
+<p class="controls">Tip: click an option or press its number key (1-9). Enter or Space continues.</p>
 <script>
 let version = -1;
 let currentScreen = null;
