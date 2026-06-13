@@ -304,6 +304,15 @@ class WebUserInterface(BaseUserInterface):
         self._present({"type": "prompt", "text": promptText})
         return str(self._inputQueue.get())
 
+    def promptForNumber(self, promptText):
+        # Flag the prompt as numeric so the browser can offer a numeric keyboard
+        # and block submission of non-numbers (the base default can't say so).
+        self._present({"type": "prompt", "text": promptText, "numeric": True})
+        try:
+            return float(self._inputQueue.get())
+        except (ValueError, TypeError):
+            return None
+
     def timedKeyPress(self, message):
         self._present({"type": "timed", "message": message})
         startTime = time.time()
