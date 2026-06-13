@@ -4,11 +4,12 @@
 # bring in a passive catch each day in exchange for a daily wage. This turns
 # accumulated money into ongoing production rather than just a number that grows.
 
+from fish import fish
+
 BOAT_PRICE = 500
 MAX_WORKERS = 5
 WORKER_DAILY_WAGE = 10
-WORKER_FISH_PER_DAY = 6
-WORKER_CATCH_SPECIES = "Minnow"  # workers bring in the common catch
+WORKER_FISH_PER_DAY = 5
 
 
 def runDailyProduction(player, stats=None):
@@ -36,9 +37,14 @@ def runDailyProduction(player, stats=None):
         return summary
 
     wages = affordable * WORKER_DAILY_WAGE
-    caught = affordable * WORKER_FISH_PER_DAY
     player.money -= wages
-    player.addFish(WORKER_CATCH_SPECIES, caught)
+    # Each worker fishes the same waters as the player, landing a rarity-rolled
+    # species (not just the cheapest one), so the crew's income is competitive
+    # with simply upgrading your own gear.
+    caught = 0
+    for _ in range(affordable):
+        player.addFish(fish.rollFishType(), WORKER_FISH_PER_DAY)
+        caught += WORKER_FISH_PER_DAY
     summary["wagesPaid"] = wages
     summary["fishCaught"] = caught
     if stats is not None:
