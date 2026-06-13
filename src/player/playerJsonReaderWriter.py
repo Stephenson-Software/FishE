@@ -11,6 +11,7 @@ class PlayerJsonReaderWriter:
             "moneyInBank": player.moneyInBank,
             "priceForBait": player.priceForBait,
             "energy": player.energy,
+            "rodLevel": player.rodLevel,
         }
 
     def createPlayerFromJson(self, playerJson):
@@ -24,6 +25,7 @@ class PlayerJsonReaderWriter:
         player.moneyInBank = playerJson.get("moneyInBank", player.moneyInBank)
         player.priceForBait = playerJson.get("priceForBait", player.priceForBait)
         player.energy = playerJson.get("energy", player.energy)
+        player.rodLevel = playerJson.get("rodLevel", player.rodLevel)
         return player
 
     def writePlayerToFile(self, player, jsonFile):

@@ -340,3 +340,38 @@ def test_fish_applies_time_of_day_modifier():
 
     # check - the midday penalty yields fewer fish than the dawn bonus
     assert results["midday"] < results["dawn"]
+
+
+def test_fish_higher_rod_widens_reaction_window():
+    # prepare - a 2.5s reaction is "too slow" at rod level 1 (2.0s window) but
+    # within the window at a high rod level, so it should catch more fish.
+    def make_docks_with_rod(rodLevel):
+        d = createDocks()
+        d.userInterface.lotsOfSpace = MagicMock()
+        d.userInterface.divider = MagicMock()
+        d.player.rodLevel = rodLevel
+        return d
+
+    def time_side_effect():
+        while True:
+            yield 0
+            yield 2.5  # reaction of 2.5s
+
+    results = {}
+    for label, rod in (("lowRod", 1), ("highRod", 5)):
+        docksInstance = make_docks_with_rod(rod)
+        with patch("src.location.docks.print"), patch(
+            "src.location.docks.sys.stdout.flush"
+        ), patch("src.location.docks.time.sleep"), patch(
+            "src.location.docks.time.time", side_effect=time_side_effect()
+        ), patch(
+            "src.location.docks.input", return_value=""
+        ), patch(
+            "src.location.docks.random.randint", side_effect=[5, 10]
+        ):
+            docksInstance.timeService.increaseTime = MagicMock()
+            docksInstance.fish()
+        results[label] = docksInstance.player.fishCount
+
+    # check - the wider window of the better rod lands more catches
+    assert results["highRod"] > results["lowRod"]

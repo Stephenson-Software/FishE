@@ -25,6 +25,10 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100
+        },
+        "rodLevel": {
+            "type": "integer",
+            "minimum": 1
         }
     },
     "required": [

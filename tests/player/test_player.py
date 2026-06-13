@@ -15,3 +15,4 @@ def test_initialization():
     assert player.moneyInBank == 0.01
     assert player.fishMultiplier == 1
     assert player.energy == 100
+    assert player.rodLevel == 1

@@ -11,6 +11,13 @@ from ui.userInterface import UserInterface
 from npc.npc import NPC
 
 
+# The catch reaction window widens with the player's rod level, so a better rod
+# (bought at the shop) makes the timing minigame more forgiving. Level 1 keeps
+# the original 2.0s window.
+REACTION_BASE_WINDOW = 2.0
+ROD_WINDOW_STEP = 0.5
+
+
 # @author Daniel McCoy Stephenson
 class Docks:
     def __init__(
@@ -149,7 +156,10 @@ class Docks:
 
         successfulCatches = 0
         totalAttempts = 0
-        
+
+        # A better rod widens the timing window, making catches more forgiving.
+        reactionWindow = REACTION_BASE_WINDOW + (self.player.rodLevel - 1) * ROD_WINDOW_STEP
+
         for i in range(hours):
             print("><> ")
             sys.stdout.flush()
@@ -164,8 +174,8 @@ class Docks:
                 input()
                 reactionTime = time.time() - startTime
                 
-                # Success if pressed within 2 seconds
-                if reactionTime <= 2.0:
+                # Success if pressed within the (rod-dependent) reaction window
+                if reactionTime <= reactionWindow:
                     successfulCatches += 1
                     print("Got it! ")
                 else:

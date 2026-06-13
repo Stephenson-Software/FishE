@@ -156,3 +156,38 @@ def test_createPlayerFromJson_missingAllFields_usesDefaults():
     assert player.moneyInBank == defaults.moneyInBank
     assert player.priceForBait == defaults.priceForBait
     assert player.energy == defaults.energy
+    assert player.rodLevel == defaults.rodLevel
+
+
+def test_rodLevel_round_trips():
+    # prepare
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.rodLevel = 4
+
+    # call - serialize then deserialize
+    playerJson = playerJsonReaderWriter.createJsonFromPlayer(player)
+    restored = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check - rodLevel persists, and is present in the JSON
+    assert playerJson["rodLevel"] == 4
+    assert restored.rodLevel == 4
+
+
+def test_createPlayerFromJson_missingRodLevel_defaultsToOne():
+    # prepare - an older save with no rodLevel field
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 5,
+        "fishMultiplier": 2,
+        "money": 100,
+        "moneyInBank": 50,
+        "priceForBait": 75,
+        "energy": 80,
+    }
+
+    # call
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check - backward compatible default
+    assert player.rodLevel == 1
