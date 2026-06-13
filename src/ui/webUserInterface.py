@@ -41,6 +41,7 @@ HTML_PAGE = """<!DOCTYPE html>
 <div id="app">Connecting&hellip;</div>
 <script>
 let version = -1;
+let currentScreen = null;
 async function poll() {
   try {
     const response = await fetch("/state");
@@ -50,6 +51,7 @@ async function poll() {
   setTimeout(poll, 300);
 }
 async function send(value) {
+  currentScreen = null;  // ignore stray keypresses until the next screen arrives
   document.getElementById("app").innerHTML = "&hellip;";
   await fetch("/input", { method: "POST", body: JSON.stringify({ value: value }) });
 }
@@ -62,6 +64,7 @@ function el(tag, props, ...kids) {
 function render(screen) {
   const app = document.getElementById("app");
   app.innerHTML = "";
+  currentScreen = screen;  // let keyboard shortcuts act on what's on screen
   if (!screen || screen.type === "loading") { app.append("Waiting for the game…"); return; }
   if (screen.type === "ended") { app.append("The game has ended. You can close this tab."); return; }
   if (screen.header) {
@@ -99,6 +102,22 @@ function render(screen) {
     app.append(b);
   }
 }
+// Keyboard control, matching the console/pygame front-ends: number keys pick an
+// option; Enter or Space advances a dialogue or the timed prompt. Typing in the
+// text field is left to the field itself.
+document.addEventListener("keydown", (e) => {
+  const s = currentScreen;
+  if (!s) return;
+  if (e.target && e.target.tagName === "INPUT") return;
+  if (s.type === "options") {
+    if (e.key >= "1" && e.key <= "9") {
+      const n = parseInt(e.key, 10);
+      if (n <= s.options.length) { e.preventDefault(); send(String(n)); }
+    }
+  } else if (s.type === "dialogue" || s.type === "timed") {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); send(""); }
+  }
+});
 poll();
 </script>
 </body>
