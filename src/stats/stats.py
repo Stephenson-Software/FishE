@@ -9,3 +9,9 @@ class Stats:
         self.moneyLostFromGambling = 0
         self.moneyLostWhileDrunk = 0
         self.earnedMilestones = []
+        # Lifetime fishing-business totals, tracked so players can see the
+        # impact of the business they've built (see src/business).
+        self.totalWorkersHired = 0
+        self.totalFishCaughtByCrew = 0
+        self.totalWagesPaid = 0
+        self.daysInBusiness = 0

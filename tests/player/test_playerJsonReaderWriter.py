@@ -207,6 +207,25 @@ def test_business_fields_round_trip():
     assert restored.workers == 3
 
 
+def test_boatTier_and_businessName_round_trip():
+    # prepare
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.hasBoat = True
+    player.boatTier = 2
+    player.businessName = "Salty Sea Co."
+
+    # call
+    playerJson = playerJsonReaderWriter.createJsonFromPlayer(player)
+    restored = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert playerJson["boatTier"] == 2
+    assert playerJson["businessName"] == "Salty Sea Co."
+    assert restored.boatTier == 2
+    assert restored.businessName == "Salty Sea Co."
+
+
 def test_createPlayerFromJson_missingBusinessFields_defaults():
     # prepare - an older save with no boat/workers fields
     playerJsonReaderWriter = createPlayerJsonReaderWriter()
@@ -225,6 +244,8 @@ def test_createPlayerFromJson_missingBusinessFields_defaults():
     # check - backward-compatible defaults
     assert player.hasBoat is False
     assert player.workers == 0
+    assert player.boatTier == 0
+    assert player.businessName == ""
 
 
 def test_createPlayerFromJson_missingFishByType_defaultsToEmpty():

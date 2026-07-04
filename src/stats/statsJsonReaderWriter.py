@@ -13,6 +13,10 @@ class StatsJsonReaderWriter:
             "moneyLostFromGambling": stats.moneyLostFromGambling,
             "moneyLostWhileDrunk": stats.moneyLostWhileDrunk,
             "earnedMilestones": stats.earnedMilestones,
+            "totalWorkersHired": stats.totalWorkersHired,
+            "totalFishCaughtByCrew": stats.totalFishCaughtByCrew,
+            "totalWagesPaid": stats.totalWagesPaid,
+            "daysInBusiness": stats.daysInBusiness,
         }
 
     def createStatsFromJson(self, statsJson):
@@ -39,6 +43,18 @@ class StatsJsonReaderWriter:
         )
         stats.earnedMilestones = statsJson.get(
             "earnedMilestones", stats.earnedMilestones
+        )
+        stats.totalWorkersHired = statsJson.get(
+            "totalWorkersHired", stats.totalWorkersHired
+        )
+        stats.totalFishCaughtByCrew = statsJson.get(
+            "totalFishCaughtByCrew", stats.totalFishCaughtByCrew
+        )
+        stats.totalWagesPaid = statsJson.get(
+            "totalWagesPaid", stats.totalWagesPaid
+        )
+        stats.daysInBusiness = statsJson.get(
+            "daysInBusiness", stats.daysInBusiness
         )
         return stats
 

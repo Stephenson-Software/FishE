@@ -94,9 +94,11 @@ class Docks:
             "Go to Bank",
             "Manage Boat & Crew",
         ]
-        input = self.userInterface.showOptions(
-            "You breathe in the fresh air. Salty.", li
-        )
+        if self.player.hasBoat and self.player.businessName:
+            descriptor = "%s is docked and ready for the day." % self.player.businessName
+        else:
+            descriptor = "You breathe in the fresh air. Salty."
+        input = self.userInterface.showOptions(descriptor, li)
 
         if input == "1":
             if self.player.hasEnergy(10):
@@ -135,17 +137,27 @@ class Docks:
 
     def _businessStatus(self):
         if not self.player.hasBoat:
+            starter = business.tierInfo(1)
             return (
                 "You have no boat. A boat lets you hire a crew that brings in a "
-                "passive catch each day. A boat costs $%d." % business.BOAT_PRICE
+                "passive catch each day. A %s costs $%d."
+                % (starter["name"], starter["cost"])
             )
+        tier = business.currentTier(self.player)
+        info = business.tierInfo(tier)
+        name = self.player.businessName or "Unnamed Fishing Co."
         return (
-            "Your crew: %d/%d workers. Each catches %d fish per day for $%d in "
+            "%s - %s (tier %d/%d)\n"
+            "Crew: %d/%d workers. Each catches %d fish per day for $%d in "
             "wages, paid automatically every new day."
             % (
+                name,
+                info["name"],
+                tier,
+                len(business.BOAT_TIERS),
                 self.player.workers,
-                business.MAX_WORKERS,
-                business.WORKER_FISH_PER_DAY,
+                info["maxWorkers"],
+                info["fishPerDay"],
                 business.WORKER_DAILY_WAGE,
             )
         )
@@ -155,18 +167,29 @@ class Docks:
             options = []
             actions = []
             if not self.player.hasBoat:
-                options.append("Buy a Boat ($%d)" % business.BOAT_PRICE)
+                starter = business.tierInfo(1)
+                options.append("Buy a %s ($%d)" % (starter["name"], starter["cost"]))
                 actions.append("buy_boat")
             else:
-                if self.player.workers < business.MAX_WORKERS:
+                tier = business.currentTier(self.player)
+                info = business.tierInfo(tier)
+                if self.player.workers < info["maxWorkers"]:
                     options.append(
                         "Hire a Worker (+%d fish/day for $%d/day)"
-                        % (business.WORKER_FISH_PER_DAY, business.WORKER_DAILY_WAGE)
+                        % (info["fishPerDay"], business.WORKER_DAILY_WAGE)
                     )
                     actions.append("hire")
                 if self.player.workers > 0:
                     options.append("Dismiss a Worker")
                     actions.append("dismiss")
+                if tier < len(business.BOAT_TIERS):
+                    nextInfo = business.tierInfo(tier + 1)
+                    options.append(
+                        "Upgrade to a %s ($%d)" % (nextInfo["name"], nextInfo["cost"])
+                    )
+                    actions.append("upgrade_boat")
+                options.append("Rename Business")
+                actions.append("rename")
             options.append("Back")
             actions.append("back")
 
@@ -176,23 +199,54 @@ class Docks:
             action = actions[choice - 1]
 
             if action == "buy_boat":
-                if self.player.canAfford(business.BOAT_PRICE):
-                    self.player.spendMoney(business.BOAT_PRICE)
+                starter = business.tierInfo(1)
+                if self.player.canAfford(starter["cost"]):
+                    self.player.spendMoney(starter["cost"])
                     self.player.hasBoat = True
-                    self.currentPrompt.text = "You bought a boat! Now hire a crew."
+                    self.player.boatTier = 1
+                    self.currentPrompt.text = (
+                        "You bought a %s! Now hire a crew." % starter["name"]
+                    )
                 else:
                     self.currentPrompt.text = "You can't afford a boat yet."
             elif action == "hire":
                 self.player.workers += 1
+                self.stats.totalWorkersHired += 1
                 self.currentPrompt.text = (
                     "You hired a worker. They'll fish each day for their wage."
                 )
             elif action == "dismiss":
                 self.player.workers -= 1
                 self.currentPrompt.text = "You let a worker go."
+            elif action == "upgrade_boat":
+                tier = business.currentTier(self.player)
+                nextInfo = business.tierInfo(tier + 1)
+                if self.player.canAfford(nextInfo["cost"]):
+                    self.player.spendMoney(nextInfo["cost"])
+                    self.player.boatTier = tier + 1
+                    self.currentPrompt.text = (
+                        "You upgraded to a %s!" % nextInfo["name"]
+                    )
+                else:
+                    self.currentPrompt.text = "You can't afford that upgrade yet."
+            elif action == "rename":
+                self._renameBusiness()
             elif action == "back":
                 self.currentPrompt.text = "What would you like to do?"
                 return
+
+    def _renameBusiness(self):
+        name = self.userInterface.promptForText(
+            "What would you like to name your fishing business?"
+        )
+        name = (name or "").strip()[:40]
+        if name:
+            self.player.businessName = name
+            self.currentPrompt.text = "Your business is now known as %s!" % name
+        else:
+            self.currentPrompt.text = "Never mind - the name stays %s." % (
+                self.player.businessName or "Unnamed Fishing Co."
+            )
 
     def getTimeOfDayModifier(self, hour):
         """Return (yield factor, flavour label) for fishing at the given hour.

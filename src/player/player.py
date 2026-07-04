@@ -15,9 +15,12 @@ class Player:
         # aggregate total; addFish/clearFish keep the two in sync.
         self.fishByType = {}
         # Fishing business: a boat unlocks hiring workers who bring in a passive
-        # daily catch for a daily wage (see src/business).
+        # daily catch for a daily wage (see src/business). boatTier tracks boat
+        # upgrades (0 = no boat); businessName is purely cosmetic ownership flavor.
         self.hasBoat = False
         self.workers = 0
+        self.boatTier = 0
+        self.businessName = ""
         # Testing/debug cheat: when on, every money check passes and spendMoney
         # becomes a no-op, so cash never actually runs out. Not persisted to save
         # files - it's a runtime toggle, not game progress. Defaults from the

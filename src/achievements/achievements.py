@@ -43,6 +43,24 @@ MILESTONES = [
         "threshold": 50,
         "description": "Spend 50 hours fishing",
     },
+    {
+        "name": "First Mate",
+        "stat": "totalWorkersHired",
+        "threshold": 1,
+        "description": "Hire your first crew member",
+    },
+    {
+        "name": "Full Crew",
+        "stat": "totalWorkersHired",
+        "threshold": 5,
+        "description": "Hire 5 crew members over your career",
+    },
+    {
+        "name": "Fishing Fleet Tycoon",
+        "stat": "totalFishCaughtByCrew",
+        "threshold": 500,
+        "description": "Have your crew catch 500 fish total",
+    },
 ]
 
 

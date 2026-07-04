@@ -35,6 +35,22 @@
                 "type": "string"
             },
             "description": "Names of milestones the player has already been awarded."
+        },
+        "totalWorkersHired": {
+            "type": "integer",
+            "description": "The lifetime number of workers hired for the fishing business."
+        },
+        "totalFishCaughtByCrew": {
+            "type": "integer",
+            "description": "The lifetime number of fish caught by the fishing business' crew."
+        },
+        "totalWagesPaid": {
+            "type": "number",
+            "description": "The lifetime total of wages paid to the fishing business' crew."
+        },
+        "daysInBusiness": {
+            "type": "integer",
+            "description": "The number of days the fishing business has produced a catch."
         }
     }
 }

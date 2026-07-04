@@ -43,6 +43,13 @@
         "workers": {
             "type": "integer",
             "minimum": 0
+        },
+        "boatTier": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "businessName": {
+            "type": "string"
         }
     },
     "required": [
