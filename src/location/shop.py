@@ -152,9 +152,10 @@ class Shop:
         earned = 0.0
         for species in queue:
             value = fish.fishValue(species)
-            if self.money < value:
-                break  # shop is out of money for today
-            self.money -= value
+            if not self.player.operatorMode:
+                if self.money < value:
+                    break  # shop is out of money for today
+                self.money -= value
             self.player.money += value
             self.stats.totalMoneyMade += value
             earned += value

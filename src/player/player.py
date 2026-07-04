@@ -36,6 +36,13 @@ class Player:
         if not self.operatorMode:
             self.money -= cost
 
+    def hasEnergy(self, amount):
+        return self.operatorMode or self.energy >= amount
+
+    def spendEnergy(self, amount):
+        if not self.operatorMode:
+            self.energy -= amount
+
     def addFish(self, fishTypeName, amount):
         self.fishByType[fishTypeName] = self.fishByType.get(fishTypeName, 0) + amount
         self.fishCount += amount
