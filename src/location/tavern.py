@@ -10,6 +10,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
+from business import business
 
 
 # Dice has 6 equally likely faces, so a correct guess pays 5x the bet to make
@@ -81,8 +82,37 @@ class Tavern:
                                "Start small, fish when you have energy, and sell your catch regularly. "
                                "Don't gamble away all your coin - save some at the bank. "
                                "And remember, better bait means better catches. Take your time and enjoy the village!"
-                }
+                },
+                {
+                    "question": "What do you make of my fishing business?",
+                    "response": self._businessDialogue,
+                },
             ]
+        )
+
+    def _businessDialogue(self):
+        """Old Tom's barroom banter about the player's fishing business,
+        staged by boat tier."""
+        if not self.player.hasBoat:
+            return (
+                "No boat yet? Can't rightly call yourself a fisherman around "
+                "here without a crew behind you. Get one down at the docks!"
+            )
+        tier = business.currentTier(self.player)
+        name = self.player.businessName or "your outfit"
+        if tier == 1:
+            return (
+                "A little Rowboat crew, eh? Everybody's gotta start somewhere. "
+                "Buy me a drink when you make your first real money!"
+            )
+        if tier == 2:
+            return (
+                "A Trawler! %s must be doing alright for itself. I might just "
+                "have to start calling you 'boss' around here." % name
+            )
+        return (
+            "A whole Fishing Fleet? %s is the toast of the village! Drinks "
+            "are on you tonight, right?" % name
         )
 
     def run(self):

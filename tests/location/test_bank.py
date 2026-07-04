@@ -132,6 +132,48 @@ def test_talkToNPC():
     assert len(call_args.get_dialogue_options()) > 0
 
 
+def test_npc_business_dialogue_no_boat():
+    # prepare
+    bankInstance = createBank()
+
+    # check
+    assert "save toward" in bankInstance._businessDialogue()
+
+
+def test_npc_business_dialogue_no_crew():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.player.hasBoat = True
+
+    # check
+    assert "rowboat and a dream" in bankInstance._businessDialogue()
+
+
+def test_npc_business_dialogue_reports_wages_paid():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.player.hasBoat = True
+    bankInstance.player.workers = 2
+    bankInstance.stats.totalWagesPaid = 240
+
+    # check
+    assert "$240" in bankInstance._businessDialogue()
+
+
+def test_npc_business_dialogue_fleet_tier():
+    # prepare
+    from src.business import business
+
+    bankInstance = createBank()
+    bankInstance.player.hasBoat = True
+    bankInstance.player.boatTier = len(business.BOAT_TIERS)
+    bankInstance.player.workers = 2
+    bankInstance.stats.totalWagesPaid = 500
+
+    # check
+    assert "retire a wealthy soul" in bankInstance._businessDialogue()
+
+
 def test_deposit_success():
     # prepare
     bankInstance = createBank()
