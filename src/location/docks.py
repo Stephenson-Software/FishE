@@ -176,8 +176,8 @@ class Docks:
             action = actions[choice - 1]
 
             if action == "buy_boat":
-                if self.player.money >= business.BOAT_PRICE:
-                    self.player.money -= business.BOAT_PRICE
+                if self.player.canAfford(business.BOAT_PRICE):
+                    self.player.spendMoney(business.BOAT_PRICE)
                     self.player.hasBoat = True
                     self.currentPrompt.text = "You bought a boat! Now hire a crew."
                 else:

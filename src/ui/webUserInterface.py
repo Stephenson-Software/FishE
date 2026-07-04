@@ -46,6 +46,7 @@ HTML_PAGE = """<!DOCTYPE html>
   .controls { font-size: .8rem; color: #6a8aa0; border-top: 1px solid #2a4a5a;
               margin-top: 1.5rem; padding-top: .5rem; }
   .low { color: #ff8a8a; font-weight: bold; }
+  .operator { color: #ffcf8f; font-weight: bold; }
   .notice { color: #9fd0ff; margin-top: 1rem; }
   .notice.warning { color: #ffcf8f; border-left: 3px solid #c77b2a; padding-left: .6rem; }
 </style>
@@ -119,6 +120,7 @@ function render(screen) {
     addPart(energy);
     if (h.location) addPart(h.location);
     if (h.goal) addPart(`Goal: ${h.goal}`);
+    if (h.operator) addPart(el("span", { textContent: "OPERATOR MODE", className: "operator" }));
     app.append(header);
     document.title = `FishE — Day ${h.day}, $${h.money.toFixed(2)}`;
   }
@@ -282,6 +284,7 @@ class WebUserInterface(BaseUserInterface):
             "energy": self.player.energy,
             "location": self.currentLocationName,
             "goal": self.goalProgress,
+            "operator": self.player.operatorMode,
         }
 
     # --- BaseUserInterface primitives ------------------------------------

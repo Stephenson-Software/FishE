@@ -1,3 +1,6 @@
+import os
+
+
 # @author Daniel McCoy Stephenson
 class Player:
     def __init__(self):
@@ -15,6 +18,23 @@ class Player:
         # daily catch for a daily wage (see src/business).
         self.hasBoat = False
         self.workers = 0
+        # Testing/debug cheat: when on, every money check passes and spendMoney
+        # becomes a no-op, so cash never actually runs out. Not persisted to save
+        # files - it's a runtime toggle, not game progress. Defaults from the
+        # FISHE_OPERATOR_MODE env var so it can be turned on for a whole session
+        # (e.g. `FISHE_OPERATOR_MODE=1 python3 src/fishE.py`) without code changes.
+        self.operatorMode = os.environ.get("FISHE_OPERATOR_MODE", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
+    def canAfford(self, cost):
+        return self.operatorMode or self.money >= cost
+
+    def spendMoney(self, cost):
+        if not self.operatorMode:
+            self.money -= cost
 
     def addFish(self, fishTypeName, amount):
         self.fishByType[fishTypeName] = self.fishByType.get(fishTypeName, 0) + amount

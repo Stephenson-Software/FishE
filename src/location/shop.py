@@ -179,11 +179,11 @@ class Shop:
     def buyBetterBait(self):
         if self.player.fishMultiplier >= MAX_FISH_MULTIPLIER:
             self.currentPrompt.text = "Your bait is already the best money can buy!"
-        elif self.player.money < self.player.priceForBait:
+        elif not self.player.canAfford(self.player.priceForBait):
             self.currentPrompt.text = "You don't have enough money!"
         else:
             self.player.fishMultiplier += 1
-            self.player.money -= self.player.priceForBait
+            self.player.spendMoney(self.player.priceForBait)
 
             self.player.priceForBait = self.player.priceForBait * 1.25
             self.currentPrompt.text = "You bought some better bait!"
@@ -192,11 +192,11 @@ class Shop:
         cost = rodUpgradeCost(self.player.rodLevel)
         if self.player.rodLevel >= MAX_ROD_LEVEL:
             self.currentPrompt.text = "Your rod is already the finest in the village!"
-        elif self.player.money < cost:
+        elif not self.player.canAfford(cost):
             self.currentPrompt.text = "You don't have enough money!"
         else:
             self.player.rodLevel += 1
-            self.player.money -= cost
+            self.player.spendMoney(cost)
             self.currentPrompt.text = "You bought a better fishing rod!"
 
     def talkToNPC(self):

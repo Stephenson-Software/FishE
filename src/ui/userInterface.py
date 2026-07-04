@@ -42,6 +42,8 @@ class UserInterface(BaseUserInterface):
             print(" | Money: $%.2f" % self.player.money)
             print(" | Fish: %d" % self.player.fishCount)
             print(" | Energy: %d" % self.player.energy)
+            if self.player.operatorMode:
+                print(" | [OPERATOR MODE]")
             if self.goalProgress:
                 print(" | Goal: " + self.goalProgress)
             print("\n " + self.currentPrompt.text)

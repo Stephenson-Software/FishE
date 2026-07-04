@@ -92,7 +92,7 @@ class Tavern:
         )
 
         if input == "1":
-            if self.player.money >= 10:
+            if self.player.canAfford(10):
                 self.getDrunk()
                 return LocationType.HOME
             else:
@@ -118,7 +118,7 @@ class Tavern:
         self.userInterface.lotsOfSpace()
         self.userInterface.divider()
 
-        self.player.money -= 10
+        self.player.spendMoney(10)
 
         for i in range(3):
             print("... ")
@@ -136,7 +136,7 @@ class Tavern:
                 loss_percentage = random.uniform(0.1, 0.5)
                 money_lost = int(self.player.money * loss_percentage)
                 if money_lost > 0:
-                    self.player.money -= money_lost
+                    self.player.spendMoney(money_lost)
                     self.stats.moneyLostWhileDrunk += money_lost
                     self.currentPrompt.text = f"You have a headache. In your drunken stupor, you lost ${money_lost}!"
                 else:
@@ -182,7 +182,7 @@ class Tavern:
                     )
                     continue
                 else:
-                    self.player.money -= self.currentBet
+                    self.player.spendMoney(self.currentBet)
                     self.stats.moneyLostFromGambling += self.currentBet
                     self.currentBet = 0
                     self.currentPrompt.text = (
@@ -210,7 +210,7 @@ class Tavern:
             return
         self.amount = int(amount)
 
-        if self.amount <= self.player.money:
+        if self.player.canAfford(self.amount):
             self.currentBet = self.amount
 
             self.currentPrompt.text = (

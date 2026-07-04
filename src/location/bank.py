@@ -78,7 +78,7 @@ class Bank:
         )
 
         if input == "1":
-            if self.player.money > 0:
+            if self.player.operatorMode or self.player.money > 0:
                 self.currentPrompt.text = (
                     "How much would you like to deposit? Money: $%.2f"
                     % self.player.money
@@ -114,9 +114,9 @@ class Bank:
                 self.currentPrompt.text = "Try again. Money: $%.2f" % self.player.money
                 continue
 
-            if amount <= self.player.money:
+            if self.player.canAfford(amount):
                 self.player.moneyInBank += amount
-                self.player.money -= amount
+                self.player.spendMoney(amount)
 
                 self.currentPrompt.text = "$%.2f deposited successfully." % amount
             else:
