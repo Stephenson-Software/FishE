@@ -80,7 +80,11 @@ class Docks:
                                "Fish when you have energy, sell regularly, and save your money. "
                                "The sea has its rhythms - you'll learn them in time. "
                                "And remember: it's not just about catching fish, it's about enjoying the life!"
-                }
+                },
+                {
+                    "question": "How's my fishing business doing?",
+                    "response": self._businessDialogue,
+                },
             ]
         )
 
@@ -134,6 +138,37 @@ class Docks:
         elif input == "7":
             self.manageBusiness()
             return LocationType.DOCKS
+
+    def _businessDialogue(self):
+        """Sam's take on the player's fishing business, staged by boat tier and
+        crew size so it reflects real progress rather than being fixed text."""
+        if not self.player.hasBoat:
+            return (
+                "No boat yet, eh? Once you've got one, I can help you find "
+                "good hands to hire. A crew changes everything!"
+            )
+        if self.player.workers == 0:
+            starter = business.tierInfo(business.currentTier(self.player))
+            return (
+                "A %s of your own! Now you just need to hire a crew to get "
+                "it earning." % starter["name"]
+            )
+        tier = business.currentTier(self.player)
+        name = self.player.businessName or "your business"
+        if tier == 1:
+            return (
+                "%s is off to a solid start with that Rowboat crew. Save up "
+                "and you could afford a bigger boat before long." % name
+            )
+        if tier == 2:
+            return (
+                "A Trawler! %s is really coming along. I've seen a lot of "
+                "fishermen never make it past a rowboat." % name
+            )
+        return (
+            "A whole Fishing Fleet under %s? You're the talk of the docks! "
+            "Never thought I'd see an outfit like that around here." % name
+        )
 
     def _businessStatus(self):
         if not self.player.hasBoat:

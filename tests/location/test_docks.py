@@ -86,6 +86,74 @@ def test_talkToNPC():
     assert len(call_args.get_dialogue_options()) > 0
 
 
+def test_npc_business_dialogue_staged_by_boat_ownership():
+    # prepare - no boat yet
+    docksInstance = createDocks()
+
+    # check
+    response = docksInstance._businessDialogue()
+    assert "No boat yet" in response
+
+
+def test_npc_business_dialogue_staged_by_empty_crew():
+    # prepare - a boat but no crew hired yet
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+
+    # check
+    response = docksInstance._businessDialogue()
+    assert "hire a crew" in response
+
+
+def test_npc_business_dialogue_staged_by_tier():
+    # prepare - one crewed boat per tier
+    from src.business import business
+
+    responses = {}
+    for tier in (1, 2, 3):
+        docksInstance = createDocks()
+        docksInstance.player.hasBoat = True
+        docksInstance.player.boatTier = tier
+        docksInstance.player.workers = 1
+        responses[tier] = docksInstance._businessDialogue()
+
+    # check - each tier gets distinct commentary
+    assert len(set(responses.values())) == 3
+    assert "Fishing Fleet" in responses[3] or "fleet" in responses[3].lower()
+
+
+def test_npc_business_dialogue_mentions_business_name():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.workers = 1
+    docksInstance.player.businessName = "Salty Dawn Fisheries"
+
+    # check
+    assert "Salty Dawn Fisheries" in docksInstance._businessDialogue()
+
+
+def test_npc_dialogue_response_reflects_business_via_callable():
+    # prepare - the NPC's dialogue option resolves through the live callable,
+    # not a value frozen at construction time
+    docksInstance = createDocks()
+    optionIndex = next(
+        i
+        for i, option in enumerate(docksInstance.npc.get_dialogue_options())
+        if option["question"] == "How's my fishing business doing?"
+    )
+    before = docksInstance.npc.get_dialogue_response(optionIndex)
+
+    # call - buy a boat, then ask again
+    docksInstance.player.hasBoat = True
+
+    # check
+    after = docksInstance.npc.get_dialogue_response(optionIndex)
+    assert before != after
+    assert "No boat yet" in before
+    assert "hire a crew" in after
+
+
 def test_run_go_to_shop_action():
     # prepare
     docksInstance = createDocks()

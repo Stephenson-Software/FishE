@@ -88,6 +88,26 @@ def test_get_dialogue_response_invalid_index():
     assert response_too_large == ""
 
 
+def test_get_dialogue_response_evaluates_callable():
+    # prepare - a response computed on demand, e.g. to reflect current game state
+    calls = []
+
+    def dynamicResponse():
+        calls.append(1)
+        return "Dynamic answer #%d" % len(calls)
+
+    dialogue_options = [{"question": "How's it going?", "response": dynamicResponse}]
+    npc = NPC("Guide", "A helpful guide.", dialogue_options)
+
+    # call - each call re-evaluates the callable rather than caching a value
+    first = npc.get_dialogue_response(0)
+    second = npc.get_dialogue_response(0)
+
+    # check
+    assert first == "Dynamic answer #1"
+    assert second == "Dynamic answer #2"
+
+
 def test_npc_without_dialogue_options():
     # call
     npc = NPC("Simple NPC", "Just a simple character.")
