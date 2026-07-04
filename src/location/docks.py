@@ -99,7 +99,7 @@ class Docks:
         )
 
         if input == "1":
-            if self.player.energy >= 10:
+            if self.player.hasEnergy(10):
                 self.fish()
                 return LocationType.DOCKS
             else:
@@ -176,8 +176,8 @@ class Docks:
             action = actions[choice - 1]
 
             if action == "buy_boat":
-                if self.player.money >= business.BOAT_PRICE:
-                    self.player.money -= business.BOAT_PRICE
+                if self.player.canAfford(business.BOAT_PRICE):
+                    self.player.spendMoney(business.BOAT_PRICE)
                     self.player.hasBoat = True
                     self.currentPrompt.text = "You bought a boat! Now hire a crew."
                 else:
@@ -222,7 +222,7 @@ class Docks:
 
         # Check if player has enough energy for all hours
         energy_needed = hours * 10
-        if self.player.energy < energy_needed:
+        if not self.player.hasEnergy(energy_needed):
             # Fish for as many hours as energy allows
             hours = self.player.energy // 10
             if hours == 0:
@@ -250,7 +250,7 @@ class Docks:
         for i in range(hours):
             self.stats.hoursSpentFishing += 1
             self.timeService.increaseTime()
-            self.player.energy -= 10  # Consume 10 energy per hour
+            self.player.spendEnergy(10)  # Consume 10 energy per hour
 
         baseFish = random.randint(1, 10)
         fishToAdd = int(baseFish * quality * self.player.fishMultiplier * timeFactor)

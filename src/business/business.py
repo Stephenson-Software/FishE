@@ -27,7 +27,10 @@ def runDailyProduction(player, stats=None):
     if not player.hasBoat or player.workers <= 0:
         return summary
 
-    affordable = min(player.workers, int(player.money // WORKER_DAILY_WAGE))
+    if player.operatorMode:
+        affordable = player.workers
+    else:
+        affordable = min(player.workers, int(player.money // WORKER_DAILY_WAGE))
     if affordable < player.workers:
         summary["quit"] = player.workers - affordable
         player.workers = affordable
@@ -37,7 +40,7 @@ def runDailyProduction(player, stats=None):
         return summary
 
     wages = affordable * WORKER_DAILY_WAGE
-    player.money -= wages
+    player.spendMoney(wages)
     # Each worker fishes the same waters as the player, landing a rarity-rolled
     # species (not just the cheapest one), so the crew's income is competitive
     # with simply upgrading your own gear.

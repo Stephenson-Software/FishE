@@ -154,7 +154,9 @@ class PygameUserInterface(BaseUserInterface):
             f"Money: ${self.player.money}",
             f"Fish: {self.player.fishCount}"
         ]
-        
+        if self.player.operatorMode:
+            status_lines.append("[OPERATOR MODE]")
+
         status_x = margin_x + (self.width * 0.06)  # Indent status lines
         line_height = self.height * 0.05  # 5% of screen height per line
 
