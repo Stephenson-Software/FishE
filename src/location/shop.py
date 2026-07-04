@@ -6,6 +6,7 @@ from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
 from fish import fish
+from business import business
 
 
 # Upper bound on fishMultiplier so bait upgrades stop being an infinite power
@@ -86,12 +87,32 @@ class Shop:
                                "I'd say don't hoard your fish too long - sell regularly to keep money flowing. "
                                "Use that money to buy better bait, which helps you catch more, which means more money! "
                                "It's a beautiful cycle, really. And don't forget to save some money at the bank!"
-                }
+                },
+                {
+                    "question": "Have you noticed my crew hauling in fish?",
+                    "response": self._crewDialogue,
+                },
             ]
         )
         # Daily budget for buying fish; refills when a new day begins.
         self.money = SHOP_DAILY_BUDGET
         self.lastRefillDay = self.timeService.day
+
+    def _crewDialogue(self):
+        """Gilbert's take on the player's fishing business, staged by whether
+        there's a crew hauling in fish at all and how much they bring in."""
+        if not self.player.hasBoat or self.player.workers == 0:
+            return (
+                "Can't say I have! Get yourself a boat and a crew down at the "
+                "docks - Sam will set you up. Then you'll really see the fish "
+                "pile in."
+            )
+        fishPerDay = business.tierInfo(business.currentTier(self.player))["fishPerDay"]
+        dailyCatch = fishPerDay * self.player.workers
+        return (
+            "That I have! Word is your crew hauls in about %d fish a day. "
+            "Keep that up and I might need a bigger vault!" % dailyCatch
+        )
 
     def run(self):
         li = [

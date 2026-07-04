@@ -91,3 +91,64 @@ def test_all_workers_quit_when_broke():
     assert summary["quit"] == 2
     assert summary["fishCaught"] == 0
     assert player.fishCount == 0
+
+
+def test_currentTier_defaults_to_1_when_unset():
+    # prepare - an older save/test that sets hasBoat without ever touching
+    # boatTier
+    player = Player()
+    player.hasBoat = True
+
+    # check - treated as the original (tier 1) boat
+    assert player.boatTier == 0
+    assert business.currentTier(player) == 1
+
+
+def test_currentTier_reflects_upgrades():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+    player.boatTier = 2
+
+    # check
+    assert business.currentTier(player) == 2
+
+
+def test_higher_tier_boat_yields_more_fish_per_worker():
+    # prepare - an upgraded boat (tier 2) with one worker
+    player = Player()
+    player.hasBoat = True
+    player.boatTier = 2
+    player.workers = 1
+    player.money = 1000
+    stats = Stats()
+
+    # call
+    summary = business.runDailyProduction(player, stats)
+
+    # check - tier 2's fishPerDay beats the flat tier-1 constant
+    tier2FishPerDay = business.tierInfo(2)["fishPerDay"]
+    assert tier2FishPerDay > business.WORKER_FISH_PER_DAY
+    assert summary["fishCaught"] == tier2FishPerDay
+    assert stats.totalFishCaughtByCrew == tier2FishPerDay
+
+
+def test_runDailyProduction_tracks_lifetime_business_stats():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+    player.workers = 2
+    player.money = 1000
+    stats = Stats()
+
+    # call
+    summary = business.runDailyProduction(player, stats)
+
+    # check - lifetime counters advance alongside the day's summary
+    assert stats.totalFishCaughtByCrew == summary["fishCaught"]
+    assert stats.totalWagesPaid == summary["wagesPaid"]
+    assert stats.daysInBusiness == 1
+
+    # a second day accumulates rather than resets
+    business.runDailyProduction(player, stats)
+    assert stats.daysInBusiness == 2

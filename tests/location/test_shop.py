@@ -114,6 +114,39 @@ def test_talkToNPC():
     assert len(call_args.get_dialogue_options()) > 0
 
 
+def test_npc_crew_dialogue_no_business():
+    # prepare - no boat
+    shopInstance = createShop()
+
+    # check
+    assert "Can't say I have" in shopInstance._crewDialogue()
+
+
+def test_npc_crew_dialogue_no_workers():
+    # prepare - a boat but no crew hired
+    shopInstance = createShop()
+    shopInstance.player.hasBoat = True
+
+    # check
+    assert "Can't say I have" in shopInstance._crewDialogue()
+
+
+def test_npc_crew_dialogue_reports_daily_catch():
+    # prepare
+    from src.business import business
+
+    shopInstance = createShop()
+    shopInstance.player.hasBoat = True
+    shopInstance.player.boatTier = 2
+    shopInstance.player.workers = 3
+
+    # check - the reported total matches tier fishPerDay * worker count
+    expected = business.tierInfo(2)["fishPerDay"] * 3
+    response = shopInstance._crewDialogue()
+    assert str(expected) in response
+    assert "That I have" in response
+
+
 def test_sellFish():
     # prepare
     shopInstance = createShop()

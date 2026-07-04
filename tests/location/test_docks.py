@@ -86,6 +86,74 @@ def test_talkToNPC():
     assert len(call_args.get_dialogue_options()) > 0
 
 
+def test_npc_business_dialogue_staged_by_boat_ownership():
+    # prepare - no boat yet
+    docksInstance = createDocks()
+
+    # check
+    response = docksInstance._businessDialogue()
+    assert "No boat yet" in response
+
+
+def test_npc_business_dialogue_staged_by_empty_crew():
+    # prepare - a boat but no crew hired yet
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+
+    # check
+    response = docksInstance._businessDialogue()
+    assert "hire a crew" in response
+
+
+def test_npc_business_dialogue_staged_by_tier():
+    # prepare - one crewed boat per tier
+    from src.business import business
+
+    responses = {}
+    for tier in (1, 2, 3):
+        docksInstance = createDocks()
+        docksInstance.player.hasBoat = True
+        docksInstance.player.boatTier = tier
+        docksInstance.player.workers = 1
+        responses[tier] = docksInstance._businessDialogue()
+
+    # check - each tier gets distinct commentary
+    assert len(set(responses.values())) == 3
+    assert "Fishing Fleet" in responses[3] or "fleet" in responses[3].lower()
+
+
+def test_npc_business_dialogue_mentions_business_name():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.workers = 1
+    docksInstance.player.businessName = "Salty Dawn Fisheries"
+
+    # check
+    assert "Salty Dawn Fisheries" in docksInstance._businessDialogue()
+
+
+def test_npc_dialogue_response_reflects_business_via_callable():
+    # prepare - the NPC's dialogue option resolves through the live callable,
+    # not a value frozen at construction time
+    docksInstance = createDocks()
+    optionIndex = next(
+        i
+        for i, option in enumerate(docksInstance.npc.get_dialogue_options())
+        if option["question"] == "How's my fishing business doing?"
+    )
+    before = docksInstance.npc.get_dialogue_response(optionIndex)
+
+    # call - buy a boat, then ask again
+    docksInstance.player.hasBoat = True
+
+    # check
+    after = docksInstance.npc.get_dialogue_response(optionIndex)
+    assert before != after
+    assert "No boat yet" in before
+    assert "hire a crew" in after
+
+
 def test_run_go_to_shop_action():
     # prepare
     docksInstance = createDocks()
@@ -358,8 +426,9 @@ def test_manageBusiness_buy_boat():
     docksInstance = createDocks()
     docksInstance.player.money = business.BOAT_PRICE + 50
     docksInstance.player.hasBoat = False
-    # "1" = Buy a Boat; then in the post-purchase menu "2" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
+    # "1" = Buy a Boat; then in the post-purchase menu (Hire/Upgrade/Rename/Back)
+    # "4" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "4"])
 
     # call
     docksInstance.manageBusiness()
@@ -391,8 +460,9 @@ def test_manageBusiness_hire_worker():
     docksInstance = createDocks()
     docksInstance.player.hasBoat = True
     docksInstance.player.workers = 0
-    # "1" = Hire; then in the menu with a worker "3" = Back (Hire/Dismiss/Back)
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "3"])
+    # "1" = Hire; then in the menu with a worker
+    # (Hire/Dismiss/Upgrade/Rename/Back) "5" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
 
     # call
     docksInstance.manageBusiness()
@@ -406,11 +476,118 @@ def test_manageBusiness_dismiss_worker():
     docksInstance = createDocks()
     docksInstance.player.hasBoat = True
     docksInstance.player.workers = 2
-    # "2" = Dismiss (Hire/Dismiss/Back); then "3" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "3"])
+    # "2" = Dismiss (Hire/Dismiss/Upgrade/Rename/Back); then "5" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "5"])
 
     # call
     docksInstance.manageBusiness()
 
     # check
     assert docksInstance.player.workers == 1
+
+
+def test_manageBusiness_hire_worker_increments_lifetime_stat():
+    # prepare - own a boat, no crew yet
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.workers = 0
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check - hiring is tracked as a lifetime business stat too
+    assert docksInstance.stats.totalWorkersHired == 1
+
+
+def test_manageBusiness_upgrade_boat():
+    # prepare - own a Rowboat (tier 1), enough money to upgrade to a Trawler
+    from src.business import business
+
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.boatTier = 1
+    trawler = business.tierInfo(2)
+    docksInstance.player.money = trawler["cost"] + 50
+    # 0 workers under tier-1 capacity, so the menu is
+    # (Hire/Upgrade/Rename/Back): "2" = Upgrade, "4" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "4"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check
+    assert docksInstance.player.boatTier == 2
+    assert docksInstance.player.money == 50
+
+
+def test_manageBusiness_upgrade_boat_insufficient_funds():
+    # prepare - can't afford the next tier
+    from src.business import business
+
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.boatTier = 1
+    docksInstance.player.money = business.tierInfo(2)["cost"] - 1
+    # (Hire/Upgrade/Rename/Back): "2" = Upgrade, "4" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "4"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check - tier and money are unchanged
+    assert docksInstance.player.boatTier == 1
+    assert docksInstance.player.money == business.tierInfo(2)["cost"] - 1
+
+
+def test_manageBusiness_upgrade_boat_unavailable_at_max_tier():
+    # prepare - already at the highest boat tier
+    from src.business import business
+
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.boatTier = len(business.BOAT_TIERS)
+    # No upgrade offered at max tier, so the menu is (Hire/Rename/Back)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check - "Back" (option 3) exits cleanly; no upgrade option was ever shown
+    options_shown = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert not any("Upgrade" in option for option in options_shown)
+
+
+def test_manageBusiness_rename():
+    # prepare - own a boat, no crew, rename then back
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.boatTier = 1
+    # (Hire/Upgrade/Rename/Back): "3" = Rename, "4" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "4"])
+    docksInstance.userInterface.promptForText = MagicMock(
+        return_value="  Salty Sea Co.  "
+    )
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check - the name is trimmed
+    assert docksInstance.player.businessName == "Salty Sea Co."
+
+
+def test_manageBusiness_rename_blank_keeps_previous_name():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.boatTier = 1
+    docksInstance.player.businessName = "Original Name"
+    # (Hire/Upgrade/Rename/Back): "3" = Rename, "4" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "4"])
+    docksInstance.userInterface.promptForText = MagicMock(return_value="   ")
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check - a blank entry doesn't clear the existing name
+    assert docksInstance.player.businessName == "Original Name"

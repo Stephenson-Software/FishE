@@ -11,6 +11,31 @@ MAX_WORKERS = 5
 WORKER_DAILY_WAGE = 10
 WORKER_FISH_PER_DAY = 5
 
+# Boat upgrades: a bigger boat holds more crew and each worker lands more fish
+# per day. Tier 1 is exactly the original flat boat/crew numbers above, so
+# existing saves and behavior are unchanged until a player chooses to upgrade.
+BOAT_TIERS = [
+    {
+        "name": "Rowboat",
+        "cost": BOAT_PRICE,
+        "maxWorkers": MAX_WORKERS,
+        "fishPerDay": WORKER_FISH_PER_DAY,
+    },
+    {"name": "Trawler", "cost": 2000, "maxWorkers": 8, "fishPerDay": 7},
+    {"name": "Fishing Fleet", "cost": 6000, "maxWorkers": 12, "fishPerDay": 10},
+]
+
+
+def currentTier(player):
+    """Resolve the player's effective boat tier (always >= 1 once they own a
+    boat). Older saves/tests may set hasBoat without ever touching boatTier,
+    so an unset (0) tier is treated as tier 1 - the original boat."""
+    return player.boatTier if player.boatTier > 0 else 1
+
+
+def tierInfo(tier):
+    return BOAT_TIERS[tier - 1]
+
 
 def runDailyProduction(player, stats=None):
     """Apply one day of the fishing business and return a summary.
@@ -43,13 +68,18 @@ def runDailyProduction(player, stats=None):
     player.spendMoney(wages)
     # Each worker fishes the same waters as the player, landing a rarity-rolled
     # species (not just the cheapest one), so the crew's income is competitive
-    # with simply upgrading your own gear.
+    # with simply upgrading your own gear. A bigger boat means a bigger catch
+    # per worker, not just more worker slots.
+    fishPerWorker = tierInfo(currentTier(player))["fishPerDay"]
     caught = 0
     for _ in range(affordable):
-        player.addFish(fish.rollFishType(), WORKER_FISH_PER_DAY)
-        caught += WORKER_FISH_PER_DAY
+        player.addFish(fish.rollFishType(), fishPerWorker)
+        caught += fishPerWorker
     summary["wagesPaid"] = wages
     summary["fishCaught"] = caught
     if stats is not None:
         stats.totalFishCaught += caught
+        stats.totalFishCaughtByCrew += caught
+        stats.totalWagesPaid += wages
+        stats.daysInBusiness += 1
     return summary

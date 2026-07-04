@@ -5,6 +5,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
+from business import business
 
 
 # @author Daniel McCoy Stephenson
@@ -66,8 +67,39 @@ class Bank:
                                "Invest in good bait to improve your catches, but save the profits. "
                                "And remember: it's not about how much you earn, it's about how much you keep. "
                                "That's the secret to real wealth!"
-                }
+                },
+                {
+                    "question": "What do you think of my fishing business?",
+                    "response": self._businessDialogue,
+                },
             ]
+        )
+
+    def _businessDialogue(self):
+        """Margaret's savings-minded take on the player's fishing business,
+        staged by boat ownership/crew size."""
+        if not self.player.hasBoat:
+            return (
+                "A boat's a fine goal to save toward! Set some money aside "
+                "here and it'll be waiting for you when you're ready to buy one."
+            )
+        if self.player.workers == 0:
+            return (
+                "A boat with no crew is just a rowboat and a dream! Bank your "
+                "catch money for a while and you'll have their wages covered "
+                "in no time."
+            )
+        if business.currentTier(self.player) >= 3:
+            return (
+                "A whole Fishing Fleet, paying out $%d in wages so far? "
+                "You could retire a wealthy soul if you keep banking those "
+                "profits!" % self.stats.totalWagesPaid
+            )
+        return (
+            "Your crew's brought in $%d in wages paid out so far - quite the "
+            "little enterprise! Don't let it all burn a hole in your pocket, "
+            "park some of it here and let it earn interest."
+            % self.stats.totalWagesPaid
         )
 
     def run(self):

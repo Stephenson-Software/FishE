@@ -117,6 +117,39 @@ def test_talkToNPC():
     assert len(call_args.get_dialogue_options()) > 0
 
 
+def test_npc_business_dialogue_no_boat():
+    # prepare
+    tavernInstance = createTavern()
+
+    # check
+    assert "No boat yet" in tavernInstance._businessDialogue()
+
+
+def test_npc_business_dialogue_staged_by_tier():
+    # prepare - one crewed boat per tier
+    responses = {}
+    for tier in (1, 2, 3):
+        tavernInstance = createTavern()
+        tavernInstance.player.hasBoat = True
+        tavernInstance.player.boatTier = tier
+        responses[tier] = tavernInstance._businessDialogue()
+
+    # check - each tier gets distinct banter
+    assert len(set(responses.values())) == 3
+    assert "Fishing Fleet" in responses[3]
+
+
+def test_npc_business_dialogue_mentions_business_name():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.player.hasBoat = True
+    tavernInstance.player.boatTier = 3
+    tavernInstance.player.businessName = "Salty Dawn Fisheries"
+
+    # check
+    assert "Salty Dawn Fisheries" in tavernInstance._businessDialogue()
+
+
 def test_getDrunk():
     # prepare
     tavernInstance = createTavern()

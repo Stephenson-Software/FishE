@@ -96,6 +96,48 @@ def test_createStatsFromJson_missingEarnedMilestones_defaultsToEmpty():
     assert stats.earnedMilestones == []
 
 
+def test_businessStats_round_trip():
+    # prepare
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    stats = createStats()
+    stats.totalWorkersHired = 4
+    stats.totalFishCaughtByCrew = 120
+    stats.totalWagesPaid = 300
+    stats.daysInBusiness = 15
+
+    # call - serialize then deserialize
+    statsJson = statsJsonReaderWriter.createJsonFromStats(stats)
+    restored = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check
+    assert statsJson["totalWorkersHired"] == 4
+    assert statsJson["totalFishCaughtByCrew"] == 120
+    assert statsJson["totalWagesPaid"] == 300
+    assert statsJson["daysInBusiness"] == 15
+    assert restored.totalWorkersHired == 4
+    assert restored.totalFishCaughtByCrew == 120
+    assert restored.totalWagesPaid == 300
+    assert restored.daysInBusiness == 15
+
+
+def test_createStatsFromJson_missingBusinessStats_defaultsToZero():
+    # prepare - an older save with no business-stat fields
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    statsJson = {
+        "totalFishCaught": 1,
+        "totalMoneyMade": 1,
+    }
+
+    # call
+    stats = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check - backward compatible defaults
+    assert stats.totalWorkersHired == 0
+    assert stats.totalFishCaughtByCrew == 0
+    assert stats.totalWagesPaid == 0
+    assert stats.daysInBusiness == 0
+
+
 def test_writeStatsToFile():
     # prepare
     import tempfile

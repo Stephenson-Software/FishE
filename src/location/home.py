@@ -57,6 +57,17 @@ class Home:
             "Money Made From Interest: %d" % self.stats.moneyMadeFromInterest,
             "Times Gotten Drunk: %d" % self.stats.timesGottenDrunk,
             "Money Lost Gambling: %d" % self.stats.moneyLostFromGambling,
+        ]
+        if self.player.hasBoat:
+            lines += [
+                "",
+                "Business: %s" % (self.player.businessName or "Unnamed Fishing Co."),
+                "Days in Business: %d" % self.stats.daysInBusiness,
+                "Crew Hired (lifetime): %d" % self.stats.totalWorkersHired,
+                "Fish Caught by Crew: %d" % self.stats.totalFishCaughtByCrew,
+                "Wages Paid: %d" % self.stats.totalWagesPaid,
+            ]
+        lines += [
             "",
             "Milestones:",
         ]
