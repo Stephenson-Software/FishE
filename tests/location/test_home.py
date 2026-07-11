@@ -154,36 +154,58 @@ def test_displayStats_includes_home_block():
     # call
     homeInstance.displayStats()
 
-    # check - the home tier and lifetime rental income are always shown, even
-    # for a fresh player at the base tier
+    # check - the home tier is always shown, even for a fresh player at the
+    # base tier; a fresh player owns no investment properties, so that block
+    # (and any rental-income line) is omitted
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
     assert "Home: Driftwood Shack" in shownText
-    assert "Lifetime Rental Income" in shownText
+    assert "Investment Properties" not in shownText
 
 
-def test_manageHome_upgrade_when_affordable():
+def test_displayStats_includes_investment_block_when_owned():
     # prepare
     homeInstance = createHome()
-    homeInstance.player.money = 10000
-    nextInfo = housing.tierInfo(2)
-    homeInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
+    homeInstance.player.rentalProperties = [1, 1]
+    homeInstance.stats.totalRentalIncome = 30
+    homeInstance.userInterface.showDialogue = MagicMock()
 
-    # call - upgrade, then back out
+    # call
+    homeInstance.displayStats()
+
+    # check
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Investment Properties: 2 owned" in shownText
+    assert "Lifetime Rental Income: 30" in shownText
+
+
+def test_manageHome_move_up_when_affordable():
+    # prepare - a trade-up from the free tier 1 costs exactly tier 2's price
+    # (tier 1 has no resale value)
+    homeInstance = createHome()
+    homeInstance.player.money = 10000
+    netCost = housing.netCostToMove(homeInstance.player, 2)
+    # tier 1 menu is (Move up/Back) = "1"; after moving, tier 2's menu is
+    # (Move up/Move down/Back), so "3" backs out
+    homeInstance.userInterface.showOptions = MagicMock(side_effect=["1", "3"])
+
+    # call - move up, then back out
     homeInstance.manageHome()
 
     # check
     assert homeInstance.player.homeTier == 2
-    assert homeInstance.player.money == 10000 - nextInfo["cost"]
+    assert homeInstance.player.money == 10000 - netCost
     assert homeInstance.stats.highestHomeTier == 2
 
 
-def test_manageHome_upgrade_when_unaffordable():
+def test_manageHome_move_up_when_unaffordable():
     # prepare
     homeInstance = createHome()
     homeInstance.player.money = 0
+    # the failed move leaves the tier-1 menu (Move up/Back) unchanged, so "2"
+    # backs out both times
     homeInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
 
-    # call - attempt to upgrade (fails, loop continues), then back out
+    # call - attempt to move up (fails, loop continues), then back out
     homeInstance.manageHome()
 
     # check - no tier change, no money spent
@@ -191,15 +213,50 @@ def test_manageHome_upgrade_when_unaffordable():
     assert homeInstance.player.money == 0
 
 
-def test_manageHome_at_top_tier_has_no_upgrade_option():
-    # prepare - already at the top tier
+def test_manageHome_move_down_pays_cash_back():
+    # prepare - own the Cozy Cottage (tier 2), move back down to the free
+    # Driftwood Shack (tier 1)
     homeInstance = createHome()
-    homeInstance.player.homeTier = len(housing.HOUSING_TIERS)
-    homeInstance.userInterface.showOptions = MagicMock(return_value="1")
+    homeInstance.player.homeTier = 2
+    homeInstance.player.money = 0
+    homeInstance.stats.highestHomeTier = 2
+    expectedRefund = -housing.netCostToMove(homeInstance.player, 1)
+    # tier 2 menu is (Move up/Move down/Back) = "2" moves down; tier 1's menu
+    # is (Move up/Back), so "2" backs out
+    homeInstance.userInterface.showOptions = MagicMock(side_effect=["2", "2"])
 
-    # call - the only option offered is "Back"
+    # call - move down, then back out
+    homeInstance.manageHome()
+
+    # check - cash back, and the lifetime "highest tier" stat doesn't regress
+    assert homeInstance.player.homeTier == 1
+    assert homeInstance.player.money == expectedRefund
+    assert homeInstance.stats.highestHomeTier == 2
+
+
+def test_manageHome_at_base_tier_has_no_move_down_option():
+    # prepare - a fresh player at tier 1 has nothing to move down to
+    homeInstance = createHome()
+    homeInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call - "Back" is the only other option besides "Move to a Cozy Cottage"
     homeInstance.manageHome()
 
     # check
     optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
-    assert optionsShown == ["Back"]
+    assert not any("down" in option.lower() for option in optionsShown)
+
+
+def test_manageHome_at_top_tier_has_no_move_up_option():
+    # prepare - already at the top tier
+    homeInstance = createHome()
+    homeInstance.player.homeTier = len(housing.HOUSING_TIERS)
+    homeInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call - "Move down" and "Back" are offered, but no "Move up"
+    homeInstance.manageHome()
+
+    # check
+    optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
+    assert not any("move to" in option.lower() for option in optionsShown)
+    assert any("down" in option.lower() for option in optionsShown)

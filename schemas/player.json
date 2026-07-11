@@ -54,6 +54,13 @@
         "homeTier": {
             "type": "integer",
             "minimum": 1
+        },
+        "rentalProperties": {
+            "type": "array",
+            "items": {
+                "type": "integer",
+                "minimum": 1
+            }
         }
     },
     "required": [

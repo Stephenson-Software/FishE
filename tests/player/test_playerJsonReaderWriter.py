@@ -316,3 +316,37 @@ def test_createPlayerFromJson_missingHomeTier_defaultsToOne():
 
     # check - backward compatible default
     assert player.homeTier == 1
+
+
+def test_rentalProperties_round_trips():
+    # prepare
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.rentalProperties = [1, 1, 2]
+
+    # call
+    playerJson = playerJsonReaderWriter.createJsonFromPlayer(player)
+    restored = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert playerJson["rentalProperties"] == [1, 1, 2]
+    assert restored.rentalProperties == [1, 1, 2]
+
+
+def test_createPlayerFromJson_missingRentalProperties_defaultsToEmpty():
+    # prepare - an older save with no rentalProperties field
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 5,
+        "fishMultiplier": 2,
+        "money": 100,
+        "moneyInBank": 50,
+        "priceForBait": 75,
+        "energy": 80,
+    }
+
+    # call
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check - backward compatible default
+    assert player.rentalProperties == []

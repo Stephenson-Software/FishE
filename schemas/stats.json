@@ -54,11 +54,15 @@
         },
         "totalRentalIncome": {
             "type": "number",
-            "description": "The lifetime total of passive rental income earned from the player's home."
+            "description": "The lifetime total of passive rental income earned from investment properties."
         },
         "highestHomeTier": {
             "type": "integer",
             "description": "The highest home tier the player has owned."
+        },
+        "totalPropertiesBought": {
+            "type": "integer",
+            "description": "The lifetime number of investment properties bought."
         }
     }
 }

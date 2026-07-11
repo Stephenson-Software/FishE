@@ -1,7 +1,7 @@
 import math
 
 from business import business
-from housing import housing
+from investments import investments
 
 
 # Daily bank interest is deliberately modest and capped so that saving is a
@@ -43,5 +43,5 @@ class TimeService:
         # The fishing business (if any) produces its daily catch and pays wages.
         business.runDailyProduction(self.player, self.stats)
 
-        # The player's home (if upgraded) pays out its daily rental income.
-        housing.runDailyRentalIncome(self.player, self.stats)
+        # Any investment properties (if owned) pay out their daily rental income.
+        investments.runDailyIncome(self.player, self.stats)

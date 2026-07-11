@@ -58,22 +58,31 @@ class Home:
         info = housing.tierInfo(tier)
         lines = [
             "%s (tier %d/%d)" % (info["name"], tier, len(housing.HOUSING_TIERS)),
-            "Energy cap: %d. Daily rental income: $%d."
-            % (info["maxEnergy"], info["dailyRentalIncome"]),
+            "Energy cap: %d." % info["maxEnergy"],
         ]
         if tier < len(housing.HOUSING_TIERS):
             nextInfo = housing.tierInfo(tier + 1)
+            netCost = housing.netCostToMove(self.player, tier + 1)
             lines.append(
-                "Upgrade to a %s for $%d: energy cap %d, rental income $%d/day."
+                "Move to a %s for $%d net (energy cap %d): you'll sell your "
+                "%s and put the proceeds toward the new place."
+                % (nextInfo["name"], netCost, nextInfo["maxEnergy"], info["name"])
+            )
+        if tier > 1:
+            prevInfo = housing.tierInfo(tier - 1)
+            netCost = housing.netCostToMove(self.player, tier - 1)
+            lines.append(
+                "Move down to a %s (energy cap %d): %s."
                 % (
-                    nextInfo["name"],
-                    nextInfo["cost"],
-                    nextInfo["maxEnergy"],
-                    nextInfo["dailyRentalIncome"],
+                    prevInfo["name"],
+                    prevInfo["maxEnergy"],
+                    (
+                        "you'll pocket $%d" % -netCost
+                        if netCost <= 0
+                        else "costs $%d net" % netCost
+                    ),
                 )
             )
-        else:
-            lines.append("You already own the finest home in the village.")
         return "\n".join(lines)
 
     def manageHome(self):
@@ -83,27 +92,28 @@ class Home:
             actions = []
             if tier < len(housing.HOUSING_TIERS):
                 nextInfo = housing.tierInfo(tier + 1)
-                options.append(
-                    "Upgrade to a %s ($%d)" % (nextInfo["name"], nextInfo["cost"])
-                )
-                actions.append("upgrade")
+                netCost = housing.netCostToMove(self.player, tier + 1)
+                options.append("Move to a %s ($%d net)" % (nextInfo["name"], netCost))
+                actions.append(("move", tier + 1))
+            if tier > 1:
+                prevInfo = housing.tierInfo(tier - 1)
+                netCost = housing.netCostToMove(self.player, tier - 1)
+                label = "+$%d" % -netCost if netCost <= 0 else "$%d net" % netCost
+                options.append("Move down to a %s (%s)" % (prevInfo["name"], label))
+                actions.append(("move", tier - 1))
             options.append("Back")
-            actions.append("back")
+            actions.append(("back", None))
 
             choice = int(self.userInterface.showOptions(self._housingStatus(), options))
-            action = actions[choice - 1]
+            action, targetTier = actions[choice - 1]
 
-            if action == "upgrade":
-                nextInfo = housing.tierInfo(tier + 1)
-                if self.player.canAfford(nextInfo["cost"]):
-                    self.player.spendMoney(nextInfo["cost"])
-                    self.player.homeTier = tier + 1
-                    self.stats.highestHomeTier = max(
-                        self.stats.highestHomeTier, self.player.homeTier
+            if action == "move":
+                if housing.moveHome(self.player, targetTier, self.stats):
+                    self.currentPrompt.text = (
+                        "You moved into a %s!" % housing.tierInfo(targetTier)["name"]
                     )
-                    self.currentPrompt.text = "You upgraded to a %s!" % nextInfo["name"]
                 else:
-                    self.currentPrompt.text = "You can't afford that upgrade yet."
+                    self.currentPrompt.text = "You can't afford that move yet."
             elif action == "back":
                 self.currentPrompt.text = "What would you like to do?"
                 return
@@ -123,7 +133,6 @@ class Home:
             "",
             "Home: %s (tier %d/%d)"
             % (homeInfo["name"], homeTier, len(housing.HOUSING_TIERS)),
-            "Lifetime Rental Income: %d" % self.stats.totalRentalIncome,
         ]
         if self.player.hasBoat:
             lines += [
@@ -133,6 +142,12 @@ class Home:
                 "Crew Hired (lifetime): %d" % self.stats.totalWorkersHired,
                 "Fish Caught by Crew: %d" % self.stats.totalFishCaughtByCrew,
                 "Wages Paid: %d" % self.stats.totalWagesPaid,
+            ]
+        if self.player.rentalProperties:
+            lines += [
+                "",
+                "Investment Properties: %d owned" % len(self.player.rentalProperties),
+                "Lifetime Rental Income: %d" % self.stats.totalRentalIncome,
             ]
         lines += [
             "",

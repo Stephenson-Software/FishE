@@ -17,5 +17,7 @@ class Stats:
         self.daysInBusiness = 0
         # Lifetime home-ownership totals (see src/housing). highestHomeTier
         # starts at 1 since every player already owns the base tier.
-        self.totalRentalIncome = 0
         self.highestHomeTier = 1
+        # Lifetime investment-property totals (see src/investments).
+        self.totalRentalIncome = 0
+        self.totalPropertiesBought = 0

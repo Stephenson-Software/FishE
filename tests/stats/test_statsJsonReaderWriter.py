@@ -142,7 +142,6 @@ def test_housingStats_round_trip():
     # prepare
     statsJsonReaderWriter = createStatsJsonReaderWriter()
     stats = createStats()
-    stats.totalRentalIncome = 85
     stats.highestHomeTier = 3
 
     # call - serialize then deserialize
@@ -150,17 +149,36 @@ def test_housingStats_round_trip():
     restored = statsJsonReaderWriter.createStatsFromJson(statsJson)
 
     # check
-    assert statsJson["totalRentalIncome"] == 85
     assert statsJson["highestHomeTier"] == 3
-    assert restored.totalRentalIncome == 85
     assert restored.highestHomeTier == 3
 
     # validate against the schema
     validate(statsJson, getStatsSchema())
 
 
-def test_createStatsFromJson_missingHousingStats_defaults():
-    # prepare - an older save with no housing-stat fields
+def test_investmentStats_round_trip():
+    # prepare
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    stats = createStats()
+    stats.totalRentalIncome = 85
+    stats.totalPropertiesBought = 4
+
+    # call - serialize then deserialize
+    statsJson = statsJsonReaderWriter.createJsonFromStats(stats)
+    restored = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check
+    assert statsJson["totalRentalIncome"] == 85
+    assert statsJson["totalPropertiesBought"] == 4
+    assert restored.totalRentalIncome == 85
+    assert restored.totalPropertiesBought == 4
+
+    # validate against the schema
+    validate(statsJson, getStatsSchema())
+
+
+def test_createStatsFromJson_missingHousingAndInvestmentStats_defaults():
+    # prepare - an older save with no housing/investment-stat fields
     statsJsonReaderWriter = createStatsJsonReaderWriter()
     statsJson = {
         "totalFishCaught": 1,
@@ -171,8 +189,9 @@ def test_createStatsFromJson_missingHousingStats_defaults():
     stats = statsJsonReaderWriter.createStatsFromJson(statsJson)
 
     # check - backward compatible defaults
-    assert stats.totalRentalIncome == 0
     assert stats.highestHomeTier == 1
+    assert stats.totalRentalIncome == 0
+    assert stats.totalPropertiesBought == 0
 
 
 def test_writeStatsToFile():

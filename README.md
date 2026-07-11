@@ -23,7 +23,10 @@ Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the
 Once you can afford it, buy a **boat** at the docks ("Manage Boat & Crew") and **hire workers**. Each day your crew brings in a passive catch in exchange for a daily wage — turning saved-up money into ongoing production. If you over-hire and can't make payroll, the workers you can't pay quit, so keep enough cash on hand to cover wages.
 
 ### Home Ownership
-Your home is a property too. From the Home menu, choose **Manage Home** to see your current tier and upgrade to the next one: Driftwood Shack → Cozy Cottage → Sturdy Cabin → Waterfront Manor. Each upgrade costs money but raises the energy cap you refill to when you sleep (so you can fish longer between rests) and adds a small passive daily rental income, paid out automatically every new day alongside your bank interest and any crew wages.
+Your home has tiers too: Driftwood Shack → Cozy Cottage → Sturdy Cabin → Waterfront Manor. From the Home menu, choose **Manage Home** to trade your current place in for a nicer (or more modest) one — the price is the difference between what you get for your old home and what the new one costs, so moving up costs money and moving down puts cash back in your pocket. A bigger home is pure personal comfort: it raises the energy cap you refill to when you sleep, letting you fish longer between rests.
+
+### Investment Properties
+Separately from where you live, you can build a real-estate portfolio. At the bank, choose **Manage Investment Properties** to buy rental units around the village — Dockside Cottage, Fisherman's Rowhouse, Harborview Flat — that you don't live in yourself. Every unit you own pays out its own daily rental income automatically each new day, alongside bank interest and any crew wages, and any unit can be sold back for a portion of its price.
 
 ### Selling Fish
 Sell your catch at the shop. The shop has a limited amount of money each day that refills overnight, so a very large haul may sell out the shop and need to be finished the next day — sell regularly, and park your earnings in the bank or reinvest them in gear and your crew.

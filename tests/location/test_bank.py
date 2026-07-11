@@ -91,10 +91,24 @@ def test_run_make_withdrawal_failure_no_money():
     assert nextLocation == LocationType.BANK
 
 
-def test_run_go_to_docks_action():
+def test_run_manage_investments_action():
     # prepare
     bankInstance = createBank()
     bankInstance.userInterface.showOptions = MagicMock(return_value="4")
+    bankInstance.manageInvestments = MagicMock()
+
+    # call
+    nextLocation = bankInstance.run()
+
+    # check
+    bankInstance.manageInvestments.assert_called_once()
+    assert nextLocation == LocationType.BANK
+
+
+def test_run_go_to_docks_action():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.userInterface.showOptions = MagicMock(return_value="5")
 
     # call
     nextLocation = bankInstance.run()
@@ -274,3 +288,68 @@ def test_withdraw_with_decimal():
     # check
     assert bankInstance.player.moneyInBank == 90.25
     assert bankInstance.player.money == 10.50
+
+
+def test_manageInvestments_buy_when_affordable():
+    # prepare
+    from src.investments import investments
+
+    bankInstance = createBank()
+    bankInstance.player.money = 10000
+    cost = investments.typeInfo(1)["cost"]
+    # no properties menu is (Buy1/Buy2/Buy3/Back) = "1" buys type 1; owning
+    # one adds a Sell option, so the follow-up menu's Back is "5"
+    bankInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
+
+    # call - buy, then back out
+    bankInstance.manageInvestments()
+
+    # check
+    assert bankInstance.player.rentalProperties == [1]
+    assert bankInstance.player.money == 10000 - cost
+    assert bankInstance.stats.totalPropertiesBought == 1
+
+
+def test_manageInvestments_buy_when_unaffordable():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.player.money = 0
+    # the failed purchase leaves the menu unchanged (still no Sell option),
+    # so "4" backs out both times
+    bankInstance.userInterface.showOptions = MagicMock(side_effect=["1", "4"])
+
+    # call - attempt to buy (fails, loop continues), then back out
+    bankInstance.manageInvestments()
+
+    # check
+    assert bankInstance.player.rentalProperties == []
+    assert bankInstance.player.money == 0
+    assert bankInstance.stats.totalPropertiesBought == 0
+
+
+def test_manageInvestments_sell_refunds_resale_value():
+    # prepare - already own one Dockside Cottage
+    from src.investments import investments
+
+    bankInstance = createBank()
+    bankInstance.player.rentalProperties = [1]
+    bankInstance.player.money = 0
+    resaleValue = investments.typeInfo(1)["resaleValue"]
+    # owning one, the menu is (Buy1/Buy2/Buy3/Sell1/Back) = "4" sells it;
+    # selling drops back to (Buy1/Buy2/Buy3/Back), so "4" backs out
+    bankInstance.userInterface.showOptions = MagicMock(side_effect=["4", "4"])
+
+    # call - sell, then back out
+    bankInstance.manageInvestments()
+
+    # check
+    assert bankInstance.player.rentalProperties == []
+    assert bankInstance.player.money == resaleValue
+
+
+def test_manageInvestments_status_reflects_no_holdings():
+    # prepare
+    bankInstance = createBank()
+
+    # check
+    assert "don't own any yet" in bankInstance._investmentsStatus()

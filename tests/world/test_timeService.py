@@ -105,12 +105,12 @@ def test_increaseDay_runs_business_production():
     assert timeService.player.money == 1000 - business.WORKER_DAILY_WAGE
 
 
-def test_increaseDay_runs_housing_rental_income():
-    # prepare - an upgraded home, no bank balance (isolate from interest)
-    from src.housing import housing
+def test_increaseDay_runs_investment_property_income():
+    # prepare - an owned rental property, no bank balance (isolate from interest)
+    from src.investments import investments
 
     timeService = createTimeService()
-    timeService.player.homeTier = 2
+    timeService.player.rentalProperties = [1]
     timeService.player.money = 100
     timeService.player.moneyInBank = 0
 
@@ -118,6 +118,6 @@ def test_increaseDay_runs_housing_rental_income():
     timeService.increaseDay()
 
     # check - rental income was paid out as part of the day rollover
-    expectedIncome = housing.tierInfo(2)["dailyRentalIncome"]
+    expectedIncome = investments.typeInfo(1)["dailyIncome"]
     assert timeService.player.money == 100 + expectedIncome
     assert timeService.stats.totalRentalIncome == expectedIncome

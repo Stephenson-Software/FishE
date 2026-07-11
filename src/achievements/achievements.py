@@ -73,6 +73,18 @@ MILESTONES = [
         "threshold": 4,
         "description": "Own the finest home in the village",
     },
+    {
+        "name": "Landlord",
+        "stat": "totalPropertiesBought",
+        "threshold": 1,
+        "description": "Buy your first investment property",
+    },
+    {
+        "name": "Property Mogul",
+        "stat": "totalPropertiesBought",
+        "threshold": 5,
+        "description": "Buy 5 investment properties over your career",
+    },
 ]
 
 
