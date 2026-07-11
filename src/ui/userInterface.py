@@ -4,6 +4,7 @@ from ui.baseUserInterface import BaseUserInterface
 from prompt.prompt import Prompt
 from player.player import Player
 from world.timeService import TimeService
+from housing import housing
 
 
 # @author Daniel McCoy Stephenson
@@ -41,7 +42,10 @@ class UserInterface(BaseUserInterface):
             print(" | " + self.times[self.timeService.time])
             print(" | Money: $%.2f" % self.player.money)
             print(" | Fish: %d" % self.player.fishCount)
-            print(" | Energy: %d" % self.player.energy)
+            print(
+                " | Energy: %d/%d"
+                % (self.player.energy, housing.maxEnergy(self.player))
+            )
             if self.player.operatorMode:
                 print(" | [OPERATOR MODE]")
             if self.goalProgress:
@@ -69,7 +73,7 @@ class UserInterface(BaseUserInterface):
         self.divider()
         input(" [ CONTINUE ]")
         self.currentPrompt.text = "What would you like to do?"
-    
+
     def showInteractiveDialogue(self, npc):
         """Shows an interactive dialogue menu with the NPC"""
         while True:
@@ -77,7 +81,7 @@ class UserInterface(BaseUserInterface):
             self.divider()
             print(f" Talking with {npc.name}")
             self.divider()
-            
+
             # Show dialogue options
             dialogue_options = npc.get_dialogue_options()
             if not dialogue_options:
@@ -87,27 +91,27 @@ class UserInterface(BaseUserInterface):
                 input(" [ CONTINUE ]")
                 self.currentPrompt.text = "What would you like to do?"
                 break
-            
+
             print(" What would you like to ask?\n")
             option_list = []
             for i, option in enumerate(dialogue_options):
                 question = option.get("question", f"Option {i+1}")
                 print(f" [{i+1}] {question}")
-                option_list.append(str(i+1))
-            
+                option_list.append(str(i + 1))
+
             print(f" [{len(option_list)+1}] [Back]")
-            option_list.append(str(len(option_list)+1))
-            
+            option_list.append(str(len(option_list) + 1))
+
             choice = input("\n> ")
-            
+
             if choice in option_list:
                 choice_idx = int(choice) - 1
-                
+
                 # Check if user chose to go back
                 if choice_idx == len(dialogue_options):
                     self.currentPrompt.text = "What would you like to do?"
                     break
-                
+
                 # Show the response
                 response = npc.get_dialogue_response(choice_idx)
                 self.lotsOfSpace()

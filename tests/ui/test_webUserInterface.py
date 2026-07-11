@@ -9,6 +9,7 @@ import urllib.request
 # identities line up with the runtime MRO; pytest.ini exposes both `.` and `src`.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from housing import housing
 from ui.baseUserInterface import BaseUserInterface
 from ui.webUserInterface import WebUserInterface
 from player.player import Player
@@ -48,6 +49,15 @@ def test_web_ui_implements_interface():
     assert issubclass(WebUserInterface, BaseUserInterface)
     ui = makeWebUI()
     assert ui.get_state()["screen"]["type"] == "loading"
+
+
+def test_header_includes_max_energy():
+    # check - the header exposes the current tier's cap alongside the raw
+    # energy value, so the client can always show "X/Y" instead of just "X"
+    ui = makeWebUI()
+    header = ui._header()
+    assert header["energy"] == ui.player.energy
+    assert header["maxEnergy"] == housing.maxEnergy(ui.player)
 
 
 def test_showOptions_round_trips_a_choice():

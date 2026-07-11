@@ -15,6 +15,10 @@
 # Investment properties (src/investments) are the opposite idea: assets the
 # player owns but doesn't live in, bought purely for income.
 
+# Shared string so every call site that surfaces an eviction to the player
+# (see TimeService.increaseDay's return value) says the same thing.
+EVICTION_MESSAGE = "You couldn't cover your rent and were evicted from your room!"
+
 HOUSING_TIERS = [
     {"name": "Homeless", "status": "homeless", "maxEnergy": 60},
     {"name": "Rented Room", "status": "renting", "maxEnergy": 90, "dailyRent": 10},
@@ -56,6 +60,8 @@ def currentTier(player):
 
 
 def tierInfo(tier):
+    if tier < 0 or tier >= len(HOUSING_TIERS):
+        raise ValueError("Invalid housing tier: %r" % (tier,))
     return HOUSING_TIERS[tier]
 
 
@@ -65,16 +71,13 @@ def maxEnergy(player):
 
 def netCostToMove(player, targetTier):
     """Net cost to move from the current rung to targetTier: the target's
-    purchase price (0 unless it's an owned tier) minus the current rung's
-    resale value (0 unless the player currently owns their home). Negative
-    means the move pays the player cash back."""
+    purchase price minus the current rung's resale value. Only owned tiers
+    define a "cost"/"resaleValue" at all, so a homeless or renting rung on
+    either side of the move contributes 0 via the dict defaults below.
+    Negative means the move pays the player cash back."""
     currentInfo = tierInfo(currentTier(player))
     targetInfo = tierInfo(targetTier)
-    proceeds = (
-        currentInfo.get("resaleValue", 0) if currentInfo["status"] == "owned" else 0
-    )
-    price = targetInfo.get("cost", 0) if targetInfo["status"] == "owned" else 0
-    return price - proceeds
+    return targetInfo.get("cost", 0) - currentInfo.get("resaleValue", 0)
 
 
 def moveHome(player, targetTier, stats=None):
@@ -90,6 +93,9 @@ def moveHome(player, targetTier, stats=None):
         player.money += -netCost
 
     player.homeTier = targetTier
+    # A move to a lower-cap tier (including eviction) shouldn't leave the
+    # player above their new cap until their next sleep.
+    player.energy = min(player.energy, tierInfo(targetTier)["maxEnergy"])
     if stats is not None:
         stats.highestHomeTier = max(stats.highestHomeTier, targetTier)
     return True
@@ -99,18 +105,21 @@ def runDailyRent(player, stats=None):
     """Charge the player's daily rent if they're currently renting. If they
     can't cover it, they're evicted back to Homeless - the same "shrinks
     instead of going into debt" idea used for unaffordable crew wages in
-    src/business. Returns the rent actually paid (0 if not renting, or if
-    evicted)."""
+    src/business. Returns a summary dict: {"rentPaid": int, "evicted": bool}
+    so callers can tell the player what happened."""
     info = tierInfo(currentTier(player))
     if info["status"] != "renting":
-        return 0
+        return {"rentPaid": 0, "evicted": False}
 
     rent = info["dailyRent"]
     if not player.canAfford(rent):
-        player.homeTier = 0  # evicted; no refund, renting was never equity
-        return 0
+        # Evicted; no refund, renting was never equity. Routed through
+        # moveHome so eviction gets the same energy-cap reconciliation as
+        # any other move, instead of duplicating that logic here.
+        moveHome(player, 0, stats)
+        return {"rentPaid": 0, "evicted": True}
 
     player.spendMoney(rent)
     if stats is not None:
         stats.totalRentPaid += rent
-    return rent
+    return {"rentPaid": rent, "evicted": False}

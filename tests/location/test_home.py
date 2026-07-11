@@ -114,7 +114,7 @@ def test_homeDescriptor_reflects_housing_status():
 def test_sleep_restores_energy_to_current_tiers_cap():
     # prepare - a fresh (homeless) player has a low energy cap
     homeInstance = createHome()
-    homeInstance.timeService.increaseDay = MagicMock()
+    homeInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
     homeInstance.player.energy = 10
 
     # call
@@ -132,7 +132,7 @@ def test_sleep_restores_energy_to_current_tiers_cap():
 def test_sleep_restores_energy_to_a_higher_owned_cap():
     # prepare - owning a nicer home raises the cap slept up to
     homeInstance = createHome()
-    homeInstance.timeService.increaseDay = MagicMock()
+    homeInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
     homeInstance.player.homeTier = 3
     homeInstance.player.energy = 10
 
@@ -141,6 +141,18 @@ def test_sleep_restores_energy_to_a_higher_owned_cap():
 
     # check
     assert homeInstance.player.energy == housing.tierInfo(3)["maxEnergy"]
+
+
+def test_sleep_mentions_eviction_when_it_happens():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.timeService.increaseDay = MagicMock(return_value={"evicted": True})
+
+    # call
+    homeInstance.sleep()
+
+    # check - the player is told, not just silently moved back to Homeless
+    assert housing.EVICTION_MESSAGE in homeInstance.currentPrompt.text
 
 
 def test_displayStats():
@@ -206,6 +218,37 @@ def test_displayStats_includes_investment_block_when_owned():
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
     assert "Investment Properties: 2 owned" in shownText
     assert "Lifetime Rental Income: 30" in shownText
+
+
+def test_manageHome_rented_room_option_discloses_daily_rent():
+    # prepare - a homeless player deciding whether to move in
+    homeInstance = createHome()
+    homeInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call
+    homeInstance.manageHome()
+
+    # check - the recurring cost is visible before committing, not just
+    # "free" (which would be misleading on its own)
+    optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
+    rentedRoomOption = next(o for o in optionsShown if "Rented Room" in o)
+    assert "free" in rentedRoomOption
+    assert "$%d/day" % housing.tierInfo(1)["dailyRent"] in rentedRoomOption
+
+
+def test_manageHome_downgrade_cashback_label_is_explicit():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.player.homeTier = 2
+    homeInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    homeInstance.manageHome()
+
+    # check - "get $X back" rather than an easy-to-miss bare "+$X"
+    optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
+    downOption = next(o for o in optionsShown if "down" in o.lower())
+    assert "back" in downOption
 
 
 def test_manageHome_move_up_from_homeless_to_renting_is_free():

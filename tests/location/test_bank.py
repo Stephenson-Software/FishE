@@ -298,7 +298,7 @@ def test_manageInvestments_buy_when_affordable():
     bankInstance.player.money = 10000
     cost = investments.typeInfo(1)["cost"]
     # no properties menu is (Buy1/Buy2/Buy3/Back) = "1" buys type 1; owning
-    # one adds a Sell option, so the follow-up menu's Back is "5"
+    # one inserts a Sell1 right after Buy1, pushing Back to "5"
     bankInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
 
     # call - buy, then back out
@@ -335,9 +335,9 @@ def test_manageInvestments_sell_refunds_resale_value():
     bankInstance.player.rentalProperties = [1]
     bankInstance.player.money = 0
     resaleValue = investments.typeInfo(1)["resaleValue"]
-    # owning one, the menu is (Buy1/Buy2/Buy3/Sell1/Back) = "4" sells it;
+    # owning one, the menu is (Buy1/Sell1/Buy2/Buy3/Back) = "2" sells it;
     # selling drops back to (Buy1/Buy2/Buy3/Back), so "4" backs out
-    bankInstance.userInterface.showOptions = MagicMock(side_effect=["4", "4"])
+    bankInstance.userInterface.showOptions = MagicMock(side_effect=["2", "4"])
 
     # call - sell, then back out
     bankInstance.manageInvestments()

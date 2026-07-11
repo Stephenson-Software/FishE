@@ -8,6 +8,7 @@ from ui.baseUserInterface import BaseUserInterface
 from prompt.prompt import Prompt
 from player.player import Player
 from world.timeService import TimeService
+from housing import housing
 
 
 # The single-page client. It polls /state and renders whatever screen the game
@@ -115,7 +116,7 @@ function render(screen) {
     addPart(`$${h.money.toFixed(2)}`);
     addPart(`Fish: ${h.fish}`);
     // Below the fishing threshold (10) the player is too tired to fish — flag it.
-    const energy = el("span", { textContent: `Energy: ${h.energy}` });
+    const energy = el("span", { textContent: `Energy: ${h.energy}/${h.maxEnergy}` });
     if (h.energy < 10) energy.className = "low";
     addPart(energy);
     if (h.location) addPart(h.location);
@@ -282,6 +283,7 @@ class WebUserInterface(BaseUserInterface):
             "money": float(self.player.money),
             "fish": self.player.fishCount,
             "energy": self.player.energy,
+            "maxEnergy": housing.maxEnergy(self.player),
             "location": self.currentLocationName,
             "goal": self.goalProgress,
             "operator": self.player.operatorMode,

@@ -13,6 +13,7 @@ from ui.userInterfaceFactory import UserInterfaceFactory
 from ui.enum.uiType import UIType
 from saveFileManager import SaveFileManager
 from achievements import achievements
+from housing import housing
 
 
 # Total wealth (cash + bank) the player is working toward. Reaching it triggers
@@ -162,9 +163,7 @@ class FishE:
         options = ["Delete Slot %d" % save["slot"] for save in save_files]
         options.append("Cancel")
 
-        choice = int(
-            self.userInterface.showOptions("Delete a Save File", options)
-        )
+        choice = int(self.userInterface.showOptions("Delete a Save File", options))
         if choice == len(options):  # Cancel
             return False
 
@@ -211,8 +210,13 @@ class FishE:
             # announce reaching the wealth goal once (the run continues)
             self.announceGoalIfReached()
 
-            # increase time & save
-            self.timeService.increaseTime()
+            # increase time - almost any action can roll a day over, so this
+            # is the one place guaranteed to catch an eviction regardless of
+            # what triggered it (appended so the action's own message is
+            # preserved on the next screen, same as milestones above)
+            if self.timeService.increaseTime()["evicted"]:
+                self.prompt.text += "  " + housing.EVICTION_MESSAGE
+
             self.save()
 
     def getTotalWealth(self):
@@ -242,15 +246,23 @@ class FishE:
             os.makedirs(self.saveFileManager.data_directory, exist_ok=True)
 
         try:
-            with open(self.saveFileManager.get_save_path("player.json"), "w") as playerSaveFile:
-                self.playerJsonReaderWriter.writePlayerToFile(self.player, playerSaveFile)
+            with open(
+                self.saveFileManager.get_save_path("player.json"), "w"
+            ) as playerSaveFile:
+                self.playerJsonReaderWriter.writePlayerToFile(
+                    self.player, playerSaveFile
+                )
 
-            with open(self.saveFileManager.get_save_path("timeService.json"), "w") as timeServiceSaveFile:
+            with open(
+                self.saveFileManager.get_save_path("timeService.json"), "w"
+            ) as timeServiceSaveFile:
                 self.timeServiceJsonReaderWriter.writeTimeServiceToFile(
                     self.timeService, timeServiceSaveFile
                 )
 
-            with open(self.saveFileManager.get_save_path("stats.json"), "w") as statsSaveFile:
+            with open(
+                self.saveFileManager.get_save_path("stats.json"), "w"
+            ) as statsSaveFile:
                 self.statsJsonReaderWriter.writeStatsToFile(self.stats, statsSaveFile)
         except (IOError, OSError) as e:
             print(f"\n Warning: Failed to save game: {e}")
@@ -258,8 +270,12 @@ class FishE:
 
     def loadPlayer(self):
         try:
-            with open(self.saveFileManager.get_save_path("player.json"), "r") as playerSaveFile:
-                self.player = self.playerJsonReaderWriter.readPlayerFromFile(playerSaveFile)
+            with open(
+                self.saveFileManager.get_save_path("player.json"), "r"
+            ) as playerSaveFile:
+                self.player = self.playerJsonReaderWriter.readPlayerFromFile(
+                    playerSaveFile
+                )
         except (IOError, OSError, json.JSONDecodeError) as e:
             print(f"\n Warning: Failed to load player data: {e}")
             print(" Creating new player...")
@@ -267,7 +283,9 @@ class FishE:
 
     def loadStats(self):
         try:
-            with open(self.saveFileManager.get_save_path("stats.json"), "r") as statsSaveFile:
+            with open(
+                self.saveFileManager.get_save_path("stats.json"), "r"
+            ) as statsSaveFile:
                 self.stats = self.statsJsonReaderWriter.readStatsFromFile(statsSaveFile)
         except (IOError, OSError, json.JSONDecodeError) as e:
             print(f"\n Warning: Failed to load stats data: {e}")
@@ -276,9 +294,13 @@ class FishE:
 
     def loadTimeService(self):
         try:
-            with open(self.saveFileManager.get_save_path("timeService.json"), "r") as timeServiceSaveFile:
-                self.timeService = self.timeServiceJsonReaderWriter.readTimeServiceFromFile(
-                    timeServiceSaveFile, self.player, self.stats
+            with open(
+                self.saveFileManager.get_save_path("timeService.json"), "r"
+            ) as timeServiceSaveFile:
+                self.timeService = (
+                    self.timeServiceJsonReaderWriter.readTimeServiceFromFile(
+                        timeServiceSaveFile, self.player, self.stats
+                    )
                 )
         except (IOError, OSError, json.JSONDecodeError) as e:
             print(f"\n Warning: Failed to load time service data: {e}")

@@ -1,5 +1,7 @@
 import os
 
+from housing import housing
+
 
 # @author Daniel McCoy Stephenson
 class Player:
@@ -9,7 +11,9 @@ class Player:
         self.moneyInBank = 0.01
         self.fishMultiplier = 1
         self.priceForBait = 50
-        self.energy = 100
+        # Starts at the Homeless tier's energy cap (see src/housing) - a
+        # fresh player hasn't found anywhere to stay yet.
+        self.energy = housing.HOUSING_TIERS[0]["maxEnergy"]
         self.rodLevel = 1
         # Per-species breakdown of the fish currently held. fishCount remains the
         # aggregate total; addFish/clearFish keep the two in sync.

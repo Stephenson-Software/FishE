@@ -1,3 +1,4 @@
+from src.housing import housing
 from src.player.player import Player
 from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
@@ -67,6 +68,15 @@ def test_showOptions():
     userInterfaceInstance.lotsOfSpace.assert_called()
     assert userInterfaceInstance.divider.call_count == 3
     userInterface.input.assert_called_with("\n> ")
+
+    # check - the energy line shows the current tier's cap, not just the
+    # raw value, so the housing energy-cap benefit is always visible
+    expectedEnergyLine = " | Energy: %d/%d" % (
+        userInterfaceInstance.player.energy,
+        housing.maxEnergy(userInterfaceInstance.player),
+    )
+    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    assert expectedEnergyLine in printedLines
 
 
 def test_showOptions_includes_location_when_set():
@@ -141,6 +151,7 @@ def test_showDialogue():
 def test_showInteractiveDialogue_with_no_options():
     # setup
     from src.npc.npc import NPC
+
     userInterfaceInstance = createUserInterface()
     userInterface.print = MagicMock()
     userInterface.input = MagicMock(return_value="")
@@ -161,16 +172,15 @@ def test_showInteractiveDialogue_with_no_options():
 def test_showInteractiveDialogue_select_option():
     # setup
     from src.npc.npc import NPC
+
     userInterfaceInstance = createUserInterface()
     userInterface.print = MagicMock()
     # First input selects option 1, second input continues, third input selects Back
     userInterface.input = MagicMock(side_effect=["1", "", "2"])
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
-    
-    dialogue_options = [
-        {"question": "Test question?", "response": "Test response"}
-    ]
+
+    dialogue_options = [{"question": "Test question?", "response": "Test response"}]
     npc = NPC("Test NPC", "A test character", dialogue_options)
 
     # call
@@ -184,16 +194,15 @@ def test_showInteractiveDialogue_select_option():
 def test_showInteractiveDialogue_invalid_choice():
     # setup
     from src.npc.npc import NPC
+
     userInterfaceInstance = createUserInterface()
     userInterface.print = MagicMock()
     # First input is invalid, second continues error message, third selects Back
     userInterface.input = MagicMock(side_effect=["99", "", "2"])
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
-    
-    dialogue_options = [
-        {"question": "Test question?", "response": "Test response"}
-    ]
+
+    dialogue_options = [{"question": "Test question?", "response": "Test response"}]
     npc = NPC("Test NPC", "A test character", dialogue_options)
 
     # call

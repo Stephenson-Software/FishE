@@ -1,6 +1,17 @@
+import pytest
+
 from src.housing import housing
 from src.player.player import Player
 from src.stats.stats import Stats
+
+
+def test_tierInfo_rejects_out_of_range_tier():
+    # check - fails loudly on bad data instead of silently wrapping around
+    # via Python's negative-index behavior
+    with pytest.raises(ValueError):
+        housing.tierInfo(-1)
+    with pytest.raises(ValueError):
+        housing.tierInfo(len(housing.HOUSING_TIERS))
 
 
 def test_currentTier_defaults_to_homeless():
@@ -166,6 +177,35 @@ def test_moveHome_down_from_owned_pays_cash_back():
     assert player.money == refund
 
 
+def test_moveHome_down_reclamps_energy_to_new_cap():
+    # prepare - Waterfront Manor (cap 200) full energy, trading down to
+    # Driftwood Shack (cap 100)
+    player = Player()
+    player.homeTier = 5
+    player.energy = 200
+    player.money = 10000
+
+    # call
+    housing.moveHome(player, 2)
+
+    # check - energy is clamped immediately, not left over-cap until sleep
+    assert player.energy == housing.tierInfo(2)["maxEnergy"]
+
+
+def test_moveHome_up_does_not_raise_energy_above_current():
+    # prepare - low energy shouldn't be topped up just by moving to a home
+    # with a higher cap; only sleeping restores energy
+    player = Player()
+    player.energy = 10
+    player.money = 10000
+
+    # call
+    housing.moveHome(player, 2)
+
+    # check
+    assert player.energy == 10
+
+
 def test_moveHome_highestHomeTier_does_not_regress():
     # prepare - a player who has previously owned a higher tier
     player = Player()
@@ -188,10 +228,10 @@ def test_runDailyRent_no_op_when_not_renting():
     stats = Stats()
 
     # call
-    rent = housing.runDailyRent(player, stats)
+    summary = housing.runDailyRent(player, stats)
 
     # check
-    assert rent == 0
+    assert summary == {"rentPaid": 0, "evicted": False}
     assert player.money == 100
     assert stats.totalRentPaid == 0
 
@@ -205,10 +245,10 @@ def test_runDailyRent_charges_rent_while_renting():
     expectedRent = housing.tierInfo(1)["dailyRent"]
 
     # call
-    rent = housing.runDailyRent(player, stats)
+    summary = housing.runDailyRent(player, stats)
 
     # check
-    assert rent == expectedRent
+    assert summary == {"rentPaid": expectedRent, "evicted": False}
     assert player.money == 100 - expectedRent
     assert stats.totalRentPaid == expectedRent
 
@@ -221,13 +261,29 @@ def test_runDailyRent_evicts_when_unaffordable():
     stats = Stats()
 
     # call
-    rent = housing.runDailyRent(player, stats)
+    summary = housing.runDailyRent(player, stats)
 
     # check - evicted back to homeless, no partial payment
-    assert rent == 0
+    assert summary == {"rentPaid": 0, "evicted": True}
     assert player.homeTier == 0
     assert player.money == 0
     assert stats.totalRentPaid == 0
+
+
+def test_runDailyRent_evicting_reclamps_energy_to_homeless_cap():
+    # prepare - renting (energy cap 90) with more energy than Homeless allows
+    player = Player()
+    player.homeTier = 1
+    player.energy = 90
+    player.money = 0
+    stats = Stats()
+
+    # call
+    housing.runDailyRent(player, stats)
+
+    # check - energy is clamped down to the new (Homeless) cap immediately,
+    # not left over-cap until the next sleep
+    assert player.energy == housing.tierInfo(0)["maxEnergy"]
 
 
 def test_runDailyRent_does_not_charge_owned_homes():
@@ -238,8 +294,8 @@ def test_runDailyRent_does_not_charge_owned_homes():
     stats = Stats()
 
     # call
-    rent = housing.runDailyRent(player, stats)
+    summary = housing.runDailyRent(player, stats)
 
     # check - owning is a one-time cost, not a recurring one
-    assert rent == 0
+    assert summary == {"rentPaid": 0, "evicted": False}
     assert player.money == 100

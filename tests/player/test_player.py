@@ -1,3 +1,4 @@
+from src.housing import housing
 from src.player.player import Player
 
 
@@ -14,7 +15,8 @@ def test_initialization():
     assert player.money == 20
     assert player.moneyInBank == 0.01
     assert player.fishMultiplier == 1
-    assert player.energy == 100
+    # a fresh player is Homeless (tier 0), so energy starts at that tier's cap
+    assert player.energy == housing.HOUSING_TIERS[0]["maxEnergy"]
     assert player.rodLevel == 1
     assert player.fishByType == {}
     assert player.hasBoat is False

@@ -11,6 +11,7 @@ from ui.userInterface import UserInterface
 from npc.npc import NPC
 from fish import fish
 from business import business
+from housing import housing
 
 
 # The catch reaction window widens with the player's rod level, so a better rod
@@ -45,47 +46,47 @@ class Docks:
                 {
                     "question": "Tell me about yourself.",
                     "response": "Been working these docks since I was knee-high to a grasshopper. "
-                               "My pa was a fisherman, and his pa before him. I help maintain the boats and docks, "
-                               "and I've learned a thing or two about fishing over the years. "
-                               "The sea provides for those who respect her!"
+                    "My pa was a fisherman, and his pa before him. I help maintain the boats and docks, "
+                    "and I've learned a thing or two about fishing over the years. "
+                    "The sea provides for those who respect her!",
                 },
                 {
                     "question": "How do I fish at the docks?",
                     "response": "Fishing is what this village is all about! You need at least 10 energy to fish. "
-                               "When you cast your line, you'll spend several random hours (1-10) fishing. "
-                               "Each hour uses 10 energy. When a fish bites, press Enter fast - within 2 seconds! "
-                               "Your reaction time matters. The more successful catches, the more fish you'll get. "
-                               "Don't worry if you miss a few - you'll still catch at least one fish if you tried!"
+                    "When you cast your line, you'll spend several random hours (1-10) fishing. "
+                    "Each hour uses 10 energy. When a fish bites, press Enter fast - within 2 seconds! "
+                    "Your reaction time matters. The more successful catches, the more fish you'll get. "
+                    "Don't worry if you miss a few - you'll still catch at least one fish if you tried!",
                 },
                 {
                     "question": "What other locations can I visit?",
                     "response": "From the docks, you can get to anywhere in the village! "
-                               "There's your home - that's where you sleep to restore energy. "
-                               "Gilbert's shop is where you sell fish and buy better bait. "
-                               "The tavern is run by Old Tom - gambling and drinks there. "
-                               "And the bank, where Margaret will keep your money safe and even give you interest!"
+                    "There's your home - that's where you sleep to restore energy. "
+                    "Gilbert's shop is where you sell fish and buy better bait. "
+                    "The tavern is run by Old Tom - gambling and drinks there. "
+                    "And the bank, where Margaret will keep your money safe and even give you interest!",
                 },
                 {
                     "question": "Tell me about energy and rest.",
                     "response": "Energy is your lifeblood as a fisherman! You start each day with it, "
-                               "and fishing uses it up - 10 energy per hour of fishing. "
-                               "When you're running low, head home and sleep. That'll restore you for the next day. "
-                               "The game keeps track of time - each action moves the clock forward. "
-                               "Plan your day wisely!"
+                    "and fishing uses it up - 10 energy per hour of fishing. "
+                    "When you're running low, head home and sleep. That'll restore you for the next day. "
+                    "The game keeps track of time - each action moves the clock forward. "
+                    "Plan your day wisely!",
                 },
                 {
                     "question": "What makes a good fisherman?",
                     "response": "Patience and quick reflexes! When that fish bites, you gotta be ready. "
-                               "Invest in better bait from Gilbert - it makes a huge difference. "
-                               "Fish when you have energy, sell regularly, and save your money. "
-                               "The sea has its rhythms - you'll learn them in time. "
-                               "And remember: it's not just about catching fish, it's about enjoying the life!"
+                    "Invest in better bait from Gilbert - it makes a huge difference. "
+                    "Fish when you have energy, sell regularly, and save your money. "
+                    "The sea has its rhythms - you'll learn them in time. "
+                    "And remember: it's not just about catching fish, it's about enjoying the life!",
                 },
                 {
                     "question": "How's my fishing business doing?",
                     "response": self._businessDialogue,
                 },
-            ]
+            ],
         )
 
     def run(self):
@@ -99,7 +100,9 @@ class Docks:
             "Manage Boat & Crew",
         ]
         if self.player.hasBoat and self.player.businessName:
-            descriptor = "%s is docked and ready for the day." % self.player.businessName
+            descriptor = (
+                "%s is docked and ready for the day." % self.player.businessName
+            )
         else:
             descriptor = "You breathe in the fresh air. Salty."
         input = self.userInterface.showOptions(descriptor, li)
@@ -259,9 +262,7 @@ class Docks:
                 if self.player.canAfford(nextInfo["cost"]):
                     self.player.spendMoney(nextInfo["cost"])
                     self.player.boatTier = tier + 1
-                    self.currentPrompt.text = (
-                        "You upgraded to a %s!" % nextInfo["name"]
-                    )
+                    self.currentPrompt.text = "You upgraded to a %s!" % nextInfo["name"]
                 else:
                     self.currentPrompt.text = "You can't afford that upgrade yet."
             elif action == "rename":
@@ -319,7 +320,9 @@ class Docks:
                 return
 
         # A better rod widens the timing window, making catches more forgiving.
-        reactionWindow = REACTION_BASE_WINDOW + (self.player.rodLevel - 1) * ROD_WINDOW_STEP
+        reactionWindow = (
+            REACTION_BASE_WINDOW + (self.player.rodLevel - 1) * ROD_WINDOW_STEP
+        )
 
         # One timing challenge per cast (not a pass/fail repeated every hour):
         # how quickly you set the hook maps to a catch-quality tier. The active
@@ -335,10 +338,15 @@ class Docks:
         else:
             quality, qualityLabel = 0.25, "The fish nearly got away."
 
-        # Spend the fishing hours: time passes and energy is consumed.
+        # Spend the fishing hours: time passes and energy is consumed. A long
+        # enough trip can cross a day boundary (and so, e.g., miss a rent
+        # payment) without the player ever seeing a "new day" screen, so
+        # track that across the loop to mention it in the trip's own report.
+        evicted = False
         for i in range(hours):
             self.stats.hoursSpentFishing += 1
-            self.timeService.increaseTime()
+            if self.timeService.increaseTime()["evicted"]:
+                evicted = True
             self.player.spendEnergy(10)  # Consume 10 energy per hour
 
         baseFish = random.randint(1, 10)
@@ -360,6 +368,9 @@ class Docks:
 
         if timeLabel:
             self.currentPrompt.text += " " + timeLabel
+
+        if evicted:
+            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
 
     def talkToNPC(self):
         self.userInterface.showInteractiveDialogue(self.npc)

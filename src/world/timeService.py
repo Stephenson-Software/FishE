@@ -23,15 +23,22 @@ class TimeService:
         self.time = 8
 
     def increaseTime(self):
+        """Advance the clock by an hour. Returns {"evicted": bool} so callers
+        can tell the player if a day rolled over during this call and they
+        lost a rented room - since any action can advance time, this is the
+        only reliable place to catch that regardless of what triggered it."""
         self.time += 1
 
         if self.time > 23:
             self.time = 0
 
         if self.time == 8:
-            self.increaseDay()
+            return self.increaseDay()
+        return {"evicted": False}
 
     def increaseDay(self):
+        """Roll the clock to a new day and run every daily-tick system.
+        Returns {"evicted": bool} - see housing.runDailyRent."""
         self.time = 8
         self.day += 1
 
@@ -49,4 +56,5 @@ class TimeService:
 
         # A rented room (if any) charges its daily rent, evicting the player
         # back to Homeless if they can't cover it.
-        housing.runDailyRent(self.player, self.stats)
+        rentSummary = housing.runDailyRent(self.player, self.stats)
+        return {"evicted": rentSummary["evicted"]}
