@@ -1,6 +1,7 @@
 import math
 
 from business import business
+from housing import housing
 from investments import investments
 
 
@@ -45,3 +46,7 @@ class TimeService:
 
         # Any investment properties (if owned) pay out their daily rental income.
         investments.runDailyIncome(self.player, self.stats)
+
+        # A rented room (if any) charges its daily rent, evicting the player
+        # back to Homeless if they can't cover it.
+        housing.runDailyRent(self.player, self.stats)

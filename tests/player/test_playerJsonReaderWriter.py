@@ -299,7 +299,7 @@ def test_homeTier_round_trips():
     assert restored.homeTier == 3
 
 
-def test_createPlayerFromJson_missingHomeTier_defaultsToOne():
+def test_createPlayerFromJson_missingHomeTier_defaultsToHomeless():
     # prepare - an older save with no homeTier field
     playerJsonReaderWriter = createPlayerJsonReaderWriter()
     playerJson = {
@@ -315,7 +315,7 @@ def test_createPlayerFromJson_missingHomeTier_defaultsToOne():
     player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
 
     # check - backward compatible default
-    assert player.homeTier == 1
+    assert player.homeTier == 0
 
 
 def test_rentalProperties_round_trips():

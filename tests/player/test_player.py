@@ -19,7 +19,7 @@ def test_initialization():
     assert player.fishByType == {}
     assert player.hasBoat is False
     assert player.workers == 0
-    assert player.homeTier == 1
+    assert player.homeTier == 0
     assert player.rentalProperties == []
 
 

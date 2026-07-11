@@ -3,13 +3,13 @@ from src.player.player import Player
 from src.stats.stats import Stats
 
 
-def test_currentTier_defaults_to_1_when_unset():
-    # prepare - an older save/test that never touches homeTier
+def test_currentTier_defaults_to_homeless():
+    # prepare - a brand new player
     player = Player()
-    player.homeTier = 0
 
-    # check - treated as the original (tier 1) Driftwood Shack
-    assert housing.currentTier(player) == 1
+    # check
+    assert housing.currentTier(player) == 0
+    assert housing.tierInfo(housing.currentTier(player))["status"] == "homeless"
 
 
 def test_currentTier_reflects_moves():
@@ -21,13 +21,29 @@ def test_currentTier_reflects_moves():
     assert housing.currentTier(player) == 3
 
 
-def test_tier1_matches_original_free_defaults():
-    # check - tier 1 preserves today's numbers exactly, so a fresh player's
-    # behavior is unchanged (free, no resale value, 100 energy cap)
+def test_homeless_tier_is_free_with_a_low_energy_cap():
+    # check - homeless is the free floor of the ladder, with a real penalty
+    info = housing.tierInfo(0)
+    assert info["status"] == "homeless"
+    assert "cost" not in info
+    assert info["maxEnergy"] < housing.tierInfo(1)["maxEnergy"]
+
+
+def test_renting_tier_has_no_purchase_cost_but_charges_daily_rent():
     info = housing.tierInfo(1)
-    assert info["cost"] == 0
-    assert info["resaleValue"] == 0
-    assert info["maxEnergy"] == 100
+    assert info["status"] == "renting"
+    assert "cost" not in info
+    assert info["dailyRent"] > 0
+    assert info["maxEnergy"] > housing.tierInfo(0)["maxEnergy"]
+
+
+def test_cheapest_owned_tier_costs_money():
+    # check - unlike the old free "starter" tier, owning anything costs
+    # something now that homelessness/renting exist below it
+    info = housing.tierInfo(2)
+    assert info["status"] == "owned"
+    assert info["cost"] > 0
+    assert info["resaleValue"] > 0
 
 
 def test_maxEnergy_reflects_tier():
@@ -37,19 +53,28 @@ def test_maxEnergy_reflects_tier():
 
     # check
     assert housing.maxEnergy(player) == housing.tierInfo(2)["maxEnergy"]
-    assert housing.maxEnergy(player) > housing.tierInfo(1)["maxEnergy"]
+    assert housing.maxEnergy(player) > housing.tierInfo(0)["maxEnergy"]
 
 
-def test_netCostToMove_up_from_free_tier_equals_target_price():
-    # prepare - tier 1 has no resale value, so moving up costs the full price
+def test_netCostToMove_homeless_to_renting_is_free():
+    # prepare - moving in doesn't cost anything upfront; rent is charged daily
     player = Player()
+
+    # check
+    assert housing.netCostToMove(player, 1) == 0
+
+
+def test_netCostToMove_renting_to_owned_is_the_full_price():
+    # prepare - a renter has no equity, so buying costs the full price
+    player = Player()
+    player.homeTier = 1
 
     # check
     assert housing.netCostToMove(player, 2) == housing.tierInfo(2)["cost"]
 
 
-def test_netCostToMove_up_is_discounted_by_current_resale_value():
-    # prepare - moving from tier 2 to tier 3 nets the tier-2 resale value off
+def test_netCostToMove_between_owned_tiers_is_discounted_by_resale_value():
+    # prepare
     player = Player()
     player.homeTier = 2
 
@@ -58,14 +83,24 @@ def test_netCostToMove_up_is_discounted_by_current_resale_value():
     assert housing.netCostToMove(player, 3) == expected
 
 
-def test_netCostToMove_down_can_be_negative():
-    # prepare - moving from tier 2 down to the free tier 1 should pay cash
-    # back (tier 2's resale value exceeds tier 1's price of 0)
+def test_netCostToMove_selling_an_owned_home_to_rent_pays_cash_back():
+    # prepare - selling tier 2 (owned) to go back to renting refunds its
+    # resale value, since renting itself has no cost
     player = Player()
     player.homeTier = 2
 
     # check
-    assert housing.netCostToMove(player, 1) < 0
+    assert housing.netCostToMove(player, 1) == -housing.tierInfo(2)["resaleValue"]
+
+
+def test_netCostToMove_leaving_a_rental_for_homelessness_is_free():
+    # prepare - a rental was never owned, so there's nothing to refund, but
+    # also nothing owed to leave
+    player = Player()
+    player.homeTier = 1
+
+    # check
+    assert housing.netCostToMove(player, 0) == 0
 
 
 def test_moveHome_up_spends_net_cost():
@@ -73,21 +108,22 @@ def test_moveHome_up_spends_net_cost():
     player = Player()
     player.money = 1000
     stats = Stats()
-    netCost = housing.netCostToMove(player, 2)
+    netCost = housing.netCostToMove(player, 1)
 
     # call
-    moved = housing.moveHome(player, 2, stats)
+    moved = housing.moveHome(player, 1, stats)
 
     # check
     assert moved is True
-    assert player.homeTier == 2
+    assert player.homeTier == 1
     assert player.money == 1000 - netCost
-    assert stats.highestHomeTier == 2
+    assert stats.highestHomeTier == 1
 
 
 def test_moveHome_up_fails_when_unaffordable():
-    # prepare
+    # prepare - not enough to buy the cheapest owned tier from a rental
     player = Player()
+    player.homeTier = 1
     player.money = 0
 
     # call
@@ -99,7 +135,22 @@ def test_moveHome_up_fails_when_unaffordable():
     assert player.money == 0
 
 
-def test_moveHome_down_pays_cash_back():
+def test_moveHome_down_from_rental_to_homeless_is_free_and_always_succeeds():
+    # prepare
+    player = Player()
+    player.homeTier = 1
+    player.money = 0
+
+    # call
+    moved = housing.moveHome(player, 0)
+
+    # check
+    assert moved is True
+    assert player.homeTier == 0
+    assert player.money == 0
+
+
+def test_moveHome_down_from_owned_pays_cash_back():
     # prepare
     player = Player()
     player.homeTier = 2
@@ -122,9 +173,73 @@ def test_moveHome_highestHomeTier_does_not_regress():
     stats = Stats()
     stats.highestHomeTier = 3
 
-    # call - move back down
-    housing.moveHome(player, 1, stats)
+    # call - move back down to homeless
+    housing.moveHome(player, 0, stats)
 
-    # check - the lifetime "highest owned" stat remembers the peak
-    assert player.homeTier == 1
+    # check - the lifetime "highest reached" stat remembers the peak
+    assert player.homeTier == 0
     assert stats.highestHomeTier == 3
+
+
+def test_runDailyRent_no_op_when_not_renting():
+    # prepare - a homeless player
+    player = Player()
+    player.money = 100
+    stats = Stats()
+
+    # call
+    rent = housing.runDailyRent(player, stats)
+
+    # check
+    assert rent == 0
+    assert player.money == 100
+    assert stats.totalRentPaid == 0
+
+
+def test_runDailyRent_charges_rent_while_renting():
+    # prepare
+    player = Player()
+    player.homeTier = 1
+    player.money = 100
+    stats = Stats()
+    expectedRent = housing.tierInfo(1)["dailyRent"]
+
+    # call
+    rent = housing.runDailyRent(player, stats)
+
+    # check
+    assert rent == expectedRent
+    assert player.money == 100 - expectedRent
+    assert stats.totalRentPaid == expectedRent
+
+
+def test_runDailyRent_evicts_when_unaffordable():
+    # prepare - renting but broke
+    player = Player()
+    player.homeTier = 1
+    player.money = 0
+    stats = Stats()
+
+    # call
+    rent = housing.runDailyRent(player, stats)
+
+    # check - evicted back to homeless, no partial payment
+    assert rent == 0
+    assert player.homeTier == 0
+    assert player.money == 0
+    assert stats.totalRentPaid == 0
+
+
+def test_runDailyRent_does_not_charge_owned_homes():
+    # prepare
+    player = Player()
+    player.homeTier = 2
+    player.money = 100
+    stats = Stats()
+
+    # call
+    rent = housing.runDailyRent(player, stats)
+
+    # check - owning is a one-time cost, not a recurring one
+    assert rent == 0
+    assert player.money == 100

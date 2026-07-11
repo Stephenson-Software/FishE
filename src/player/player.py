@@ -22,9 +22,10 @@ class Player:
         self.boatTier = 0
         self.businessName = ""
         # Home ownership: a second, independent property track (see
-        # src/housing). homeTier starts at 1 (the free Driftwood Shack) since,
-        # unlike the boat, every player already has a home.
-        self.homeTier = 1
+        # src/housing). homeTier is an index into the housing ladder - every
+        # player starts homeless (0) and works their way up to renting, then
+        # owning.
+        self.homeTier = 0
         # Investment properties: rental units the player owns but doesn't
         # live in (see src/investments). A list of PROPERTY_TYPES tier ids,
         # one entry per owned unit - not a single tier like homeTier, since
