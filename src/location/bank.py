@@ -151,16 +151,17 @@ class Bank:
 
     def _investmentsStatus(self):
         lines = ["Investment Properties:"]
-        if not self.player.rentalProperties:
+        owned = investments.ownedCounts(self.player)
+        if not owned:
             lines.append("You don't own any yet - they pay rental income daily.")
         else:
             for typeId in range(1, len(investments.PROPERTY_TYPES) + 1):
-                owned = investments.countOwned(self.player, typeId)
-                if owned:
+                count = owned.get(typeId, 0)
+                if count:
                     info = investments.typeInfo(typeId)
                     lines.append(
                         "%s x%d - $%d/day each"
-                        % (info["name"], owned, info["dailyIncome"])
+                        % (info["name"], count, info["dailyIncome"])
                     )
         return "\n".join(lines)
 
@@ -168,6 +169,7 @@ class Bank:
         while True:
             options = []
             actions = []
+            owned = investments.ownedCounts(self.player)
             for typeId in range(1, len(investments.PROPERTY_TYPES) + 1):
                 info = investments.typeInfo(typeId)
                 options.append(
@@ -175,9 +177,7 @@ class Bank:
                     % (info["name"], info["cost"], info["dailyIncome"])
                 )
                 actions.append(("buy", typeId))
-            for typeId in range(1, len(investments.PROPERTY_TYPES) + 1):
-                if investments.countOwned(self.player, typeId) > 0:
-                    info = investments.typeInfo(typeId)
+                if owned.get(typeId, 0) > 0:
                     options.append(
                         "Sell a %s (+$%d)" % (info["name"], info["resaleValue"])
                     )

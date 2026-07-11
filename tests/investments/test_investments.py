@@ -1,6 +1,17 @@
+import pytest
+
 from src.investments import investments
 from src.player.player import Player
 from src.stats.stats import Stats
+
+
+def test_typeInfo_rejects_out_of_range_id():
+    # check - fails loudly on bad data instead of silently wrapping around
+    # to the last entry via Python's negative-index behavior
+    with pytest.raises(ValueError):
+        investments.typeInfo(0)
+    with pytest.raises(ValueError):
+        investments.typeInfo(len(investments.PROPERTY_TYPES) + 1)
 
 
 def test_countOwned_reflects_holdings():
@@ -12,6 +23,26 @@ def test_countOwned_reflects_holdings():
     assert investments.countOwned(player, 1) == 2
     assert investments.countOwned(player, 2) == 1
     assert investments.countOwned(player, 3) == 0
+
+
+def test_ownedCounts_maps_every_owned_type_in_one_pass():
+    # prepare
+    player = Player()
+    player.rentalProperties = [1, 1, 2]
+
+    # check - only owned types show up; type 3 (never bought) is absent
+    # rather than present with a 0
+    counts = investments.ownedCounts(player)
+    assert counts == {1: 2, 2: 1}
+    assert 3 not in counts
+
+
+def test_ownedCounts_empty_for_fresh_player():
+    # prepare
+    player = Player()
+
+    # check
+    assert investments.ownedCounts(player) == {}
 
 
 def test_buyProperty_spends_money_and_adds_to_portfolio():

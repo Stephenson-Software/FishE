@@ -5,26 +5,29 @@ from ui.baseUserInterface import BaseUserInterface
 from prompt.prompt import Prompt
 from player.player import Player
 from world.timeService import TimeService
+from housing import housing
 
 
 # @author Daniel McCoy Stephenson
 class PygameUserInterface(BaseUserInterface):
     """Pygame-based user interface implementation"""
-    
+
     def __init__(self, currentPrompt: Prompt, timeService: TimeService, player: Player):
         super().__init__(currentPrompt, timeService, player)
-        
+
         # Initialize pygame
         pygame.init()
-        
+
         # Screen settings - now supports resizing
         self.min_width = 600
         self.min_height = 400
         self.width = 800
         self.height = 600
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode(
+            (self.width, self.height), pygame.RESIZABLE
+        )
         pygame.display.set_caption("FishE - Text-based Fishing Game")
-        
+
         # Colors
         self.BLACK = (0, 0, 0)
         self.WHITE = (255, 255, 255)
@@ -32,7 +35,7 @@ class PygameUserInterface(BaseUserInterface):
         self.DARK_GRAY = (64, 64, 64)
         self.BLUE = (0, 100, 200)
         self.LIGHT_BLUE = (100, 150, 255)
-        
+
         # Font sizes that scale with screen size
         self._update_fonts()
 
@@ -75,7 +78,9 @@ class PygameUserInterface(BaseUserInterface):
         self.height = max(new_height, self.min_height)
 
         # Recreate the display surface with new dimensions
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode(
+            (self.width, self.height), pygame.RESIZABLE
+        )
 
         # Update fonts for new screen size
         self._update_fonts()
@@ -93,7 +98,7 @@ class PygameUserInterface(BaseUserInterface):
         self.current_options = optionList
         self.selected_option = 0
         self.waiting_for_input = True
-        
+
         while self.waiting_for_input:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -104,9 +109,13 @@ class PygameUserInterface(BaseUserInterface):
                     self._handle_resize(event.w, event.h)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        self.selected_option = (self.selected_option - 1) % len(optionList)
+                        self.selected_option = (self.selected_option - 1) % len(
+                            optionList
+                        )
                     elif event.key == pygame.K_DOWN:
-                        self.selected_option = (self.selected_option + 1) % len(optionList)
+                        self.selected_option = (self.selected_option + 1) % len(
+                            optionList
+                        )
                     elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                         self.waiting_for_input = False
                         return str(self.selected_option + 1)
@@ -115,21 +124,36 @@ class PygameUserInterface(BaseUserInterface):
                         if option_num <= len(optionList):
                             self.waiting_for_input = False
                             return str(option_num)
-            
+
             # Draw the UI
             self._draw_game_screen(descriptor, optionList)
-            
+
             # Update display
             pygame.display.flip()
             pygame.time.Clock().tick(60)  # 60 FPS
-        
+
         return str(self.selected_option + 1)
-    
+
+    def _statusLines(self):
+        """Plain-text status rows shown on the game screen. Split out from
+        _draw_game_screen so the content can be tested without a real font
+        (pygame.font.Font doesn't allow mocking its render method)."""
+        lines = [
+            f"Day {self.timeService.day}",
+            f"Time: {self.times[self.timeService.time]}",
+            f"Money: ${self.player.money}",
+            f"Fish: {self.player.fishCount}",
+            f"Energy: {self.player.energy}/{housing.maxEnergy(self.player)}",
+        ]
+        if self.player.operatorMode:
+            lines.append("[OPERATOR MODE]")
+        return lines
+
     def _draw_game_screen(self, descriptor, optionList):
         """Draw the main game screen with responsive layout"""
         # Clear screen
         self.screen.fill(self.BLACK)
-        
+
         # Use proportional positioning based on screen dimensions
         margin_x = self.width * 0.06  # 6% margin from left/right
         margin_y = self.height * 0.08  # 8% margin from top
@@ -144,18 +168,17 @@ class PygameUserInterface(BaseUserInterface):
         # Draw divider - proportional margins
         divider_start = margin_x
         divider_end = self.width - margin_x
-        pygame.draw.line(self.screen, self.GRAY, (divider_start, y_offset), (divider_end, y_offset), 2)
+        pygame.draw.line(
+            self.screen,
+            self.GRAY,
+            (divider_start, y_offset),
+            (divider_end, y_offset),
+            2,
+        )
         y_offset += self.height * 0.05  # 5% spacing
 
         # Draw game status
-        status_lines = [
-            f"Day {self.timeService.day}",
-            f"Time: {self.times[self.timeService.time]}",
-            f"Money: ${self.player.money}",
-            f"Fish: {self.player.fishCount}"
-        ]
-        if self.player.operatorMode:
-            status_lines.append("[OPERATOR MODE]")
+        status_lines = self._statusLines()
 
         status_x = margin_x + (self.width * 0.06)  # Indent status lines
         line_height = self.height * 0.05  # 5% of screen height per line
@@ -168,45 +191,59 @@ class PygameUserInterface(BaseUserInterface):
         y_offset += self.height * 0.03  # 3% extra spacing
 
         # Draw current prompt
-        prompt_surface = self.font_medium.render(self.currentPrompt.text, True, self.LIGHT_BLUE)
+        prompt_surface = self.font_medium.render(
+            self.currentPrompt.text, True, self.LIGHT_BLUE
+        )
         self.screen.blit(prompt_surface, (status_x, y_offset))
         y_offset += self.height * 0.08  # 8% spacing
 
         # Draw another divider
-        pygame.draw.line(self.screen, self.GRAY, (divider_start, y_offset), (divider_end, y_offset), 2)
+        pygame.draw.line(
+            self.screen,
+            self.GRAY,
+            (divider_start, y_offset),
+            (divider_end, y_offset),
+            2,
+        )
         y_offset += self.height * 0.05  # 5% spacing
 
         # Draw options with responsive sizing
-        option_height = max(25, self.height * 0.06)  # At least 25px, or 6% of screen height
+        option_height = max(
+            25, self.height * 0.06
+        )  # At least 25px, or 6% of screen height
         highlight_margin = self.width * 0.02  # 2% margin for highlight
 
         # Draw options
         for i, option in enumerate(optionList):
             color = self.LIGHT_BLUE if i == self.selected_option else self.WHITE
             option_text = f"[{i + 1}] {option}"
-            
+
             # Draw selection highlight with proportional sizing
             if i == self.selected_option:
                 highlight_x = margin_x + highlight_margin
                 highlight_width = self.width - 2 * (margin_x + highlight_margin)
-                rect = pygame.Rect(highlight_x, y_offset - 5, highlight_width, option_height)
+                rect = pygame.Rect(
+                    highlight_x, y_offset - 5, highlight_width, option_height
+                )
                 pygame.draw.rect(self.screen, self.DARK_GRAY, rect)
-            
+
             option_surface = self.font_medium.render(option_text, True, color)
             self.screen.blit(option_surface, (status_x, y_offset))
             y_offset += option_height
 
         # Draw instructions at bottom with proportional spacing
         instructions_start_y = self.height - (self.height * 0.15)  # 15% from bottom
-        y_offset = max(y_offset + self.height * 0.05, instructions_start_y)  # Ensure minimum spacing
+        y_offset = max(
+            y_offset + self.height * 0.05, instructions_start_y
+        )  # Ensure minimum spacing
 
         # Draw instructions
         y_offset += 30
         instructions = [
             "Use UP/DOWN arrows or number keys to select",
-            "Press ENTER or SPACE to choose"
+            "Press ENTER or SPACE to choose",
         ]
-        
+
         instruction_spacing = self.height * 0.04  # 4% spacing between instructions
 
         for instruction in instructions:
@@ -267,7 +304,9 @@ class PygameUserInterface(BaseUserInterface):
             margin_x = self.width * 0.06
             prompt_surface = self.font_medium.render(promptText, True, self.WHITE)
             self.screen.blit(prompt_surface, (margin_x, self.height * 0.3))
-            entry_surface = self.font_medium.render("> " + entered, True, self.LIGHT_BLUE)
+            entry_surface = self.font_medium.render(
+                "> " + entered, True, self.LIGHT_BLUE
+            )
             self.screen.blit(entry_surface, (margin_x, self.height * 0.45))
             hint_surface = self.font_small.render(
                 "Type your answer and press ENTER", True, self.GRAY

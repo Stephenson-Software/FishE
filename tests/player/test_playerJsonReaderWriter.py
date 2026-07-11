@@ -55,6 +55,8 @@ def test_createPlayerFromJson():
 
 def test_createPlayerFromJson_backwards_compatibility():
     # Test that old save files without energy still work
+    from src.housing import housing
+
     playerJson = {
         "fishCount": 5,
         "fishMultiplier": 2,
@@ -71,7 +73,9 @@ def test_createPlayerFromJson_backwards_compatibility():
     assert player.fishMultiplier == playerJson["fishMultiplier"]
     assert player.money == playerJson["money"]
     assert player.moneyInBank == playerJson["moneyInBank"]
-    assert player.energy == 100  # Should default to 100
+    # a save with no homeTier field also defaults to Homeless (tier 0), so
+    # energy should default to that tier's cap
+    assert player.energy == housing.HOUSING_TIERS[0]["maxEnergy"]
 
 
 def test_writePlayerToFile():

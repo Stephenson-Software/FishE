@@ -1,3 +1,5 @@
+from collections import Counter
+
 # @author Daniel McCoy Stephenson
 #
 # Investment properties: rental units elsewhere in the village that the
@@ -21,11 +23,20 @@ PROPERTY_TYPES = [
 
 
 def typeInfo(typeId):
+    if typeId < 1 or typeId > len(PROPERTY_TYPES):
+        raise ValueError("Invalid property type id: %r" % (typeId,))
     return PROPERTY_TYPES[typeId - 1]
 
 
 def countOwned(player, typeId):
     return player.rentalProperties.count(typeId)
+
+
+def ownedCounts(player):
+    """Map of {typeId: count} for the player's whole portfolio in one pass,
+    for callers (e.g. the investments menu) that need every type's count
+    rather than checking one type at a time via countOwned()."""
+    return Counter(player.rentalProperties)
 
 
 def buyProperty(player, typeId, stats=None):

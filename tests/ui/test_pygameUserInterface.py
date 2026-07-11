@@ -5,6 +5,7 @@ import os
 # directly; run headless under SDL_VIDEODRIVER=dummy (set by CI / the test cmd).
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from housing import housing
 from ui.pygameUserInterface import PygameUserInterface
 from player.player import Player
 from prompt.prompt import Prompt
@@ -18,6 +19,16 @@ def makeUI():
     timeService = TimeService(player, stats)
     prompt = Prompt("What would you like to do?")
     return PygameUserInterface(prompt, timeService, player)
+
+
+def test_statusLines_shows_energy_cap():
+    # check - the status block shows "current/cap", not just the raw value
+    ui = makeUI()
+    try:
+        expected = "Energy: %d/%d" % (ui.player.energy, housing.maxEnergy(ui.player))
+        assert expected in ui._statusLines()
+    finally:
+        ui.cleanup()
 
 
 def test_handle_resize_clamps_below_minimum():
@@ -145,7 +156,9 @@ def test_showOptions_arrow_then_enter_selects():
     ui = makeUI()
     try:
         # down moves the highlight from option 1 to option 2, Enter confirms it
-        with injected_events([keydown(key=pygame.K_DOWN), keydown(key=pygame.K_RETURN)]):
+        with injected_events(
+            [keydown(key=pygame.K_DOWN), keydown(key=pygame.K_RETURN)]
+        ):
             choice = ui.showOptions("Pick", ["A", "B", "C"])
         assert choice == "2"
     finally:

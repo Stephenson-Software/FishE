@@ -49,6 +49,32 @@ def test_increaseTimeToNextDay():
     assert timeService.time == expected_time
 
 
+def test_increaseTime_returns_not_evicted_without_a_day_rollover():
+    # prepare
+    timeService = createTimeService()
+
+    # call
+    summary = timeService.increaseTime()
+
+    # check
+    assert summary == {"evicted": False}
+
+
+def test_increaseTime_surfaces_eviction_on_day_rollover():
+    # prepare - renting but broke, one hour from the day rolling over
+    timeService = createTimeService()
+    timeService.time = 7
+    timeService.player.homeTier = 1
+    timeService.player.money = 0
+
+    # call
+    summary = timeService.increaseTime()
+
+    # check
+    assert summary == {"evicted": True}
+    assert timeService.player.homeTier == 0
+
+
 def test_increaseDay():
     # prepare
     timeService = createTimeService()

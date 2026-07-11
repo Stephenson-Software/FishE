@@ -159,7 +159,7 @@ def test_getDrunk():
     tavern.print = MagicMock()
     tavern.sys.stdout.flush = MagicMock()
     tavern.time.sleep = MagicMock()
-    tavernInstance.timeService.increaseDay = MagicMock()
+    tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
     # call
     tavernInstance.getDrunk()
@@ -168,6 +168,26 @@ def test_getDrunk():
     assert tavern.print.call_count == 3
     assert tavern.sys.stdout.flush.call_count == 3
     tavernInstance.timeService.increaseDay.assert_called_once()
+
+
+def test_getDrunk_mentions_eviction_when_it_happens():
+    # prepare
+    from src.housing import housing
+
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 10
+    tavern.print = MagicMock()
+    tavern.sys.stdout.flush = MagicMock()
+    tavern.time.sleep = MagicMock()
+    tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": True})
+
+    # call
+    tavernInstance.getDrunk()
+
+    # check - the player is told, not just silently moved back to Homeless
+    assert housing.EVICTION_MESSAGE in tavernInstance.currentPrompt.text
 
 
 def test_changeBet_no_recursive_gamble():
@@ -351,7 +371,7 @@ def test_getDrunk_updates_stats():
     tavern.print = MagicMock()
     tavern.sys.stdout.flush = MagicMock()
     tavern.time.sleep = MagicMock()
-    tavernInstance.timeService.increaseDay = MagicMock()
+    tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
     # call - skip the random additional-loss path (>= 0.3 means no extra loss)
     # so the base $10 cost is asserted deterministically.
@@ -374,7 +394,7 @@ def test_getDrunk_can_earn_a_tip():
     tavern.print = MagicMock()
     tavern.sys.stdout.flush = MagicMock()
     tavern.time.sleep = MagicMock()
-    tavernInstance.timeService.increaseDay = MagicMock()
+    tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
     # call - land in the "tip" outcome (>= loss chance, < loss + tip) and fix
     # the tip amount deterministically.

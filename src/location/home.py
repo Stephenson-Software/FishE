@@ -53,18 +53,45 @@ class Home:
         return "You sit at home, polishing one of your prized fishing poles."
 
     def sleep(self):
-        self.timeService.increaseDay()
+        summary = self.timeService.increaseDay()
         self.player.energy = housing.maxEnergy(self.player)  # Restore full energy
         self.currentPrompt.text = (
             "You sleep until the next morning. You feel refreshed!"
         )
+        if summary["evicted"]:
+            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
 
     def _moveCostLabel(self, netCost):
         if netCost > 0:
             return "$%d net" % netCost
         if netCost < 0:
-            return "+$%d" % -netCost
+            return "get $%d back" % -netCost
         return "free"
+
+    def _availableMoves(self):
+        """(targetTier, targetInfo, netCost) for each adjacent rung the
+        player can move to (up and/or down), computed once so
+        _housingStatus() and manageHome() don't each redo the same lookups
+        on every render."""
+        tier = housing.currentTier(self.player)
+        moves = []
+        if tier < len(housing.HOUSING_TIERS) - 1:
+            moves.append((tier + 1, housing.tierInfo(tier + 1)))
+        if tier > 0:
+            moves.append((tier - 1, housing.tierInfo(tier - 1)))
+        return [
+            (targetTier, info, housing.netCostToMove(self.player, targetTier))
+            for targetTier, info in moves
+        ]
+
+    def _moveLabel(self, currentTier, targetTier, info, netCost):
+        # Disclose a recurring rent obligation up front, not just after the
+        # player has already moved in and checked the status screen again.
+        costLabel = self._moveCostLabel(netCost)
+        if info["status"] == "renting":
+            costLabel += ", then $%d/day rent" % info["dailyRent"]
+        verb = "Move to" if targetTier > currentTier else "Move down to"
+        return "%s %s (%s)" % (verb, info["name"], costLabel)
 
     def _housingStatus(self):
         tier = housing.currentTier(self.player)
@@ -85,26 +112,12 @@ class Home:
                 "You own a %s. Energy cap: %d." % (info["name"], info["maxEnergy"])
             ]
 
-        if tier < len(housing.HOUSING_TIERS) - 1:
-            nextInfo = housing.tierInfo(tier + 1)
-            netCost = housing.netCostToMove(self.player, tier + 1)
+        for targetTier, targetInfo, netCost in self._availableMoves():
             lines.append(
-                "Move to %s (%s, energy cap %d)."
+                "%s, energy cap %d."
                 % (
-                    nextInfo["name"],
-                    self._moveCostLabel(netCost),
-                    nextInfo["maxEnergy"],
-                )
-            )
-        if tier > 0:
-            prevInfo = housing.tierInfo(tier - 1)
-            netCost = housing.netCostToMove(self.player, tier - 1)
-            lines.append(
-                "Move down to %s (%s, energy cap %d)."
-                % (
-                    prevInfo["name"],
-                    self._moveCostLabel(netCost),
-                    prevInfo["maxEnergy"],
+                    self._moveLabel(tier, targetTier, targetInfo, netCost),
+                    targetInfo["maxEnergy"],
                 )
             )
         return "\n".join(lines)
@@ -114,21 +127,9 @@ class Home:
             tier = housing.currentTier(self.player)
             options = []
             actions = []
-            if tier < len(housing.HOUSING_TIERS) - 1:
-                nextInfo = housing.tierInfo(tier + 1)
-                netCost = housing.netCostToMove(self.player, tier + 1)
-                options.append(
-                    "Move to %s (%s)" % (nextInfo["name"], self._moveCostLabel(netCost))
-                )
-                actions.append(("move", tier + 1))
-            if tier > 0:
-                prevInfo = housing.tierInfo(tier - 1)
-                netCost = housing.netCostToMove(self.player, tier - 1)
-                options.append(
-                    "Move down to %s (%s)"
-                    % (prevInfo["name"], self._moveCostLabel(netCost))
-                )
-                actions.append(("move", tier - 1))
+            for targetTier, targetInfo, netCost in self._availableMoves():
+                options.append(self._moveLabel(tier, targetTier, targetInfo, netCost))
+                actions.append(("move", targetTier))
             options.append("Back")
             actions.append(("back", None))
 
