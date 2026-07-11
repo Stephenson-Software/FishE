@@ -58,11 +58,15 @@
         },
         "highestHomeTier": {
             "type": "integer",
-            "description": "The highest home tier the player has owned."
+            "description": "The highest rung on the housing ladder the player has reached (0 = Homeless)."
         },
         "totalPropertiesBought": {
             "type": "integer",
             "description": "The lifetime number of investment properties bought."
+        },
+        "totalRentPaid": {
+            "type": "number",
+            "description": "The lifetime total of rent paid for a rented room."
         }
     }
 }

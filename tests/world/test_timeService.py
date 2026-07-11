@@ -121,3 +121,36 @@ def test_increaseDay_runs_investment_property_income():
     expectedIncome = investments.typeInfo(1)["dailyIncome"]
     assert timeService.player.money == 100 + expectedIncome
     assert timeService.stats.totalRentalIncome == expectedIncome
+
+
+def test_increaseDay_charges_rent_while_renting():
+    # prepare - renting, no bank balance (isolate from interest)
+    from src.housing import housing
+
+    timeService = createTimeService()
+    timeService.player.homeTier = 1
+    timeService.player.money = 100
+    timeService.player.moneyInBank = 0
+
+    # call
+    timeService.increaseDay()
+
+    # check - rent was charged as part of the day rollover
+    expectedRent = housing.tierInfo(1)["dailyRent"]
+    assert timeService.player.money == 100 - expectedRent
+    assert timeService.stats.totalRentPaid == expectedRent
+
+
+def test_increaseDay_evicts_when_rent_is_unaffordable():
+    # prepare - renting but broke
+    timeService = createTimeService()
+    timeService.player.homeTier = 1
+    timeService.player.money = 0
+    timeService.player.moneyInBank = 0
+
+    # call
+    timeService.increaseDay()
+
+    # check - evicted back to homeless as part of the day rollover
+    assert timeService.player.homeTier == 0
+    assert timeService.player.money == 0

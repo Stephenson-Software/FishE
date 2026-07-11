@@ -20,6 +20,7 @@ class StatsJsonReaderWriter:
             "totalRentalIncome": stats.totalRentalIncome,
             "highestHomeTier": stats.highestHomeTier,
             "totalPropertiesBought": stats.totalPropertiesBought,
+            "totalRentPaid": stats.totalRentPaid,
         }
 
     def createStatsFromJson(self, statsJson):
@@ -62,6 +63,7 @@ class StatsJsonReaderWriter:
         stats.totalPropertiesBought = statsJson.get(
             "totalPropertiesBought", stats.totalPropertiesBought
         )
+        stats.totalRentPaid = statsJson.get("totalRentPaid", stats.totalRentPaid)
         return stats
 
     def readStatsFromFile(self, statsJsonFile):

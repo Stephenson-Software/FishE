@@ -62,15 +62,21 @@ MILESTONES = [
         "description": "Have your crew catch 500 fish total",
     },
     {
+        "name": "Roof Over Your Head",
+        "stat": "highestHomeTier",
+        "threshold": 1,
+        "description": "Find a place to stay, even just a rented room",
+    },
+    {
         "name": "Homeowner",
         "stat": "highestHomeTier",
         "threshold": 2,
-        "description": "Upgrade your home for the first time",
+        "description": "Buy your first home",
     },
     {
         "name": "Waterfront Manor",
         "stat": "highestHomeTier",
-        "threshold": 4,
+        "threshold": 5,
         "description": "Own the finest home in the village",
     },
     {

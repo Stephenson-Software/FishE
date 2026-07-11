@@ -16,8 +16,9 @@ class Stats:
         self.totalWagesPaid = 0
         self.daysInBusiness = 0
         # Lifetime home-ownership totals (see src/housing). highestHomeTier
-        # starts at 1 since every player already owns the base tier.
-        self.highestHomeTier = 1
+        # starts at 0 (Homeless) since that's every player's starting rung.
+        self.highestHomeTier = 0
+        self.totalRentPaid = 0
         # Lifetime investment-property totals (see src/investments).
         self.totalRentalIncome = 0
         self.totalPropertiesBought = 0

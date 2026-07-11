@@ -177,6 +177,24 @@ def test_investmentStats_round_trip():
     validate(statsJson, getStatsSchema())
 
 
+def test_rentPaid_round_trips():
+    # prepare
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    stats = createStats()
+    stats.totalRentPaid = 120
+
+    # call - serialize then deserialize
+    statsJson = statsJsonReaderWriter.createJsonFromStats(stats)
+    restored = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check
+    assert statsJson["totalRentPaid"] == 120
+    assert restored.totalRentPaid == 120
+
+    # validate against the schema
+    validate(statsJson, getStatsSchema())
+
+
 def test_createStatsFromJson_missingHousingAndInvestmentStats_defaults():
     # prepare - an older save with no housing/investment-stat fields
     statsJsonReaderWriter = createStatsJsonReaderWriter()
@@ -189,9 +207,10 @@ def test_createStatsFromJson_missingHousingAndInvestmentStats_defaults():
     stats = statsJsonReaderWriter.createStatsFromJson(statsJson)
 
     # check - backward compatible defaults
-    assert stats.highestHomeTier == 1
+    assert stats.highestHomeTier == 0
     assert stats.totalRentalIncome == 0
     assert stats.totalPropertiesBought == 0
+    assert stats.totalRentPaid == 0
 
 
 def test_writeStatsToFile():
