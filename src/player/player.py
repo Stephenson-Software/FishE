@@ -21,6 +21,10 @@ class Player:
         self.workers = 0
         self.boatTier = 0
         self.businessName = ""
+        # Home ownership: a second, independent property track (see
+        # src/housing). homeTier starts at 1 (the free Driftwood Shack) since,
+        # unlike the boat, every player already has a home.
+        self.homeTier = 1
         # Testing/debug cheat: when on, every money check passes and spendMoney
         # becomes a no-op, so cash never actually runs out. Not persisted to save
         # files - it's a runtime toggle, not game progress. Defaults from the

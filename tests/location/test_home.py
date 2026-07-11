@@ -6,6 +6,7 @@ from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.achievements import achievements
+from src.housing import housing
 from unittest.mock import MagicMock
 
 
@@ -58,10 +59,24 @@ def test_run_see_stats_action():
     assert nextLocation == LocationType.HOME
 
 
-def test_run_go_to_docks_action():
+def test_run_manage_home_action():
     # prepare
     homeInstance = createHome()
     homeInstance.userInterface.showOptions = MagicMock(return_value="3")
+    homeInstance.manageHome = MagicMock()
+
+    # call
+    nextLocation = homeInstance.run()
+
+    # check
+    homeInstance.manageHome.assert_called_once()
+    assert nextLocation == LocationType.HOME
+
+
+def test_run_go_to_docks_action():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.userInterface.showOptions = MagicMock(return_value="4")
 
     # call
     nextLocation = homeInstance.run()
@@ -73,7 +88,7 @@ def test_run_go_to_docks_action():
 def test_run_quit_action():
     # prepare
     homeInstance = createHome()
-    homeInstance.userInterface.showOptions = MagicMock(return_value="4")
+    homeInstance.userInterface.showOptions = MagicMock(return_value="5")
 
     # call
     nextLocation = homeInstance.run()
@@ -129,3 +144,62 @@ def test_displayStats():
     assert "Milestones:" in shownText
     for milestone in achievements.MILESTONES:
         assert milestone["name"] in shownText
+
+
+def test_displayStats_includes_home_block():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - the home tier and lifetime rental income are always shown, even
+    # for a fresh player at the base tier
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Home: Driftwood Shack" in shownText
+    assert "Lifetime Rental Income" in shownText
+
+
+def test_manageHome_upgrade_when_affordable():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.player.money = 10000
+    nextInfo = housing.tierInfo(2)
+    homeInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
+
+    # call - upgrade, then back out
+    homeInstance.manageHome()
+
+    # check
+    assert homeInstance.player.homeTier == 2
+    assert homeInstance.player.money == 10000 - nextInfo["cost"]
+    assert homeInstance.stats.highestHomeTier == 2
+
+
+def test_manageHome_upgrade_when_unaffordable():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.player.money = 0
+    homeInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
+
+    # call - attempt to upgrade (fails, loop continues), then back out
+    homeInstance.manageHome()
+
+    # check - no tier change, no money spent
+    assert homeInstance.player.homeTier == 1
+    assert homeInstance.player.money == 0
+
+
+def test_manageHome_at_top_tier_has_no_upgrade_option():
+    # prepare - already at the top tier
+    homeInstance = createHome()
+    homeInstance.player.homeTier = len(housing.HOUSING_TIERS)
+    homeInstance.userInterface.showOptions = MagicMock(return_value="1")
+
+    # call - the only option offered is "Back"
+    homeInstance.manageHome()
+
+    # check
+    optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
+    assert optionsShown == ["Back"]

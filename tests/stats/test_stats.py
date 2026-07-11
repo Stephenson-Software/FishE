@@ -16,3 +16,5 @@ def test_initialization():
     assert stats.moneyMadeFromInterest == 0
     assert stats.timesGottenDrunk == 0
     assert stats.moneyLostFromGambling == 0
+    assert stats.totalRentalIncome == 0
+    assert stats.highestHomeTier == 1

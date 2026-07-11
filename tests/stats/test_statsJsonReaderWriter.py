@@ -138,6 +138,43 @@ def test_createStatsFromJson_missingBusinessStats_defaultsToZero():
     assert stats.daysInBusiness == 0
 
 
+def test_housingStats_round_trip():
+    # prepare
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    stats = createStats()
+    stats.totalRentalIncome = 85
+    stats.highestHomeTier = 3
+
+    # call - serialize then deserialize
+    statsJson = statsJsonReaderWriter.createJsonFromStats(stats)
+    restored = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check
+    assert statsJson["totalRentalIncome"] == 85
+    assert statsJson["highestHomeTier"] == 3
+    assert restored.totalRentalIncome == 85
+    assert restored.highestHomeTier == 3
+
+    # validate against the schema
+    validate(statsJson, getStatsSchema())
+
+
+def test_createStatsFromJson_missingHousingStats_defaults():
+    # prepare - an older save with no housing-stat fields
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    statsJson = {
+        "totalFishCaught": 1,
+        "totalMoneyMade": 1,
+    }
+
+    # call
+    stats = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check - backward compatible defaults
+    assert stats.totalRentalIncome == 0
+    assert stats.highestHomeTier == 1
+
+
 def test_writeStatsToFile():
     # prepare
     import tempfile
@@ -179,9 +216,7 @@ def test_readStatsFromFile():
     }
 
     # Write test data to temp file
-    with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, suffix=".json"
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
         json.dump(statsJson, f)
         temp_file_path = f.name
 

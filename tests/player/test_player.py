@@ -19,6 +19,7 @@ def test_initialization():
     assert player.fishByType == {}
     assert player.hasBoat is False
     assert player.workers == 0
+    assert player.homeTier == 1
 
 
 def test_addFish_and_clearFish_keep_count_in_sync():

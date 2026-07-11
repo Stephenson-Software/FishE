@@ -17,6 +17,7 @@ class PlayerJsonReaderWriter:
             "workers": player.workers,
             "boatTier": player.boatTier,
             "businessName": player.businessName,
+            "homeTier": player.homeTier,
         }
 
     def createPlayerFromJson(self, playerJson):
@@ -36,6 +37,7 @@ class PlayerJsonReaderWriter:
         player.workers = playerJson.get("workers", player.workers)
         player.boatTier = playerJson.get("boatTier", player.boatTier)
         player.businessName = playerJson.get("businessName", player.businessName)
+        player.homeTier = playerJson.get("homeTier", player.homeTier)
         return player
 
     def writePlayerToFile(self, player, jsonFile):
