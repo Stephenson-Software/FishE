@@ -51,6 +51,18 @@
         "daysInBusiness": {
             "type": "integer",
             "description": "The number of days the fishing business has produced a catch."
+        },
+        "totalRentalIncome": {
+            "type": "number",
+            "description": "The lifetime total of passive rental income earned from investment properties."
+        },
+        "highestHomeTier": {
+            "type": "integer",
+            "description": "The highest home tier the player has owned."
+        },
+        "totalPropertiesBought": {
+            "type": "integer",
+            "description": "The lifetime number of investment properties bought."
         }
     }
 }

@@ -61,6 +61,30 @@ MILESTONES = [
         "threshold": 500,
         "description": "Have your crew catch 500 fish total",
     },
+    {
+        "name": "Homeowner",
+        "stat": "highestHomeTier",
+        "threshold": 2,
+        "description": "Upgrade your home for the first time",
+    },
+    {
+        "name": "Waterfront Manor",
+        "stat": "highestHomeTier",
+        "threshold": 4,
+        "description": "Own the finest home in the village",
+    },
+    {
+        "name": "Landlord",
+        "stat": "totalPropertiesBought",
+        "threshold": 1,
+        "description": "Buy your first investment property",
+    },
+    {
+        "name": "Property Mogul",
+        "stat": "totalPropertiesBought",
+        "threshold": 5,
+        "description": "Buy 5 investment properties over your career",
+    },
 ]
 
 
@@ -82,7 +106,10 @@ def getNewlyEarned(stats):
     """
     newly = []
     for milestone in MILESTONES:
-        if isEarned(milestone, stats) and milestone["name"] not in stats.earnedMilestones:
+        if (
+            isEarned(milestone, stats)
+            and milestone["name"] not in stats.earnedMilestones
+        ):
             stats.earnedMilestones.append(milestone["name"])
             newly.append(milestone)
     return newly

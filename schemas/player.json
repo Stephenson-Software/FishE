@@ -24,7 +24,7 @@
         "energy": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 200
         },
         "rodLevel": {
             "type": "integer",
@@ -50,6 +50,17 @@
         },
         "businessName": {
             "type": "string"
+        },
+        "homeTier": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "rentalProperties": {
+            "type": "array",
+            "items": {
+                "type": "integer",
+                "minimum": 1
+            }
         }
     },
     "required": [

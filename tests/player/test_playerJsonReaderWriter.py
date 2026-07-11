@@ -115,9 +115,7 @@ def test_readPlayerFromFile():
     }
 
     # Write test data to temp file
-    with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, suffix=".json"
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
         json.dump(playerJson, f)
         temp_file_path = f.name
 
@@ -284,3 +282,71 @@ def test_createPlayerFromJson_missingRodLevel_defaultsToOne():
 
     # check - backward compatible default
     assert player.rodLevel == 1
+
+
+def test_homeTier_round_trips():
+    # prepare
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.homeTier = 3
+
+    # call
+    playerJson = playerJsonReaderWriter.createJsonFromPlayer(player)
+    restored = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert playerJson["homeTier"] == 3
+    assert restored.homeTier == 3
+
+
+def test_createPlayerFromJson_missingHomeTier_defaultsToOne():
+    # prepare - an older save with no homeTier field
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 5,
+        "fishMultiplier": 2,
+        "money": 100,
+        "moneyInBank": 50,
+        "priceForBait": 75,
+        "energy": 80,
+    }
+
+    # call
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check - backward compatible default
+    assert player.homeTier == 1
+
+
+def test_rentalProperties_round_trips():
+    # prepare
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.rentalProperties = [1, 1, 2]
+
+    # call
+    playerJson = playerJsonReaderWriter.createJsonFromPlayer(player)
+    restored = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert playerJson["rentalProperties"] == [1, 1, 2]
+    assert restored.rentalProperties == [1, 1, 2]
+
+
+def test_createPlayerFromJson_missingRentalProperties_defaultsToEmpty():
+    # prepare - an older save with no rentalProperties field
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 5,
+        "fishMultiplier": 2,
+        "money": 100,
+        "moneyInBank": 50,
+        "priceForBait": 75,
+        "energy": 80,
+    }
+
+    # call
+    player = playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+    # check - backward compatible default
+    assert player.rentalProperties == []
