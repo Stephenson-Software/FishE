@@ -25,7 +25,13 @@ class Home:
         self.timeService = timeService
 
     def run(self):
-        li = ["Sleep", "See Stats", "Manage Home", "Go to Docks", "Quit"]
+        retireAvailable = (
+            achievements.GOAL_MILESTONE_NAME in self.stats.earnedMilestones
+        )
+        li = ["Sleep", "See Stats", "Manage Home", "Go to Docks"]
+        if retireAvailable:
+            li.append("Retire")
+        li.append("Quit")
         self.input = self.userInterface.showOptions(self._homeDescriptor(), li)
 
         if self.input == "1":
@@ -41,7 +47,10 @@ class Home:
         elif self.input == "4":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
-        elif self.input == "5":
+        elif retireAvailable and self.input == "5":
+            self.retire()
+            return LocationType.NONE
+        elif self.input == str(len(li)):
             return LocationType.NONE
 
     def _homeDescriptor(self):
@@ -147,7 +156,7 @@ class Home:
                 self.currentPrompt.text = "What would you like to do?"
                 return
 
-    def displayStats(self):
+    def _statsLines(self):
         lines = [
             "Total Fish Caught: %d" % self.stats.totalFishCaught,
             "Total Money Made: %d" % self.stats.totalMoneyMade,
@@ -188,6 +197,18 @@ class Home:
             lines.append(
                 " [%s] %s - %s" % (mark, milestone["name"], milestone["description"])
             )
+        return lines
+
+    def displayStats(self):
         # Render through the active front-end (and wait for acknowledgement) so the
         # stats screen works in any UI rather than only the console.
+        self.userInterface.showDialogue("\n".join(self._statsLines()))
+
+    def retire(self):
+        """Show a closing summary and end the run, reusing displayStats()'s lines."""
+        lines = [
+            "You retire from fishing, your fortune secured for good.",
+            "Here's how your career adds up:",
+            "",
+        ] + self._statsLines()
         self.userInterface.showDialogue("\n".join(lines))
