@@ -220,6 +220,8 @@ class Docks:
                 if self.player.workers > 0:
                     options.append("Dismiss a Worker")
                     actions.append("dismiss")
+                options.append("Sell the Boat ($%d)" % info["resaleValue"])
+                actions.append("sell_boat")
                 if tier < len(business.BOAT_TIERS):
                     nextInfo = business.tierInfo(tier + 1)
                     options.append(
@@ -256,6 +258,14 @@ class Docks:
             elif action == "dismiss":
                 self.player.workers -= 1
                 self.currentPrompt.text = "You let a worker go."
+            elif action == "sell_boat":
+                tier = business.currentTier(self.player)
+                info = business.tierInfo(tier)
+                business.sellBoat(self.player)
+                self.currentPrompt.text = "You sold the %s for $%d." % (
+                    info["name"],
+                    info["resaleValue"],
+                )
             elif action == "upgrade_boat":
                 tier = business.currentTier(self.player)
                 nextInfo = business.tierInfo(tier + 1)

@@ -152,3 +152,37 @@ def test_runDailyProduction_tracks_lifetime_business_stats():
     # a second day accumulates rather than resets
     business.runDailyProduction(player, stats)
     assert stats.daysInBusiness == 2
+
+
+def test_sellBoat_refunds_resale_value_and_clears_boat_and_crew():
+    # prepare - a Trawler (tier 2) with two workers
+    player = Player()
+    player.hasBoat = True
+    player.boatTier = 2
+    player.workers = 2
+    player.money = 0
+    resaleValue = business.tierInfo(2)["resaleValue"]
+
+    # call
+    sold = business.sellBoat(player)
+
+    # check - refunded, and boat/tier/crew all cleared
+    assert sold is True
+    assert player.money == resaleValue
+    assert player.hasBoat is False
+    assert player.boatTier == 0
+    assert player.workers == 0
+
+
+def test_sellBoat_fails_when_no_boat_owned():
+    # prepare
+    player = Player()
+    player.hasBoat = False
+    startingMoney = player.money
+
+    # call
+    sold = business.sellBoat(player)
+
+    # check - nothing changes
+    assert sold is False
+    assert player.money == startingMoney

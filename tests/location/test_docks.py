@@ -472,9 +472,9 @@ def test_manageBusiness_buy_boat():
     docksInstance = createDocks()
     docksInstance.player.money = business.BOAT_PRICE + 50
     docksInstance.player.hasBoat = False
-    # "1" = Buy a Boat; then in the post-purchase menu (Hire/Upgrade/Rename/Back)
-    # "4" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "4"])
+    # "1" = Buy a Boat; then in the post-purchase menu
+    # (Hire/Sell the Boat/Upgrade/Rename/Back) "5" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
 
     # call
     docksInstance.manageBusiness()
@@ -507,8 +507,8 @@ def test_manageBusiness_hire_worker():
     docksInstance.player.hasBoat = True
     docksInstance.player.workers = 0
     # "1" = Hire; then in the menu with a worker
-    # (Hire/Dismiss/Upgrade/Rename/Back) "5" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
+    # (Hire/Dismiss/Sell the Boat/Upgrade/Rename/Back) "6" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "6"])
 
     # call
     docksInstance.manageBusiness()
@@ -522,8 +522,8 @@ def test_manageBusiness_dismiss_worker():
     docksInstance = createDocks()
     docksInstance.player.hasBoat = True
     docksInstance.player.workers = 2
-    # "2" = Dismiss (Hire/Dismiss/Upgrade/Rename/Back); then "5" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "5"])
+    # "2" = Dismiss (Hire/Dismiss/Sell the Boat/Upgrade/Rename/Back); then "6" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "6"])
 
     # call
     docksInstance.manageBusiness()
@@ -532,12 +532,37 @@ def test_manageBusiness_dismiss_worker():
     assert docksInstance.player.workers == 1
 
 
+def test_manageBusiness_sell_boat():
+    # prepare - own a Trawler (tier 2) with a worker
+    from src.business import business
+
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.boatTier = 2
+    docksInstance.player.workers = 1
+    docksInstance.player.money = 0
+    resaleValue = business.tierInfo(2)["resaleValue"]
+    # "3" = Sell the Boat (Hire/Dismiss/Sell the Boat/Upgrade/Rename/Back);
+    # after selling, hasBoat is False so the menu shrinks to (Buy a Boat/Back)
+    # and "2" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "2"])
+
+    # call
+    docksInstance.manageBusiness()
+
+    # check - refunded, and boat/tier/crew all cleared
+    assert docksInstance.player.hasBoat is False
+    assert docksInstance.player.boatTier == 0
+    assert docksInstance.player.workers == 0
+    assert docksInstance.player.money == resaleValue
+
+
 def test_manageBusiness_hire_worker_increments_lifetime_stat():
     # prepare - own a boat, no crew yet
     docksInstance = createDocks()
     docksInstance.player.hasBoat = True
     docksInstance.player.workers = 0
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "6"])
 
     # call
     docksInstance.manageBusiness()
@@ -556,8 +581,8 @@ def test_manageBusiness_upgrade_boat():
     trawler = business.tierInfo(2)
     docksInstance.player.money = trawler["cost"] + 50
     # 0 workers under tier-1 capacity, so the menu is
-    # (Hire/Upgrade/Rename/Back): "2" = Upgrade, "4" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "4"])
+    # (Hire/Sell the Boat/Upgrade/Rename/Back): "3" = Upgrade, "5" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "5"])
 
     # call
     docksInstance.manageBusiness()
@@ -575,8 +600,8 @@ def test_manageBusiness_upgrade_boat_insufficient_funds():
     docksInstance.player.hasBoat = True
     docksInstance.player.boatTier = 1
     docksInstance.player.money = business.tierInfo(2)["cost"] - 1
-    # (Hire/Upgrade/Rename/Back): "2" = Upgrade, "4" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "4"])
+    # (Hire/Sell the Boat/Upgrade/Rename/Back): "3" = Upgrade, "5" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "5"])
 
     # call
     docksInstance.manageBusiness()
@@ -593,8 +618,9 @@ def test_manageBusiness_upgrade_boat_unavailable_at_max_tier():
     docksInstance = createDocks()
     docksInstance.player.hasBoat = True
     docksInstance.player.boatTier = len(business.BOAT_TIERS)
-    # No upgrade offered at max tier, so the menu is (Hire/Rename/Back)
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3"])
+    # No upgrade offered at max tier, so the menu is
+    # (Hire/Sell the Boat/Rename/Back); "4" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["4"])
 
     # call
     docksInstance.manageBusiness()
@@ -609,8 +635,8 @@ def test_manageBusiness_rename():
     docksInstance = createDocks()
     docksInstance.player.hasBoat = True
     docksInstance.player.boatTier = 1
-    # (Hire/Upgrade/Rename/Back): "3" = Rename, "4" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "4"])
+    # (Hire/Sell the Boat/Upgrade/Rename/Back): "4" = Rename, "5" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["4", "5"])
     docksInstance.userInterface.promptForText = MagicMock(
         return_value="  Salty Sea Co.  "
     )
@@ -628,8 +654,8 @@ def test_manageBusiness_rename_blank_keeps_previous_name():
     docksInstance.player.hasBoat = True
     docksInstance.player.boatTier = 1
     docksInstance.player.businessName = "Original Name"
-    # (Hire/Upgrade/Rename/Back): "3" = Rename, "4" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "4"])
+    # (Hire/Sell the Boat/Upgrade/Rename/Back): "4" = Rename, "5" = Back
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["4", "5"])
     docksInstance.userInterface.promptForText = MagicMock(return_value="   ")
 
     # call
