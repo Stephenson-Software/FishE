@@ -18,11 +18,24 @@ BOAT_TIERS = [
     {
         "name": "Rowboat",
         "cost": BOAT_PRICE,
+        "resaleValue": int(BOAT_PRICE * 0.7),
         "maxWorkers": MAX_WORKERS,
         "fishPerDay": WORKER_FISH_PER_DAY,
     },
-    {"name": "Trawler", "cost": 2000, "maxWorkers": 8, "fishPerDay": 7},
-    {"name": "Fishing Fleet", "cost": 6000, "maxWorkers": 12, "fishPerDay": 10},
+    {
+        "name": "Trawler",
+        "cost": 2000,
+        "resaleValue": 1400,
+        "maxWorkers": 8,
+        "fishPerDay": 7,
+    },
+    {
+        "name": "Fishing Fleet",
+        "cost": 6000,
+        "resaleValue": 4200,
+        "maxWorkers": 12,
+        "fishPerDay": 10,
+    },
 ]
 
 
@@ -35,6 +48,19 @@ def currentTier(player):
 
 def tierInfo(tier):
     return BOAT_TIERS[tier - 1]
+
+
+def sellBoat(player):
+    """Sell the boat back for its current tier's resale value. Returns True if
+    a boat was sold; False if the player didn't own one. Any remaining crew is
+    dismissed too, since they have nowhere left to work."""
+    if not player.hasBoat:
+        return False
+    player.money += tierInfo(currentTier(player))["resaleValue"]
+    player.hasBoat = False
+    player.boatTier = 0
+    player.workers = 0
+    return True
 
 
 def runDailyProduction(player, stats=None):
