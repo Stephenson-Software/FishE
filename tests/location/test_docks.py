@@ -108,7 +108,7 @@ def test_npc_business_dialogue_staged_by_empty_crew():
 
 def test_npc_business_dialogue_staged_by_tier():
     # prepare - one crewed boat per tier
-    pass
+    from src.business import business
 
     responses = {}
     for tier in (1, 2, 3):
