@@ -97,6 +97,69 @@ def test_run_quit_action():
     assert nextLocation == LocationType.NONE
 
 
+def test_run_no_retire_option_before_goal_reached():
+    # prepare - a fresh player has not earned the goal milestone
+    homeInstance = createHome()
+    homeInstance.userInterface.showOptions = MagicMock(return_value="5")
+
+    # call
+    nextLocation = homeInstance.run()
+
+    # check - "5" is still Quit, and Retire is not offered at all
+    optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
+    assert "Retire" not in optionsShown
+    assert optionsShown[-1] == "Quit"
+    assert nextLocation == LocationType.NONE
+
+
+def test_run_retire_option_appears_after_goal_reached():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.stats.earnedMilestones.append(achievements.GOAL_MILESTONE_NAME)
+    homeInstance.userInterface.showOptions = MagicMock(return_value="5")
+    homeInstance.retire = MagicMock()
+
+    # call
+    nextLocation = homeInstance.run()
+
+    # check - Retire is offered right before Quit, and choosing it ends the run
+    optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
+    assert optionsShown[-2:] == ["Retire", "Quit"]
+    homeInstance.retire.assert_called_once()
+    assert nextLocation == LocationType.NONE
+
+
+def test_run_quit_still_works_after_goal_reached():
+    # prepare - Quit shifts to option "6" once Retire is offered
+    homeInstance = createHome()
+    homeInstance.stats.earnedMilestones.append(achievements.GOAL_MILESTONE_NAME)
+    homeInstance.userInterface.showOptions = MagicMock(return_value="6")
+    homeInstance.retire = MagicMock()
+
+    # call
+    nextLocation = homeInstance.run()
+
+    # check
+    homeInstance.retire.assert_not_called()
+    assert nextLocation == LocationType.NONE
+
+
+def test_retire_shows_summary_with_stats():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.retire()
+
+    # check - reuses the same stat lines displayStats() shows
+    homeInstance.userInterface.showDialogue.assert_called_once()
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "retire" in shownText.lower()
+    assert "Total Fish Caught" in shownText
+    assert "Milestones:" in shownText
+
+
 def test_homeDescriptor_reflects_housing_status():
     # prepare
     homeInstance = createHome()

@@ -6,6 +6,13 @@
 # reaches its threshold; the set of already-announced milestone names lives on
 # Stats (stats.earnedMilestones) so each is announced only once across saves.
 
+# Total wealth (cash + bank) the player is working toward. Reaching it triggers
+# a one-time victory message and unlocks the Retire option in the Home menu.
+# Lives here (rather than in fishE.py, where it's announced) so both fishE.py
+# and location/home.py can read it without a circular import between them.
+GOAL_AMOUNT = 10000
+GOAL_MILESTONE_NAME = "Reached Goal"
+
 MILESTONES = [
     {
         "name": "First Catch",

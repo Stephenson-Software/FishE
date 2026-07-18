@@ -13,13 +13,8 @@ from ui.userInterfaceFactory import UserInterfaceFactory
 from ui.enum.uiType import UIType
 from saveFileManager import SaveFileManager
 from achievements import achievements
+from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
 from housing import housing
-
-
-# Total wealth (cash + bank) the player is working toward. Reaching it triggers
-# a one-time victory message; the game then continues until the player retires.
-GOAL_AMOUNT = 10000
-GOAL_MILESTONE_NAME = "Reached Goal"
 
 # Which front-end the game runs. Swap to UIType.PYGAME (or a future web type)
 # here to change the interface — the rest of the game is front-end agnostic.
