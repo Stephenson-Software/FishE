@@ -67,9 +67,10 @@ def test_factory_create_pygame_ui():
 
 
 def test_factory_create_web_ui_default_bind(monkeypatch):
-    """Test factory creates a web UI bound to 127.0.0.1:8000 by default,
-    matching WebUserInterface's own defaults, when no FISHE_WEB_HOST/
-    FISHE_WEB_PORT override is set."""
+    """Test factory creates a web UI bound to 127.0.0.1 by default when
+    FISHE_WEB_HOST is not set. FISHE_WEB_PORT is overridden to 0 (ephemeral)
+    to avoid conflicts with any real listener on port 8000; only the host
+    default is asserted here."""
     monkeypatch.delenv("FISHE_WEB_HOST", raising=False)
     # Use an ephemeral port (0) so this test never fights a real listener on
     # 8000, but assert the *host* the factory chose defaults correctly.
@@ -110,6 +111,21 @@ def test_factory_create_web_ui_honors_env_overrides(monkeypatch):
         assert ui.address[0] == "0.0.0.0"
     finally:
         ui.cleanup()
+
+
+def test_factory_create_web_ui_invalid_port(monkeypatch):
+    """Test factory raises a descriptive ValueError when FISHE_WEB_PORT is
+    not a valid integer, rather than a bare conversion error."""
+    monkeypatch.setenv("FISHE_WEB_PORT", "not-a-number")
+    currentPrompt = Prompt("What would you like to do?")
+    player = Player()
+    stats = Stats()
+    timeService = TimeService(player, stats)
+
+    with pytest.raises(ValueError, match="FISHE_WEB_PORT"):
+        UserInterfaceFactory.create_user_interface(
+            UIType.WEB, currentPrompt, timeService, player
+        )
 
 
 def test_factory_invalid_ui_type():
