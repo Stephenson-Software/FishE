@@ -9,6 +9,10 @@
             "type": "number",
             "minimum": 0,
             "maximum": 23
+        },
+        "weather": {
+            "type": "string",
+            "enum": ["clear", "rainy", "stormy"]
         }
     }
 }

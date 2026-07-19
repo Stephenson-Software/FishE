@@ -42,7 +42,7 @@ def test_createJsonFromTimeService():
 
 def test_createTimeServiceFromJson():
     timeServiceJsonReaderWriter = createTimeServiceJsonReaderWriter()
-    timeServiceJson = {"time": 8, "day": 1}
+    timeServiceJson = {"time": 8, "day": 1, "weather": "rainy"}
 
     # validate
     timeServiceSchema = getTimeServiceSchema()
@@ -54,6 +54,7 @@ def test_createTimeServiceFromJson():
         timeServiceJson, player, stats
     )
     assert timeServiceFromJson != None
+    assert timeServiceFromJson.weather == "rainy"
 
 
 def test_writeTimeServiceToFile():
@@ -64,6 +65,7 @@ def test_writeTimeServiceToFile():
     timeService = createTimeService()
     timeService.time = 15
     timeService.day = 10
+    timeService.weather = "stormy"
 
     # call
     with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
@@ -76,6 +78,7 @@ def test_writeTimeServiceToFile():
 
     assert timeServiceJson["time"] == 15
     assert timeServiceJson["day"] == 10
+    assert timeServiceJson["weather"] == "stormy"
 
     # cleanup
     import os
@@ -87,7 +90,7 @@ def test_readTimeServiceFromFile():
     # prepare
     import tempfile
 
-    timeServiceJson = {"time": 12, "day": 5}
+    timeServiceJson = {"time": 12, "day": 5, "weather": "rainy"}
 
     # Write test data to temp file
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
@@ -106,6 +109,7 @@ def test_readTimeServiceFromFile():
     # check
     assert timeService.time == 12
     assert timeService.day == 5
+    assert timeService.weather == "rainy"
 
     # cleanup
     import os
@@ -125,10 +129,11 @@ def test_createTimeServiceFromJson_missingAllFields_usesDefaults():
         timeServiceJson, player, stats
     )
 
-    # check - both fields fall back to the TimeService() default
+    # check - all fields fall back to the TimeService() default
     defaults = TimeService(player, stats)
     assert timeService.time == defaults.time
     assert timeService.day == defaults.day
+    assert timeService.weather == defaults.weather
 
 
 def test_createTimeServiceFromJson_outOfRangeTime_raisesValidationError():
@@ -138,6 +143,20 @@ def test_createTimeServiceFromJson_outOfRangeTime_raisesValidationError():
     player = Player()
     stats = Stats()
     timeServiceJson = {"time": 99, "day": 5}
+
+    # call/check
+    with pytest.raises(ValidationError):
+        timeServiceJsonReaderWriter.createTimeServiceFromJson(
+            timeServiceJson, player, stats
+        )
+
+
+def test_createTimeServiceFromJson_unknownWeather_raisesValidationError():
+    # prepare - a corrupted save with a weather value outside the schema's enum
+    timeServiceJsonReaderWriter = createTimeServiceJsonReaderWriter()
+    player = Player()
+    stats = Stats()
+    timeServiceJson = {"time": 8, "day": 5, "weather": "sunny_with_dragons"}
 
     # call/check
     with pytest.raises(ValidationError):

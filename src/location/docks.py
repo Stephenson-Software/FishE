@@ -105,6 +105,7 @@ class Docks:
             )
         else:
             descriptor = "You breathe in the fresh air. Salty."
+        descriptor += " " + self._weatherDescriptor()
         input = self.userInterface.showOptions(descriptor, li)
 
         if input == "1":
@@ -281,6 +282,17 @@ class Docks:
                 self.currentPrompt.text = "What would you like to do?"
                 return
 
+    def _weatherDescriptor(self):
+        """Flavour text for the current day's weather, shown alongside the
+        docks descriptor so the player can factor it into the fish/rest
+        decision before casting a line."""
+        descriptors = {
+            "clear": "The sky is clear.",
+            "rainy": "Rain is falling steadily.",
+            "stormy": "Storm clouds churn overhead.",
+        }
+        return descriptors.get(self.timeService.weather, "")
+
     def _renameBusiness(self):
         name = self.userInterface.promptForText(
             "What would you like to name your fishing business?"
@@ -307,6 +319,18 @@ class Docks:
             return 0.6, "The midday sun keeps the fish deep."
         return 1.0, ""
 
+    def getWeatherModifier(self, weather):
+        """Return (yield factor, flavour label) for fishing in the given
+        weather, in the same (factor, label) shape as getTimeOfDayModifier.
+
+        Rain stirs up feeding activity while a storm makes the water too
+        rough to fish well; clear weather is neutral."""
+        if weather == "rainy":
+            return 1.3, "The rain has the fish biting eagerly!"
+        if weather == "stormy":
+            return 0.5, "The stormy seas make for tough fishing."
+        return 1.0, ""
+
     def fish(self):
         self.userInterface.lotsOfSpace()
         self.userInterface.divider()
@@ -317,6 +341,7 @@ class Docks:
 
         # Capture the time of day at the start of the trip (the loop advances it).
         timeFactor, timeLabel = self.getTimeOfDayModifier(self.timeService.time)
+        weatherFactor, weatherLabel = self.getWeatherModifier(self.timeService.weather)
 
         hours = random.randint(1, 10)
 
@@ -360,7 +385,9 @@ class Docks:
             self.player.spendEnergy(10)  # Consume 10 energy per hour
 
         baseFish = random.randint(1, 10)
-        fishToAdd = int(baseFish * quality * self.player.fishMultiplier * timeFactor)
+        fishToAdd = int(
+            baseFish * quality * self.player.fishMultiplier * timeFactor * weatherFactor
+        )
         if fishToAdd == 0:
             fishToAdd = 1  # always land at least one fish for the effort
 
@@ -378,6 +405,9 @@ class Docks:
 
         if timeLabel:
             self.currentPrompt.text += " " + timeLabel
+
+        if weatherLabel:
+            self.currentPrompt.text += " " + weatherLabel
 
         if evicted:
             self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
