@@ -1,5 +1,8 @@
 import json
 from player.player import Player
+from validation.schemaValidator import validate_against_schema
+
+PLAYER_SCHEMA_PATH = "schemas/player.json"
 
 
 class PlayerJsonReaderWriter:
@@ -42,6 +45,13 @@ class PlayerJsonReaderWriter:
         player.rentalProperties = playerJson.get(
             "rentalProperties", player.rentalProperties
         )
+
+        # Validate the resulting values (not the raw input) against the
+        # schema, so a save missing keys still loads via the defaults above
+        # (backwards compatibility), while an out-of-range value that was
+        # present (e.g. energy: -500) is caught here instead of surfacing as
+        # a ValueError deep in game logic later.
+        validate_against_schema(self.createJsonFromPlayer(player), PLAYER_SCHEMA_PATH)
         return player
 
     def writePlayerToFile(self, player, jsonFile):

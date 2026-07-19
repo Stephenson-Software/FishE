@@ -1,7 +1,9 @@
 from src.player import playerJsonReaderWriter
 from src.player.player import Player
 import json
+import pytest
 from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 
 def createPlayerJsonReaderWriter():
@@ -354,3 +356,39 @@ def test_createPlayerFromJson_missingRentalProperties_defaultsToEmpty():
 
     # check - backward compatible default
     assert player.rentalProperties == []
+
+
+def test_createPlayerFromJson_outOfRangeEnergy_raisesValidationError():
+    # prepare - a syntactically valid but corrupted save (schemas/player.json
+    # caps energy at 200)
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 0,
+        "money": 20,
+        "moneyInBank": 0.01,
+        "fishMultiplier": 1,
+        "priceForBait": 50,
+        "energy": -500,
+    }
+
+    # call/check
+    with pytest.raises(ValidationError):
+        playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+
+def test_createPlayerFromJson_outOfRangeHomeTier_raisesValidationError():
+    # prepare - homeTier only goes up to 5 per schemas/player.json
+    playerJsonReaderWriter = createPlayerJsonReaderWriter()
+    playerJson = {
+        "fishCount": 0,
+        "money": 20,
+        "moneyInBank": 0.01,
+        "fishMultiplier": 1,
+        "priceForBait": 50,
+        "energy": 100,
+        "homeTier": 99,
+    }
+
+    # call/check
+    with pytest.raises(ValidationError):
+        playerJsonReaderWriter.createPlayerFromJson(playerJson)

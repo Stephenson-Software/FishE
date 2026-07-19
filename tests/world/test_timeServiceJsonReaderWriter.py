@@ -3,7 +3,9 @@ from src.stats.stats import Stats
 from src.world import timeServiceJsonReaderWriter
 from src.world.timeService import TimeService
 import json
+import pytest
 from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 
 def createTimeServiceJsonReaderWriter():
@@ -88,9 +90,7 @@ def test_readTimeServiceFromFile():
     timeServiceJson = {"time": 12, "day": 5}
 
     # Write test data to temp file
-    with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, suffix=".json"
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
         json.dump(timeServiceJson, f)
         temp_file_path = f.name
 
@@ -129,3 +129,18 @@ def test_createTimeServiceFromJson_missingAllFields_usesDefaults():
     defaults = TimeService(player, stats)
     assert timeService.time == defaults.time
     assert timeService.day == defaults.day
+
+
+def test_createTimeServiceFromJson_outOfRangeTime_raisesValidationError():
+    # prepare - a syntactically valid but corrupted save (schemas/timeService.json
+    # caps time at 23)
+    timeServiceJsonReaderWriter = createTimeServiceJsonReaderWriter()
+    player = Player()
+    stats = Stats()
+    timeServiceJson = {"time": 99, "day": 5}
+
+    # call/check
+    with pytest.raises(ValidationError):
+        timeServiceJsonReaderWriter.createTimeServiceFromJson(
+            timeServiceJson, player, stats
+        )

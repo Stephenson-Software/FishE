@@ -12,6 +12,12 @@ from src.stats.statsJsonReaderWriter import StatsJsonReaderWriter
 from src.world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
 from src.saveFileManager import SaveFileManager
 
+# Imported the same way fishE.py imports it (bare, not "src."-prefixed) so
+# isinstance checks against fishE.FishE's real self.config compare the same
+# module object - pytest.ini puts both "." and "src" on pythonpath, and
+# these are two distinct module identities to Python.
+from config.config import Config
+
 
 def createFishE():
     fishE.Player = MagicMock()
@@ -31,16 +37,16 @@ def createFishE():
     fishE.loadPlayer = MagicMock()
     fishE.loadStats = MagicMock()
     fishE.loadTimeService = MagicMock()
-    
+
     # Mock the save file manager instance methods
     mock_save_manager = MagicMock()
     mock_save_manager.get_save_path.return_value = "data/player.json"
     mock_save_manager.list_save_files.return_value = []
     mock_save_manager.get_next_available_slot.return_value = 1
     fishE.SaveFileManager.return_value = mock_save_manager
-    
+
     # Mock the _selectSaveFile method to avoid stdin interaction
-    with patch.object(fishE.FishE, '_selectSaveFile', return_value=None):
+    with patch.object(fishE.FishE, "_selectSaveFile", return_value=None):
         return fishE.FishE()
 
 
@@ -76,11 +82,25 @@ def test_initialization():
     fishE.SaveFileManager.assert_called_once()
 
 
+def test_initialization_wires_config_into_saveFileManager_and_player():
+    # call
+    fishEInstance = createFishE()
+
+    # check - a real Config seeds the mocked SaveFileManager's data directory
+    # and is passed through to the (mocked) Player constructor
+    assert isinstance(fishEInstance.config, Config)
+    fishE.SaveFileManager.assert_called_once_with(
+        data_directory=fishEInstance.config.dataDirectory
+    )
+    fishE.Player.assert_called_once_with(fishEInstance.config)
+
+
 def createGameForPersistence(data_directory):
     # Build a FishE without running __init__ (which drives stdin); attach real
     # collaborators and a temp-dir-backed save manager so save()/load*() exercise
     # real serialization against a real (temporary) save slot.
     game = fishE.FishE.__new__(fishE.FishE)
+    game.config = Config()
     game.playerJsonReaderWriter = PlayerJsonReaderWriter()
     game.statsJsonReaderWriter = StatsJsonReaderWriter()
     game.timeServiceJsonReaderWriter = TimeServiceJsonReaderWriter()
@@ -203,6 +223,38 @@ def test_loadPlayer_recovers_from_corrupt_file():
         # check
         assert isinstance(game.player, Player)
         assert game.player.fishCount == Player().fishCount
+
+
+def test_loadPlayer_recovers_from_out_of_range_value():
+    # restore the real Player so the except-path fallback builds a real player
+    fishE.Player = Player
+
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - a syntactically valid save with an out-of-range value
+        # (homeTier only goes up to 5 per schemas/player.json)
+        game = createGameForPersistence(data_directory)
+        path = game.saveFileManager.get_save_path("player.json")
+        with open(path, "w") as f:
+            json.dump(
+                {
+                    "fishCount": 0,
+                    "money": 20,
+                    "moneyInBank": 0.01,
+                    "fishMultiplier": 1,
+                    "priceForBait": 50,
+                    "energy": 100,
+                    "homeTier": 99,
+                },
+                f,
+            )
+
+        # call - must not raise; falls back to a fresh player instead of
+        # loading a player whose homeTier housing.py can't resolve
+        game.loadPlayer()
+
+        # check
+        assert isinstance(game.player, Player)
+        assert game.player.homeTier == Player().homeTier
 
 
 def test_selectSaveFile_new_game_selects_next_slot():
