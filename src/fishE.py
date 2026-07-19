@@ -1,5 +1,6 @@
 import os
 import json
+from jsonschema.exceptions import ValidationError
 from location import bank, docks, home, shop, tavern
 from location.enum.locationType import LocationType
 from player.player import Player
@@ -15,6 +16,7 @@ from saveFileManager import SaveFileManager
 from achievements import achievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
 from housing import housing
+from config.config import Config
 
 # Which front-end the game runs. Swap to UIType.PYGAME (or a future web type)
 # here to change the interface — the rest of the game is front-end agnostic.
@@ -26,15 +28,16 @@ class FishE:
     def __init__(self, interfaceType=INTERFACE_TYPE):
         self.running = True
 
+        self.config = Config()
         self.playerJsonReaderWriter = PlayerJsonReaderWriter()
         self.timeServiceJsonReaderWriter = TimeServiceJsonReaderWriter()
         self.statsJsonReaderWriter = StatsJsonReaderWriter()
-        self.saveFileManager = SaveFileManager()
+        self.saveFileManager = SaveFileManager(data_directory=self.config.dataDirectory)
 
         # Start from default (new-game) state, then build the UI so the save-file
         # manager can render and read input through the active front-end. A
         # chosen save is loaded over these defaults below.
-        self.player = Player()
+        self.player = Player(self.config)
         self.stats = Stats()
         self.timeService = TimeService(self.player, self.stats)
         self.prompt = Prompt("What would you like to do?")
@@ -271,10 +274,10 @@ class FishE:
                 self.player = self.playerJsonReaderWriter.readPlayerFromFile(
                     playerSaveFile
                 )
-        except (IOError, OSError, json.JSONDecodeError) as e:
+        except (IOError, OSError, json.JSONDecodeError, ValidationError) as e:
             print(f"\n Warning: Failed to load player data: {e}")
             print(" Creating new player...")
-            self.player = Player()
+            self.player = Player(self.config)
 
     def loadStats(self):
         try:
@@ -282,7 +285,7 @@ class FishE:
                 self.saveFileManager.get_save_path("stats.json"), "r"
             ) as statsSaveFile:
                 self.stats = self.statsJsonReaderWriter.readStatsFromFile(statsSaveFile)
-        except (IOError, OSError, json.JSONDecodeError) as e:
+        except (IOError, OSError, json.JSONDecodeError, ValidationError) as e:
             print(f"\n Warning: Failed to load stats data: {e}")
             print(" Creating new stats...")
             self.stats = Stats()
@@ -297,7 +300,7 @@ class FishE:
                         timeServiceSaveFile, self.player, self.stats
                     )
                 )
-        except (IOError, OSError, json.JSONDecodeError) as e:
+        except (IOError, OSError, json.JSONDecodeError, ValidationError) as e:
             print(f"\n Warning: Failed to load time service data: {e}")
             print(" Creating new time service...")
             self.timeService = TimeService(self.player, self.stats)

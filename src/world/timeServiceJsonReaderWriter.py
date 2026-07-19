@@ -1,5 +1,8 @@
 import json
 from world.timeService import TimeService
+from validation.schemaValidator import validate_against_schema
+
+TIME_SERVICE_SCHEMA_PATH = "schemas/timeService.json"
 
 
 class TimeServiceJsonReaderWriter:
@@ -13,6 +16,12 @@ class TimeServiceJsonReaderWriter:
         timeService = TimeService(player, stats)
         timeService.time = timeServiceJson.get("time", timeService.time)
         timeService.day = timeServiceJson.get("day", timeService.day)
+
+        # Validate the resulting values (not the raw input) against the
+        # schema - see PlayerJsonReaderWriter.createPlayerFromJson for why.
+        validate_against_schema(
+            self.createJsonFromTimeService(timeService), TIME_SERVICE_SCHEMA_PATH
+        )
         return timeService
 
     def writeTimeServiceToFile(self, timeService, jsonFile):

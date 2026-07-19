@@ -1,5 +1,8 @@
 import json
 from stats.stats import Stats
+from validation.schemaValidator import validate_against_schema
+
+STATS_SCHEMA_PATH = "schemas/stats.json"
 
 
 class StatsJsonReaderWriter:
@@ -64,6 +67,10 @@ class StatsJsonReaderWriter:
             "totalPropertiesBought", stats.totalPropertiesBought
         )
         stats.totalRentPaid = statsJson.get("totalRentPaid", stats.totalRentPaid)
+
+        # Validate the resulting values (not the raw input) against the
+        # schema - see PlayerJsonReaderWriter.createPlayerFromJson for why.
+        validate_against_schema(self.createJsonFromStats(stats), STATS_SCHEMA_PATH)
         return stats
 
     def readStatsFromFile(self, statsJsonFile):

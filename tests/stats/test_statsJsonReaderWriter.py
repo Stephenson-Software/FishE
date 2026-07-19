@@ -1,7 +1,9 @@
 from src.stats.stats import Stats
 from src.stats import statsJsonReaderWriter
 import json
+import pytest
 from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 
 def createStatsJsonReaderWriter():
@@ -294,3 +296,14 @@ def test_createStatsFromJson_missingAllFields_usesDefaults():
     assert stats.timesGottenDrunk == defaults.timesGottenDrunk
     assert stats.moneyLostFromGambling == defaults.moneyLostFromGambling
     assert stats.moneyLostWhileDrunk == defaults.moneyLostWhileDrunk
+
+
+def test_createStatsFromJson_wrongType_raisesValidationError():
+    # prepare - a syntactically valid but corrupted save (schemas/stats.json
+    # declares totalFishCaught as an integer)
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    statsJson = {"totalFishCaught": "not-a-number"}
+
+    # call/check
+    with pytest.raises(ValidationError):
+        statsJsonReaderWriter.createStatsFromJson(statsJson)

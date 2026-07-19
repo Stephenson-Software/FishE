@@ -5,14 +5,17 @@ from housing import housing
 
 # @author Daniel McCoy Stephenson
 class Player:
-    def __init__(self):
-        self.fishCount = 0
-        self.money = 20
-        self.moneyInBank = 0.01
-        self.fishMultiplier = 1
-        self.priceForBait = 50
+    def __init__(self, config=None):
+        self.fishCount = 0 if config is None else config.initialFishCount
+        self.money = 20 if config is None else config.initialMoney
+        self.moneyInBank = 0.01 if config is None else config.initialMoneyInBank
+        self.fishMultiplier = 1 if config is None else config.initialFishMultiplier
+        self.priceForBait = 50 if config is None else config.initialPriceForBait
         # Starts at the Homeless tier's energy cap (see src/housing) - a
-        # fresh player hasn't found anywhere to stay yet.
+        # fresh player hasn't found anywhere to stay yet. Deliberately not
+        # sourced from Config.initialEnergy: the housing ladder is the
+        # source of truth for energy caps (see src/housing/housing.py), and
+        # a flat configured starting energy could exceed the Homeless cap.
         self.energy = housing.HOUSING_TIERS[0]["maxEnergy"]
         self.rodLevel = 1
         # Per-species breakdown of the fish currently held. fishCount remains the
