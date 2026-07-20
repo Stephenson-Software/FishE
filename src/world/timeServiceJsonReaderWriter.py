@@ -7,7 +7,11 @@ TIME_SERVICE_SCHEMA_PATH = "schemas/timeService.json"
 
 class TimeServiceJsonReaderWriter:
     def createJsonFromTimeService(self, timeService):
-        return {"time": timeService.time, "day": timeService.day}
+        return {
+            "time": timeService.time,
+            "day": timeService.day,
+            "weather": timeService.weather,
+        }
 
     def createTimeServiceFromJson(self, timeServiceJson, player, stats):
         # Read each field with a fallback to the freshly-constructed
@@ -16,6 +20,7 @@ class TimeServiceJsonReaderWriter:
         timeService = TimeService(player, stats)
         timeService.time = timeServiceJson.get("time", timeService.time)
         timeService.day = timeServiceJson.get("day", timeService.day)
+        timeService.weather = timeServiceJson.get("weather", timeService.weather)
 
         # Validate the resulting values (not the raw input) against the
         # schema - see PlayerJsonReaderWriter.createPlayerFromJson for why.

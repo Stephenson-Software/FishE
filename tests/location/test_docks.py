@@ -108,8 +108,6 @@ def test_npc_business_dialogue_staged_by_empty_crew():
 
 def test_npc_business_dialogue_staged_by_tier():
     # prepare - one crewed boat per tier
-    from src.business import business
-
     responses = {}
     for tier in (1, 2, 3):
         docksInstance = createDocks()
@@ -391,6 +389,86 @@ def test_getTimeOfDayModifier_windows():
     assert duskFactor > 1.0 and duskLabel
     assert middayFactor < 1.0 and middayLabel
     assert nightFactor == 1.0 and nightLabel == ""
+
+
+def test_getWeatherModifier_options():
+    # prepare
+    docksInstance = createDocks()
+
+    # check - rain boosts the catch, storms suppress it, clear is neutral
+    rainyFactor, rainyLabel = docksInstance.getWeatherModifier("rainy")
+    stormyFactor, stormyLabel = docksInstance.getWeatherModifier("stormy")
+    clearFactor, clearLabel = docksInstance.getWeatherModifier("clear")
+
+    assert rainyFactor > 1.0 and rainyLabel
+    assert stormyFactor < 1.0 and stormyLabel
+    assert clearFactor == 1.0 and clearLabel == ""
+
+
+def test_fish_applies_weather_modifier():
+    # prepare - fish in a storm (penalty) vs rain (bonus) with identical rolls
+    def make_docks_in(weather):
+        d = createDocks()
+        d.userInterface.lotsOfSpace = MagicMock()
+        d.userInterface.divider = MagicMock()
+        d.timeService.weather = weather
+        return d
+
+    results = {}
+    for weather in ("stormy", "rainy"):
+        docksInstance = make_docks_in(weather)
+        docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+        with patch("src.location.docks.print"), patch(
+            "src.location.docks.sys.stdout.flush"
+        ), patch("src.location.docks.time.sleep"), patch(
+            "src.location.docks.random.randint", side_effect=[5, 10]
+        ):  # 5 hours, baseFish 10
+            docksInstance.timeService.increaseTime = MagicMock(
+                return_value={"evicted": False}
+            )
+            docksInstance.fish()
+        results[weather] = docksInstance.player.fishCount
+
+    # check - the storm penalty yields fewer fish than the rain bonus
+    assert results["stormy"] < results["rainy"]
+
+
+def test_fish_mentions_weather_label():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.userInterface.lotsOfSpace = MagicMock()
+    docksInstance.userInterface.divider = MagicMock()
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+    docksInstance.timeService.weather = "rainy"
+
+    with patch("src.location.docks.print"), patch(
+        "src.location.docks.sys.stdout.flush"
+    ), patch("src.location.docks.time.sleep"), patch(
+        "src.location.docks.random.randint", side_effect=[3, 6]
+    ):
+        docksInstance.timeService.increaseTime = MagicMock(
+            return_value={"evicted": False}
+        )
+
+        # call
+        docksInstance.fish()
+
+    # check
+    assert "rain" in docksInstance.currentPrompt.text.lower()
+
+
+def test_run_descriptor_mentions_current_weather():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.timeService.weather = "stormy"
+    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    docksInstance.run()
+
+    # check
+    descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert "Storm" in descriptor
 
 
 def test_fish_applies_time_of_day_modifier():

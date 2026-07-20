@@ -1,4 +1,5 @@
 import math
+import random
 
 from business import business
 from housing import housing
@@ -12,6 +13,11 @@ from investments import investments
 INTEREST_RATE = 0.02
 MAX_INTEREST_PER_DAY = 50
 
+# Weather rolls fresh each day (see increaseDay) so it stays unpredictable in
+# a way the fully-known time-of-day windows aren't - see Docks.getWeatherModifier
+# for how each option affects the day's catch.
+WEATHER_OPTIONS = ["clear", "rainy", "stormy"]
+
 
 # @author Daniel McCoy Stephenson
 class TimeService:
@@ -21,6 +27,7 @@ class TimeService:
 
         self.day = 1
         self.time = 8
+        self.weather = "clear"
 
     def increaseTime(self):
         """Advance the clock by an hour. Returns {"evicted": bool} so callers
@@ -41,6 +48,7 @@ class TimeService:
         Returns {"evicted": bool} - see housing.runDailyRent."""
         self.time = 8
         self.day += 1
+        self.weather = random.choice(WEATHER_OPTIONS)
 
         moneyToAdd = int(math.ceil(self.player.moneyInBank * INTEREST_RATE))
         moneyToAdd = min(moneyToAdd, MAX_INTEREST_PER_DAY)

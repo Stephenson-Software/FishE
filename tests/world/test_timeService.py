@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from src.player.player import Player
 from src.stats.stats import Stats
 from src.world.timeService import TimeService
@@ -18,6 +20,7 @@ def test_initialization():
     expected_time = 8
     assert timeService.day == expected_day
     assert timeService.time == expected_time
+    assert timeService.weather == "clear"
 
 
 def test_increaseTime():
@@ -180,3 +183,20 @@ def test_increaseDay_evicts_when_rent_is_unaffordable():
     # check - evicted back to homeless as part of the day rollover
     assert timeService.player.homeTier == 0
     assert timeService.player.money == 0
+
+
+def test_increaseDay_rolls_new_weather():
+    # prepare
+    from src.world.timeService import WEATHER_OPTIONS
+
+    timeService = createTimeService()
+
+    # call
+    with patch(
+        "src.world.timeService.random.choice", return_value="stormy"
+    ) as mockChoice:
+        timeService.increaseDay()
+
+    # check - weather was rolled from the documented option pool
+    mockChoice.assert_called_once_with(WEATHER_OPTIONS)
+    assert timeService.weather == "stormy"
