@@ -28,6 +28,12 @@ You start **Homeless** — no home, and a low energy cap to show for it. From th
 ### Investment Properties
 Separately from where you live, you can build a real-estate portfolio. At the bank, choose **Manage Investment Properties** to buy rental units around the village — Dockside Cottage, Fisherman's Rowhouse, Harborview Flat — that you don't live in yourself. Every unit you own pays out its own daily rental income automatically each new day, alongside bank interest and any crew wages, and any unit can be sold back for a portion of its price.
 
+### Fishing
+Cast a line at the docks to spend a random 1-10 hours fishing (10 energy per hour, so you need at least 10 energy to start). When a fish bites, react as fast as you can to set the hook — the faster you react, the better the catch quality, and a better rod (bought at the shop) gives you more time to react. What you reel in also depends on the day: fish feed best at dawn and dusk and go quiet under the midday sun, and the weather — rolled fresh each morning and shown in the docks description — can help (rain) or hurt (storms) your haul on top of that. Which species you land is random and weighted by rarity, from common Minnows to rare, high-value Golden Koi.
+
+### Milestones
+Lifetime stats — fish caught, money earned, hours spent fishing, crew hired, homes owned, and more — unlock milestones as you reach their thresholds, from your very first catch up to owning the finest home in the village. Each milestone is announced once, the first time you reach it, even across save reloads.
+
 ### Selling Fish
 Sell your catch at the shop. The shop has a limited amount of money each day that refills overnight, so a very large haul may sell out the shop and need to be finished the next day — sell regularly, and park your earnings in the bank or reinvest them in gear and your crew.
 
