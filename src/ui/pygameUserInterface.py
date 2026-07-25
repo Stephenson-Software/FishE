@@ -85,6 +85,52 @@ class PygameUserInterface(BaseUserInterface):
         # Update fonts for new screen size
         self._update_fonts()
 
+    def _textWidth(self):
+        """Pixel width available for text, inside the same 6% side margins the
+        rest of the layout uses."""
+        return int(self.width - 2 * (self.width * 0.06))
+
+    def _splitLongWord(self, word, font, maxWidth):
+        """Break a single word wider than maxWidth into chunks that fit.
+
+        Word wrapping alone can't help a word that is itself too wide, and
+        pygame clips whatever runs past the window edge, so it is split by
+        character instead of being left unreadable."""
+        chunks = []
+        while len(word) > 1 and font.size(word)[0] > maxWidth:
+            fit = 1
+            while fit < len(word) and font.size(word[: fit + 1])[0] <= maxWidth:
+                fit += 1
+            chunks.append(word[:fit])
+            word = word[fit:]
+        chunks.append(word)
+        return chunks
+
+    def _wrapText(self, text, font, maxWidth):
+        """Split text into lines that fit maxWidth pixels, keeping newlines.
+
+        pygame's Font.render draws a single row and renders "\\n" as a glyph
+        rather than a line break, so any multi-line or window-width text has to
+        be broken up here before it is drawn. Split out from the drawing code so
+        the layout can be tested (font.size works headless; mocking
+        pygame.font.Font.render doesn't)."""
+        lines = []
+        for paragraph in text.split("\n"):
+            words = []
+            for word in paragraph.split(" "):
+                words.extend(self._splitLongWord(word, font, maxWidth))
+
+            current = ""
+            for word in words:
+                candidate = "%s %s" % (current, word) if current else word
+                if current and font.size(candidate)[0] > maxWidth:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = candidate
+            lines.append(current)
+        return lines
+
     def lotsOfSpace(self):
         # For pygame, this just clears the screen
         self.screen.fill(self.BLACK)
@@ -137,17 +183,83 @@ class PygameUserInterface(BaseUserInterface):
     def _statusLines(self):
         """Plain-text status rows shown on the game screen. Split out from
         _draw_game_screen so the content can be tested without a real font
-        (pygame.font.Font doesn't allow mocking its render method)."""
-        lines = [
-            f"Day {self.timeService.day}",
-            f"Time: {self.times[self.timeService.time]}",
-            f"Money: ${self.player.money}",
+        (pygame.font.Font doesn't allow mocking its render method).
+
+        Stats are grouped a few per row - the same compact header the web
+        front-end renders, rather than the console's one-per-line column - so
+        the block leaves the option list room in the default window."""
+        clock = [f"Day {self.timeService.day}", self.times[self.timeService.time]]
+        # The location and goal entries only appear once the game loop has set
+        # them, matching the console and web front-ends (empty hides the entry).
+        if self.currentLocationName:
+            clock.append(f"Location: {self.currentLocationName}")
+
+        wallet = [
+            "Money: $%.2f" % self.player.money,
             f"Fish: {self.player.fishCount}",
             f"Energy: {self.player.energy}/{housing.maxEnergy(self.player)}",
         ]
+
+        progress = []
+        if self.goalProgress:
+            progress.append(f"Goal: {self.goalProgress}")
         if self.player.operatorMode:
-            lines.append("[OPERATOR MODE]")
-        return lines
+            progress.append("[OPERATOR MODE]")
+
+        rows = [clock, wallet]
+        if progress:
+            rows.append(progress)
+        return [" | ".join(row) for row in rows]
+
+    def _gameScreenLayout(self, statusLineCount, promptLineCount, optionCount):
+        """Vertical layout of the game screen, as pixel y positions.
+
+        Split out from the drawing for the same reason as _statusLines. The
+        option rows are sized against the space actually left over, because the
+        blocks above them vary: the status block grows with the location/goal
+        entries and the prompt wraps to as many lines as it needs, which in the
+        default window would otherwise push the options off the bottom edge."""
+        lineHeight = max(self.font_medium.get_linesize(), self.height * 0.04)
+
+        descriptorY = self.height * 0.08
+        dividerY = descriptorY + self.height * 0.13
+        statusY = dividerY + self.height * 0.05
+        promptY = statusY + statusLineCount * lineHeight + self.height * 0.03
+        secondDividerY = promptY + promptLineCount * lineHeight + self.height * 0.03
+        optionsY = secondDividerY + self.height * 0.05
+
+        # Options shrink toward the font's own line height (never below it, or
+        # they would overlap) so that as many as the game offers stay on screen.
+        instructionsTop = self.height - (self.height * 0.15)
+        optionHeight = max(25, self.height * 0.06)
+        if optionCount > 0:
+            optionHeight = max(
+                self.font_medium.get_linesize(),
+                min(optionHeight, (instructionsTop - optionsY) / optionCount),
+            )
+
+        # Sits below the options, but never so low that the second instruction
+        # line (drawn one instruction_spacing further down) falls off screen.
+        instructionsY = min(
+            max(
+                optionsY + optionCount * optionHeight + self.height * 0.05,
+                instructionsTop,
+            )
+            + 30,
+            self.height - 2 * (self.height * 0.04),
+        )
+
+        return {
+            "lineHeight": lineHeight,
+            "descriptorY": descriptorY,
+            "dividerY": dividerY,
+            "statusY": statusY,
+            "promptY": promptY,
+            "secondDividerY": secondDividerY,
+            "optionsY": optionsY,
+            "optionHeight": optionHeight,
+            "instructionsY": instructionsY,
+        }
 
     def _draw_game_screen(self, descriptor, optionList):
         """Draw the main game screen with responsive layout"""
@@ -156,64 +268,58 @@ class PygameUserInterface(BaseUserInterface):
 
         # Use proportional positioning based on screen dimensions
         margin_x = self.width * 0.06  # 6% margin from left/right
-        margin_y = self.height * 0.08  # 8% margin from top
-        y_offset = margin_y
+        status_x = margin_x + (self.width * 0.06)  # Indent status lines
+        text_width = int(self.width - margin_x - status_x)
+
+        status_lines = self._statusLines()
+        # The prompt carries appended milestone/goal announcements, which easily
+        # outrun the window width on a single line.
+        prompt_lines = self._wrapText(
+            self.currentPrompt.text, self.font_medium, text_width
+        )
+        layout = self._gameScreenLayout(
+            len(status_lines), len(prompt_lines), len(optionList)
+        )
+        line_height = layout["lineHeight"]
 
         # Draw descriptor - centered and scaled
         desc_surface = self.font_large.render(descriptor, True, self.WHITE)
-        desc_rect = desc_surface.get_rect(center=(self.width // 2, y_offset))
+        desc_rect = desc_surface.get_rect(
+            center=(self.width // 2, layout["descriptorY"])
+        )
         self.screen.blit(desc_surface, desc_rect)
-        y_offset += self.height * 0.13  # 13% of screen height
 
-        # Draw divider - proportional margins
+        # Draw dividers - proportional margins
         divider_start = margin_x
         divider_end = self.width - margin_x
-        pygame.draw.line(
-            self.screen,
-            self.GRAY,
-            (divider_start, y_offset),
-            (divider_end, y_offset),
-            2,
-        )
-        y_offset += self.height * 0.05  # 5% spacing
+        for divider_y in (layout["dividerY"], layout["secondDividerY"]):
+            pygame.draw.line(
+                self.screen,
+                self.GRAY,
+                (divider_start, divider_y),
+                (divider_end, divider_y),
+                2,
+            )
 
         # Draw game status
-        status_lines = self._statusLines()
-
-        status_x = margin_x + (self.width * 0.06)  # Indent status lines
-        line_height = self.height * 0.05  # 5% of screen height per line
-
+        y_offset = layout["statusY"]
         for line in status_lines:
             text_surface = self.font_medium.render(line, True, self.WHITE)
             self.screen.blit(text_surface, (status_x, y_offset))
             y_offset += line_height
 
-        y_offset += self.height * 0.03  # 3% extra spacing
-
         # Draw current prompt
-        prompt_surface = self.font_medium.render(
-            self.currentPrompt.text, True, self.LIGHT_BLUE
-        )
-        self.screen.blit(prompt_surface, (status_x, y_offset))
-        y_offset += self.height * 0.08  # 8% spacing
-
-        # Draw another divider
-        pygame.draw.line(
-            self.screen,
-            self.GRAY,
-            (divider_start, y_offset),
-            (divider_end, y_offset),
-            2,
-        )
-        y_offset += self.height * 0.05  # 5% spacing
+        y_offset = layout["promptY"]
+        for line in prompt_lines:
+            prompt_surface = self.font_medium.render(line, True, self.LIGHT_BLUE)
+            self.screen.blit(prompt_surface, (status_x, y_offset))
+            y_offset += line_height
 
         # Draw options with responsive sizing
-        option_height = max(
-            25, self.height * 0.06
-        )  # At least 25px, or 6% of screen height
+        option_height = layout["optionHeight"]
         highlight_margin = self.width * 0.02  # 2% margin for highlight
+        y_offset = layout["optionsY"]
 
-        # Draw options
         for i, option in enumerate(optionList):
             color = self.LIGHT_BLUE if i == self.selected_option else self.WHITE
             option_text = f"[{i + 1}] {option}"
@@ -232,13 +338,7 @@ class PygameUserInterface(BaseUserInterface):
             y_offset += option_height
 
         # Draw instructions at bottom with proportional spacing
-        instructions_start_y = self.height - (self.height * 0.15)  # 15% from bottom
-        y_offset = max(
-            y_offset + self.height * 0.05, instructions_start_y
-        )  # Ensure minimum spacing
-
-        # Draw instructions
-        y_offset += 30
+        y_offset = layout["instructionsY"]
         instructions = [
             "Use UP/DOWN arrows or number keys to select",
             "Press ENTER or SPACE to choose",
@@ -252,8 +352,54 @@ class PygameUserInterface(BaseUserInterface):
             self.screen.blit(inst_surface, inst_rect)
             y_offset += instruction_spacing
 
+    def _dialogueScrollBounds(self, lineCount):
+        """(visible line count, maximum scroll offset) for the dialogue area."""
+        lineHeight = max(self.font_medium.get_linesize(), 1)
+        top = self.height * 0.2
+        bottom = self.height - self.height * 0.15  # room for the hint line
+        visible = max(1, int((bottom - top) // lineHeight))
+        return visible, max(0, lineCount - visible)
+
+    def _draw_dialogue(self, lines, scroll, visible):
+        """Draw the visible window of a wrapped dialogue plus its hint line."""
+        self.screen.fill(self.BLACK)
+        margin_x = self.width * 0.06
+        lineHeight = max(self.font_medium.get_linesize(), 1)
+        y_offset = self.height * 0.2
+
+        for line in lines[scroll : scroll + visible]:
+            self.screen.blit(
+                self.font_medium.render(line, True, self.WHITE), (margin_x, y_offset)
+            )
+            y_offset += lineHeight
+
+        hint = self._dialogueHint(len(lines), scroll, visible)
+        hint_surface = self.font_small.render(hint, True, self.GRAY)
+        hint_rect = hint_surface.get_rect(
+            center=(self.width // 2, self.height - self.height * 0.1)
+        )
+        self.screen.blit(hint_surface, hint_rect)
+
+    def _dialogueHint(self, lineCount, scroll, visible):
+        """The footer hint for a dialogue - it only mentions scrolling when
+        there is something off screen to scroll to."""
+        if lineCount <= visible:
+            return "Press any key to continue"
+        return "UP/DOWN to scroll (%d-%d of %d) - any other key to continue" % (
+            scroll + 1,
+            min(scroll + visible, lineCount),
+            lineCount,
+        )
+
     def showDialogue(self, text):
-        """Render a block of text and wait for the player to press a key."""
+        """Render a block of text and wait for the player to press a key.
+
+        The text is wrapped first (see _wrapText) and, when it is taller than the
+        window, scrolled with UP/DOWN - the stats and retirement screens are long
+        enough to need it. Any other key continues."""
+        lines = self._wrapText(text, self.font_medium, self._textWidth())
+        visible, maxScroll = self._dialogueScrollBounds(len(lines))
+        scroll = 0
         waiting = True
         while waiting:
             for event in pygame.event.get():
@@ -262,20 +408,20 @@ class PygameUserInterface(BaseUserInterface):
                     sys.exit()
                 elif event.type == pygame.VIDEORESIZE:
                     self._handle_resize(event.w, event.h)
+                    # The wrap depends on the window width and the visible line
+                    # count on its height, so both are redone after a resize.
+                    lines = self._wrapText(text, self.font_medium, self._textWidth())
+                    visible, maxScroll = self._dialogueScrollBounds(len(lines))
+                    scroll = min(scroll, maxScroll)
                 elif event.type == pygame.KEYDOWN:
-                    waiting = False
+                    if event.key == pygame.K_UP:
+                        scroll = max(0, scroll - 1)
+                    elif event.key == pygame.K_DOWN:
+                        scroll = min(maxScroll, scroll + 1)
+                    else:
+                        waiting = False
 
-            self.screen.fill(self.BLACK)
-            margin_x = self.width * 0.06
-            text_surface = self.font_medium.render(text, True, self.WHITE)
-            self.screen.blit(text_surface, (margin_x, self.height * 0.2))
-            prompt_surface = self.font_small.render(
-                "Press any key to continue", True, self.GRAY
-            )
-            prompt_rect = prompt_surface.get_rect(
-                center=(self.width // 2, self.height - self.height * 0.1)
-            )
-            self.screen.blit(prompt_surface, prompt_rect)
+            self._draw_dialogue(lines, scroll, visible)
             pygame.display.flip()
             pygame.time.Clock().tick(60)
 
@@ -302,16 +448,31 @@ class PygameUserInterface(BaseUserInterface):
 
             self.screen.fill(self.BLACK)
             margin_x = self.width * 0.06
-            prompt_surface = self.font_medium.render(promptText, True, self.WHITE)
-            self.screen.blit(prompt_surface, (margin_x, self.height * 0.3))
-            entry_surface = self.font_medium.render(
-                "> " + entered, True, self.LIGHT_BLUE
-            )
-            self.screen.blit(entry_surface, (margin_x, self.height * 0.45))
+            lineHeight = max(self.font_medium.get_linesize(), 1)
+            # The prompt is the game's current prompt text, which can carry
+            # appended announcements - wrap it rather than let it run off screen.
+            y_offset = self.height * 0.3
+            for line in self._wrapText(promptText, self.font_medium, self._textWidth()):
+                prompt_surface = self.font_medium.render(line, True, self.WHITE)
+                self.screen.blit(prompt_surface, (margin_x, y_offset))
+                y_offset += lineHeight
+
+            # Wrapped too - a long answer (a business name, say) would otherwise
+            # type its way off the right edge of the window.
+            y_offset = max(y_offset + lineHeight, self.height * 0.45)
+            for line in self._wrapText(
+                "> " + entered, self.font_medium, self._textWidth()
+            ):
+                entry_surface = self.font_medium.render(line, True, self.LIGHT_BLUE)
+                self.screen.blit(entry_surface, (margin_x, y_offset))
+                y_offset += lineHeight
+
             hint_surface = self.font_small.render(
                 "Type your answer and press ENTER", True, self.GRAY
             )
-            self.screen.blit(hint_surface, (margin_x, self.height * 0.6))
+            self.screen.blit(
+                hint_surface, (margin_x, max(y_offset + lineHeight, self.height * 0.6))
+            )
             pygame.display.flip()
             pygame.time.Clock().tick(60)
 
@@ -333,8 +494,12 @@ class PygameUserInterface(BaseUserInterface):
 
             self.screen.fill(self.BLACK)
             margin_x = self.width * 0.06
-            message_surface = self.font_medium.render(message, True, self.WHITE)
-            self.screen.blit(message_surface, (margin_x, self.height * 0.4))
+            lineHeight = max(self.font_medium.get_linesize(), 1)
+            y_offset = self.height * 0.4
+            for line in self._wrapText(message, self.font_medium, self._textWidth()):
+                message_surface = self.font_medium.render(line, True, self.WHITE)
+                self.screen.blit(message_surface, (margin_x, y_offset))
+                y_offset += lineHeight
             pygame.display.flip()
             pygame.time.Clock().tick(60)
 
