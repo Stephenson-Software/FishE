@@ -110,6 +110,91 @@ def createGameForPersistence(data_directory):
     return game
 
 
+def createGameThroughInit(data_directory, saveFiles):
+    # Run the real FishE.__init__ against a temp save slot holding exactly
+    # saveFiles ({filename: json-serializable}), with only the save-slot menu
+    # and the front-end stubbed out - everything else is the real wiring, so
+    # the load block and the state it hands to TimeService are exercised.
+    fishE.Player = Player
+    fishE.Stats = Stats
+    fishE.TimeService = TimeService
+    fishE.Prompt = Prompt
+    fishE.PlayerJsonReaderWriter = PlayerJsonReaderWriter
+    fishE.StatsJsonReaderWriter = StatsJsonReaderWriter
+    fishE.TimeServiceJsonReaderWriter = TimeServiceJsonReaderWriter
+    fishE.SaveFileManager = SaveFileManager
+
+    slot = os.path.join(data_directory, "slot_1")
+    os.makedirs(slot, exist_ok=True)
+    for filename, contents in saveFiles.items():
+        with open(os.path.join(slot, filename), "w") as f:
+            json.dump(contents, f)
+
+    config = Config()
+    config.dataDirectory = data_directory
+
+    def selectSlotOne(self):
+        self.saveFileManager.select_save_slot(1)
+
+    with patch.object(fishE, "Config", return_value=config), patch.object(
+        fishE, "UserInterfaceFactory", MagicMock()
+    ), patch.object(fishE.FishE, "_selectSaveFile", selectSlotOne):
+        return fishE.FishE()
+
+
+def test_init_rebinds_timeService_to_loaded_player_without_timeService_file():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - a slot holding player.json and stats.json but no
+        # timeService.json, which is the shape migrate_old_save_files() produces
+        # from an old save that never had one
+        game = createGameThroughInit(
+            data_directory,
+            {
+                "player.json": PlayerJsonReaderWriter().createJsonFromPlayer(Player()),
+                "stats.json": StatsJsonReaderWriter().createJsonFromStats(Stats()),
+            },
+        )
+
+        # check - the TimeService drives the same objects the rest of the game
+        # uses, so daily interest/income/rent land on the loaded player
+        assert game.timeService.player is game.player
+        assert game.timeService.stats is game.stats
+
+
+def test_init_rebinds_timeService_when_only_player_file_present():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - the shape left behind by a save interrupted after
+        # player.json was written but before stats.json/timeService.json
+        game = createGameThroughInit(
+            data_directory,
+            {"player.json": PlayerJsonReaderWriter().createJsonFromPlayer(Player())},
+        )
+
+        # check
+        assert game.timeService.player is game.player
+        assert game.timeService.stats is game.stats
+
+
+def test_init_daily_tick_credits_the_loaded_player():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - a saved player with money in the bank, in a slot with no
+        # timeService.json
+        savedPlayer = Player()
+        savedPlayer.moneyInBank = 100
+        game = createGameThroughInit(
+            data_directory,
+            {"player.json": PlayerJsonReaderWriter().createJsonFromPlayer(savedPlayer)},
+        )
+        moneyInBankBefore = game.player.moneyInBank
+
+        # call
+        game.timeService.increaseDay()
+
+        # check - bank interest reaches the player the game actually reads
+        assert game.player.moneyInBank > moneyInBankBefore
+        assert game.stats.moneyMadeFromInterest > 0
+
+
 def test_save_then_load_roundtrip():
     # restore real classes in case an earlier test mocked the module globals
     fishE.Player = Player
