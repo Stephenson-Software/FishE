@@ -64,6 +64,15 @@ class FishE:
         if os.path.exists(time_path) and os.path.getsize(time_path) > 0:
             self.loadTimeService()
 
+        # loadPlayer()/loadStats() rebind self.player/self.stats to brand-new
+        # objects, but only loadTimeService() rebuilds the TimeService around
+        # them. When a slot has player.json/stats.json but no timeService.json,
+        # the TimeService built from the defaults above would keep pointing at
+        # the discarded objects, so every daily tick (interest, crew catch,
+        # investment income, rent) would apply to a player nobody reads.
+        self.timeService.player = self.player
+        self.timeService.stats = self.stats
+
         # Point the UI at the (possibly reloaded) game state.
         self.userInterface.player = self.player
         self.userInterface.timeService = self.timeService
