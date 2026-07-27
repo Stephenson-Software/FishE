@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from prompt.prompt import Prompt
 from player.player import Player
@@ -88,6 +89,16 @@ class BaseUserInterface(ABC):
     def cleanup(self):
         """Release any resources held by the front-end."""
         pass
+
+    def showBusy(self, message, seconds=1.0):
+        """Show a message while the game pauses, without waiting for input.
+
+        Used by the short "Fishing..." style beats, which otherwise have no way
+        to say anything: showDialogue would demand a keypress the game never
+        asked for. Concrete (not abstract) so a front-end that has nothing to
+        draw still gets the pause; every front-end in this repo overrides it to
+        actually show the message."""
+        time.sleep(seconds)
 
     def promptForNumber(self, promptText):
         """Prompt for a number via promptForText; return a float or None if the

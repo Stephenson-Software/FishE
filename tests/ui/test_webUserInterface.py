@@ -10,6 +10,7 @@ import urllib.request
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from housing import housing
+from ui import webUserInterface
 from ui.baseUserInterface import BaseUserInterface
 from ui.webUserInterface import WebUserInterface
 from player.player import Player
@@ -128,6 +129,27 @@ def test_timedKeyPress_returns_elapsed_seconds():
     ui.submit_input("")
     thread.join(timeout=2)
     assert box["result"] >= 0.0
+
+
+def test_showBusy_presents_the_message_without_consuming_input():
+    # The pause has to reach the browser - before showBusy existed the message
+    # went to the server's terminal and the page sat on the previous screen.
+    ui = makeWebUI()
+    thread, box = runInThread(lambda: ui.showBusy("Fishing...", 0.05))
+    waitForScreen(ui, "busy")
+    assert ui.get_state()["screen"]["message"] == "Fishing..."
+
+    thread.join(timeout=2)
+    # A stray submission during the pause is left in the queue for whatever the
+    # game asks next, rather than being swallowed by the pause.
+    ui.submit_input("1")
+    assert ui._inputQueue.get(timeout=1) == "1"
+
+
+def test_busy_screen_is_rendered_by_the_client():
+    # The client only renders screen types it knows about, so a new type on the
+    # server needs its branch on the page too.
+    assert 'screen.type === "busy"' in webUserInterface.HTML_PAGE
 
 
 def test_http_server_serves_and_accepts_input():

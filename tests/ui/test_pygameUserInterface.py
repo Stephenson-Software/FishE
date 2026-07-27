@@ -243,7 +243,7 @@ def test_update_fonts_keeps_fonts_usable_when_tiny():
 # --- interactive input primitives (events injected via patched pygame.event.get) ---
 import contextlib  # noqa: E402
 from types import SimpleNamespace  # noqa: E402
-from unittest.mock import patch  # noqa: E402
+from unittest.mock import MagicMock, patch  # noqa: E402
 
 import pygame  # noqa: E402
 
@@ -414,5 +414,59 @@ def test_showOptions_ignores_out_of_range_number():
         with injected_events([keydown(key=pygame.K_9), keydown(key=pygame.K_1)]):
             choice = ui.showOptions("Pick", ["A", "B"])
         assert choice == "1"
+    finally:
+        ui.cleanup()
+
+
+def test_showBusy_draws_the_message_until_the_wait_is_over():
+    # The pause has to be drawn in the window - before showBusy existed the
+    # message went to the terminal and the player just saw a frozen screen.
+    ui = makeUI()
+    try:
+        drawn = []
+        # t=0 (loop entry), then 0.0 and 1.5 as the two loop-condition checks:
+        # the first is inside the 1 second wait, the second past its end.
+        with patch(
+            "ui.pygameUserInterface.time.time", side_effect=[0.0, 0.0, 1.5]
+        ), patch.object(ui, "_draw_busy", lambda message: drawn.append(message)):
+            with injected_events([]):
+                ui.showBusy("Fishing...", 1)
+        assert drawn == ["Fishing..."]
+    finally:
+        ui.cleanup()
+
+
+def test_showBusy_ignores_keypresses_and_leaves_the_prompt_alone():
+    # Unlike showDialogue, a busy pause isn't the player acknowledging anything:
+    # a keypress must neither cut it short nor rewrite the current prompt.
+    ui = makeUI()
+    try:
+        ui.currentPrompt.text = "before"
+        drawn = []
+        # t=0 on entry, then two checks inside the 1 second wait and one past it
+        with patch(
+            "ui.pygameUserInterface.time.time", side_effect=[0.0, 0.1, 0.2, 5.0]
+        ), patch.object(
+            ui, "_draw_busy", lambda message: drawn.append(message)
+        ), injected_event_frames(
+            [[keydown()], []]
+        ):
+            ui.showBusy("Fishing...", 1)
+        # a second frame was drawn after the keypress, so it wasn't taken as input
+        assert len(drawn) == 2
+        assert ui.currentPrompt.text == "before"
+    finally:
+        ui.cleanup()
+
+
+def test_drawBusy_wraps_a_message_wider_than_the_window():
+    ui = makeUI()
+    try:
+        # A Surface's blit can't be patched (it's read-only), so the whole
+        # target surface is swapped out to count the drawn lines.
+        ui.screen = MagicMock()
+        ui._draw_busy("Fishing... " * 40)
+        # more than one line means the long message was wrapped, not clipped
+        assert ui.screen.blit.call_count > 1
     finally:
         ui.cleanup()

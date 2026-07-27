@@ -478,6 +478,37 @@ class PygameUserInterface(BaseUserInterface):
 
         return entered
 
+    def showBusy(self, message, seconds=1.0):
+        """Draw a message and hold it for `seconds`, taking no input.
+
+        The window keeps being redrawn and its events pumped throughout, so the
+        pause looks like the game working rather than the window hanging."""
+        endTime = time.time() + seconds
+        while time.time() < endTime:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                    sys.exit()
+                elif event.type == pygame.VIDEORESIZE:
+                    self._handle_resize(event.w, event.h)
+
+            self._draw_busy(message)
+            pygame.display.flip()
+            pygame.time.Clock().tick(60)
+
+    def _draw_busy(self, message):
+        """Draw the wrapped busy message. Split out from showBusy so the layout
+        can be tested without driving the wait loop."""
+        self.screen.fill(self.BLACK)
+        margin_x = self.width * 0.06
+        lineHeight = max(self.font_medium.get_linesize(), 1)
+        y_offset = self.height * 0.4
+        for line in self._wrapText(message, self.font_medium, self._textWidth()):
+            self.screen.blit(
+                self.font_medium.render(line, True, self.WHITE), (margin_x, y_offset)
+            )
+            y_offset += lineHeight
+
     def timedKeyPress(self, message):
         """Show a message and return the seconds until the player presses a key."""
         startTime = time.time()

@@ -14,6 +14,9 @@ def createTavern():
     stats = Stats()
     timeService = TimeService(player, stats)
     userInterface = UserInterface(currentPrompt, timeService, player)
+    # getDrunk() opens with a three-second pause on the real front-end; stub it
+    # so the tests neither print to the console nor wait it out.
+    userInterface.showBusy = MagicMock()
     return tavern.Tavern(userInterface, currentPrompt, player, stats, timeService)
 
 
@@ -168,20 +171,15 @@ def test_npc_business_dialogue_mentions_business_name():
 def test_getDrunk():
     # prepare
     tavernInstance = createTavern()
-    tavernInstance.userInterface.lotsOfSpace = MagicMock()
-    tavernInstance.userInterface.divider = MagicMock()
     tavernInstance.player.money = 10
-    tavern.print = MagicMock()
-    tavern.sys.stdout.flush = MagicMock()
-    tavern.time.sleep = MagicMock()
     tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
     # call
     tavernInstance.getDrunk()
 
-    # check
-    assert tavern.print.call_count == 3
-    assert tavern.sys.stdout.flush.call_count == 3
+    # check - the night out is announced through the front-end, so every UI
+    # shows it rather than only the console seeing a print()
+    tavernInstance.userInterface.showBusy.assert_called_once()
     tavernInstance.timeService.increaseDay.assert_called_once()
 
 
@@ -190,12 +188,7 @@ def test_getDrunk_mentions_eviction_when_it_happens():
     from src.housing import housing
 
     tavernInstance = createTavern()
-    tavernInstance.userInterface.lotsOfSpace = MagicMock()
-    tavernInstance.userInterface.divider = MagicMock()
     tavernInstance.player.money = 10
-    tavern.print = MagicMock()
-    tavern.sys.stdout.flush = MagicMock()
-    tavern.time.sleep = MagicMock()
     tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": True})
 
     # call
@@ -455,13 +448,8 @@ def test_gamble_change_bet_prompt_shows_cents():
 def test_getDrunk_updates_stats():
     # prepare
     tavernInstance = createTavern()
-    tavernInstance.userInterface.lotsOfSpace = MagicMock()
-    tavernInstance.userInterface.divider = MagicMock()
     tavernInstance.player.money = 20
     tavernInstance.stats.timesGottenDrunk = 0
-    tavern.print = MagicMock()
-    tavern.sys.stdout.flush = MagicMock()
-    tavern.time.sleep = MagicMock()
     tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
     # call - skip the random additional-loss path (>= 0.3 means no extra loss)
@@ -478,13 +466,8 @@ def test_getDrunk_updates_stats():
 def test_getDrunk_can_earn_a_tip():
     # prepare
     tavernInstance = createTavern()
-    tavernInstance.userInterface.lotsOfSpace = MagicMock()
-    tavernInstance.userInterface.divider = MagicMock()
     tavernInstance.player.money = 20
     tavernInstance.stats.totalMoneyMade = 0
-    tavern.print = MagicMock()
-    tavern.sys.stdout.flush = MagicMock()
-    tavern.time.sleep = MagicMock()
     tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
     # call - land in the "tip" outcome (>= loss chance, < loss + tip) and fix
@@ -539,7 +522,9 @@ def test_gamble_loss_via_real_loop():
         textAfterLoss.append(tavernInstance.currentPrompt.text)
         return "8"
 
-    tavernInstance.userInterface.showOptions = MagicMock(side_effect=showOptionsSideEffect)
+    tavernInstance.userInterface.showOptions = MagicMock(
+        side_effect=showOptionsSideEffect
+    )
 
     # call
     with patch("src.location.tavern.random.randint", return_value=4):
@@ -570,7 +555,9 @@ def test_gamble_no_bet_placed():
         textAfterAttempt.append(tavernInstance.currentPrompt.text)
         return "8"
 
-    tavernInstance.userInterface.showOptions = MagicMock(side_effect=showOptionsSideEffect)
+    tavernInstance.userInterface.showOptions = MagicMock(
+        side_effect=showOptionsSideEffect
+    )
 
     # call
     with patch("src.location.tavern.random.randint") as mockRandint:
@@ -585,13 +572,8 @@ def test_getDrunk_loses_money_in_drunken_stupor():
     # prepare - land in the money-loss branch (roll < DRUNK_LOSS_CHANCE) with
     # a fixed loss percentage so the amount lost is deterministic.
     tavernInstance = createTavern()
-    tavernInstance.userInterface.lotsOfSpace = MagicMock()
-    tavernInstance.userInterface.divider = MagicMock()
     tavernInstance.player.money = 100
     tavernInstance.stats.moneyLostWhileDrunk = 0
-    tavern.print = MagicMock()
-    tavern.sys.stdout.flush = MagicMock()
-    tavern.time.sleep = MagicMock()
     tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
     # call - $10 drink cost leaves $90, then a 20% stupor loss of that $90

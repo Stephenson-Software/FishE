@@ -1,6 +1,4 @@
 import random
-import sys
-import time
 
 from location.enum.locationType import LocationType
 
@@ -68,7 +66,8 @@ class Tavern:
                     "response": "Ah, the tavern! This is the place to unwind after a long day. "
                     "You can get yourself drunk for $10 - though you'll wake up at home with a headache the next day! "
                     "Or if you're feeling lucky, you can gamble with the dice. Place a bet, pick a number from 1 to 6, "
-                    "and if the dice matches your choice, you'll win %dx your money!" % DICE_WIN_MULTIPLIER,
+                    "and if the dice matches your choice, you'll win %dx your money!"
+                    % DICE_WIN_MULTIPLIER,
                 },
                 {
                     "question": "Tell me about the other villagers.",
@@ -151,15 +150,9 @@ class Tavern:
             return LocationType.DOCKS
 
     def getDrunk(self):
-        self.userInterface.lotsOfSpace()
-        self.userInterface.divider()
-
         self.player.spendMoney(10)
 
-        for i in range(3):
-            print("... ")
-            sys.stdout.flush()
-            time.sleep(1)
+        self.userInterface.showBusy("You drink your way into the evening...", 3)
 
         self.stats.timesGottenDrunk += 1
 

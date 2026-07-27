@@ -1,6 +1,4 @@
 import random
-import sys
-import time
 
 from location.enum.locationType import LocationType
 from player.player import Player
@@ -332,12 +330,7 @@ class Docks:
         return 1.0, ""
 
     def fish(self):
-        self.userInterface.lotsOfSpace()
-        self.userInterface.divider()
-
-        print("Fishing... "),
-        sys.stdout.flush()
-        time.sleep(1)
+        self.userInterface.showBusy("Fishing...", 1)
 
         # Capture the time of day at the start of the trip (the loop advances it).
         timeFactor, timeLabel = self.getTimeOfDayModifier(self.timeService.time)
