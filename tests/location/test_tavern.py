@@ -31,6 +31,21 @@ def test_initialization():
     assert tavernInstance.npc.name == "Old Tom the Barkeep"
 
 
+def test_npc_tavern_dialogue_matches_dice_win_multiplier():
+    # prepare - regression test for #126: Old Tom's dialogue used to say
+    # gambling would "double your money", contradicting the actual payout.
+    from src.location.tavern import DICE_WIN_MULTIPLIER
+
+    tavernInstance = createTavern()
+
+    # call
+    response = tavernInstance.npc.get_dialogue_response(2)
+
+    # check
+    assert "double your money" not in response
+    assert "win %dx your money" % DICE_WIN_MULTIPLIER in response
+
+
 def test_run_get_drunk_action_success():
     # prepare
     tavernInstance = createTavern()
@@ -334,6 +349,37 @@ def test_changeBet_insufficient_money():
         builtins.input = original_input
 
 
+def test_changeBet_negative_amount_rejected():
+    # prepare - regression test for #127: a negative bet used to pass
+    # canAfford (money >= negative amount is always true) and set
+    # currentBet to a negative number, which gamble() then silently
+    # treated as "no bet" via its `currentBet > 0` guard.
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.userInterface.promptForNumber = MagicMock(return_value=-100)
+
+    # call
+    tavernInstance.changeBet("How much money would you like to bet?")
+
+    # check
+    assert tavernInstance.currentBet == 0
+    assert "You have to bet at least $1" in tavernInstance.currentPrompt.text
+
+
+def test_changeBet_zero_amount_rejected():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.userInterface.promptForNumber = MagicMock(return_value=0)
+
+    # call
+    tavernInstance.changeBet("How much money would you like to bet?")
+
+    # check
+    assert tavernInstance.currentBet == 0
+    assert "You have to bet at least $1" in tavernInstance.currentPrompt.text
+
+
 def test_changeBet_invalid_input():
     # prepare
     tavernInstance = createTavern()
@@ -472,3 +518,89 @@ def test_gamble_win_pays_multiple_of_bet():
     assert tavernInstance.player.money == 100 + expectedWin
     assert tavernInstance.stats.totalMoneyMade == expectedWin
     assert tavernInstance.currentBet == 0
+
+
+def test_gamble_loss_via_real_loop():
+    # prepare - drive the real gamble() loop: guess 2, dice rolls 4 (a miss),
+    # then go back. Unlike test_gamble_loss above (which exercises the loss
+    # arithmetic in isolation), this drives Tavern.gamble() itself. The prompt
+    # is captured right after the loss (before "Back" overwrites it) since
+    # showOptions is called again on the loop's next iteration.
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.currentBet = 50
+    textAfterLoss = []
+    callCount = [0]
+
+    def showOptionsSideEffect(prompt, options):
+        callCount[0] += 1
+        if callCount[0] == 1:
+            return "2"
+        textAfterLoss.append(tavernInstance.currentPrompt.text)
+        return "8"
+
+    tavernInstance.userInterface.showOptions = MagicMock(side_effect=showOptionsSideEffect)
+
+    # call
+    with patch("src.location.tavern.random.randint", return_value=4):
+        tavernInstance.gamble()
+
+    # check
+    assert tavernInstance.player.money == 50
+    assert tavernInstance.stats.moneyLostFromGambling == 50
+    assert tavernInstance.currentBet == 0
+    assert "You lost your money!" in textAfterLoss[0]
+
+
+def test_gamble_no_bet_placed():
+    # prepare - pick a number while currentBet is still 0 (never placed a
+    # bet via "Change Bet"), which should not trigger a dice throw at all.
+    # The prompt is captured on the loop's next iteration, before "Back"
+    # overwrites it.
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.currentBet = 0
+    textAfterAttempt = []
+    callCount = [0]
+
+    def showOptionsSideEffect(prompt, options):
+        callCount[0] += 1
+        if callCount[0] == 1:
+            return "1"
+        textAfterAttempt.append(tavernInstance.currentPrompt.text)
+        return "8"
+
+    tavernInstance.userInterface.showOptions = MagicMock(side_effect=showOptionsSideEffect)
+
+    # call
+    with patch("src.location.tavern.random.randint") as mockRandint:
+        tavernInstance.gamble()
+
+    # check
+    mockRandint.assert_not_called()
+    assert textAfterAttempt[0] == "You didn't bet any money!"
+
+
+def test_getDrunk_loses_money_in_drunken_stupor():
+    # prepare - land in the money-loss branch (roll < DRUNK_LOSS_CHANCE) with
+    # a fixed loss percentage so the amount lost is deterministic.
+    tavernInstance = createTavern()
+    tavernInstance.userInterface.lotsOfSpace = MagicMock()
+    tavernInstance.userInterface.divider = MagicMock()
+    tavernInstance.player.money = 100
+    tavernInstance.stats.moneyLostWhileDrunk = 0
+    tavern.print = MagicMock()
+    tavern.sys.stdout.flush = MagicMock()
+    tavern.time.sleep = MagicMock()
+    tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
+
+    # call - $10 drink cost leaves $90, then a 20% stupor loss of that $90
+    with patch("src.location.tavern.random.random", return_value=0.1), patch(
+        "src.location.tavern.random.uniform", return_value=0.2
+    ):
+        tavernInstance.getDrunk()
+
+    # check
+    assert tavernInstance.player.money == 72  # 100 - 10 - int(90 * 0.2)
+    assert tavernInstance.stats.moneyLostWhileDrunk == 18
+    assert "In your drunken stupor, you lost $18!" in tavernInstance.currentPrompt.text
