@@ -436,16 +436,24 @@ def test_showBusy_draws_the_message_until_the_wait_is_over():
         ui.cleanup()
 
 
-def test_showBusy_takes_no_input_and_leaves_the_prompt_alone():
-    # Unlike showDialogue, a busy pause isn't the player acknowledging anything,
-    # so it must not rewrite the current prompt out from under the game.
+def test_showBusy_ignores_keypresses_and_leaves_the_prompt_alone():
+    # Unlike showDialogue, a busy pause isn't the player acknowledging anything:
+    # a keypress must neither cut it short nor rewrite the current prompt.
     ui = makeUI()
     try:
         ui.currentPrompt.text = "before"
+        drawn = []
+        # t=0 on entry, then two checks inside the 1 second wait and one past it
         with patch(
-            "ui.pygameUserInterface.time.time", side_effect=[0.0, 5.0]
-        ), injected_events([keydown()]):
+            "ui.pygameUserInterface.time.time", side_effect=[0.0, 0.1, 0.2, 5.0]
+        ), patch.object(
+            ui, "_draw_busy", lambda message: drawn.append(message)
+        ), injected_event_frames(
+            [[keydown()], []]
+        ):
             ui.showBusy("Fishing...", 1)
+        # a second frame was drawn after the keypress, so it wasn't taken as input
+        assert len(drawn) == 2
         assert ui.currentPrompt.text == "before"
     finally:
         ui.cleanup()

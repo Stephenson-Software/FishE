@@ -522,7 +522,9 @@ def test_gamble_loss_via_real_loop():
         textAfterLoss.append(tavernInstance.currentPrompt.text)
         return "8"
 
-    tavernInstance.userInterface.showOptions = MagicMock(side_effect=showOptionsSideEffect)
+    tavernInstance.userInterface.showOptions = MagicMock(
+        side_effect=showOptionsSideEffect
+    )
 
     # call
     with patch("src.location.tavern.random.randint", return_value=4):
@@ -553,7 +555,9 @@ def test_gamble_no_bet_placed():
         textAfterAttempt.append(tavernInstance.currentPrompt.text)
         return "8"
 
-    tavernInstance.userInterface.showOptions = MagicMock(side_effect=showOptionsSideEffect)
+    tavernInstance.userInterface.showOptions = MagicMock(
+        side_effect=showOptionsSideEffect
+    )
 
     # call
     with patch("src.location.tavern.random.randint") as mockRandint:
