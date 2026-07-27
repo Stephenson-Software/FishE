@@ -228,7 +228,7 @@ class Tavern:
                     continue
             elif input == 7:
                 self.changeBet(
-                    "How much money would you like to bet? Money: $%d"
+                    "How much money would you like to bet? Money: $%.2f"
                     % self.player.money
                 )
                 continue
@@ -242,7 +242,7 @@ class Tavern:
     def changeBet(self, prompt):
         amount = self.userInterface.promptForNumber(prompt)
         if amount is None:
-            self.currentPrompt.text = "Try again. Money: $%d" % self.player.money
+            self.currentPrompt.text = "Try again. Money: $%.2f" % self.player.money
             return
         self.amount = int(amount)
 
@@ -255,7 +255,8 @@ class Tavern:
             # Don't call self.gamble() recursively - let the main loop continue
         else:
             self.currentPrompt.text = (
-                "You don't have that much money on you! Money: $%d" % self.player.money
+                "You don't have that much money on you! Money: $%.2f"
+                % self.player.money
             )
 
     def talkToNPC(self):

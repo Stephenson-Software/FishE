@@ -361,6 +361,51 @@ def test_changeBet_invalid_input():
         builtins.input = original_input
 
 
+def test_changeBet_invalid_input_shows_cents():
+    # prepare - money picks up cents via bank withdrawals (see bank.py), so
+    # the retry prompt must not silently truncate them
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 42.7
+    tavernInstance.userInterface.promptForNumber = MagicMock(return_value=None)
+
+    # call
+    tavernInstance.changeBet("How much money would you like to bet?")
+
+    # check
+    assert "$42.70" in tavernInstance.currentPrompt.text
+
+
+def test_changeBet_insufficient_money_shows_cents():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 12.3
+    tavernInstance.userInterface.promptForNumber = MagicMock(return_value=100)
+
+    # call
+    tavernInstance.changeBet("How much money would you like to bet?")
+
+    # check
+    assert tavernInstance.currentBet == 0
+    assert "$12.30" in tavernInstance.currentPrompt.text
+
+
+def test_gamble_change_bet_prompt_shows_cents():
+    # prepare - the "Change Bet" option (7) rebuilds its prompt from
+    # player.money each time; a fractional balance must not lose its cents
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100.5
+    tavernInstance.changeBet = MagicMock()
+    tavernInstance.userInterface.showOptions = MagicMock(side_effect=["7", "8"])
+
+    # call
+    tavernInstance.gamble()
+
+    # check
+    tavernInstance.changeBet.assert_called_once()
+    promptArg = tavernInstance.changeBet.call_args[0][0]
+    assert "$100.50" in promptArg
+
+
 def test_getDrunk_updates_stats():
     # prepare
     tavernInstance = createTavern()
