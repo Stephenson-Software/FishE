@@ -15,6 +15,9 @@ def createDocks():
     stats = Stats()
     timeService = TimeService(player, stats)
     userInterface = UserInterface(currentPrompt, timeService, player)
+    # fish() opens with a one-second "Fishing..." pause on the real front-end;
+    # stub it so the tests neither print to the console nor wait it out.
+    userInterface.showBusy = MagicMock()
     return docks.Docks(userInterface, currentPrompt, player, stats, timeService)
 
 
@@ -192,16 +195,10 @@ def test_run_go_to_bank_action():
 def test_fish():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.lotsOfSpace = MagicMock()
-    docksInstance.userInterface.divider = MagicMock()
     # The active UI captures and times the reaction; mock a quick (perfect) one.
     docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
 
-    with patch("src.location.docks.print"), patch(
-        "src.location.docks.sys.stdout.flush"
-    ), patch("src.location.docks.time.sleep"), patch(
-        "src.location.docks.random.randint", return_value=3
-    ):
+    with patch("src.location.docks.random.randint", return_value=3):
         docksInstance.timeService.increaseTime = MagicMock(
             return_value={"evicted": False}
         )
@@ -209,9 +206,10 @@ def test_fish():
         # call
         docksInstance.fish()
 
-        # check
-        docksInstance.userInterface.lotsOfSpace.assert_called_once()
-        docksInstance.userInterface.divider.assert_called_once()
+        # check - the trip announces itself through the front-end, so every UI
+        # shows it rather than only the console seeing a print()
+        docksInstance.userInterface.showBusy.assert_called_once()
+        assert "Fishing" in docksInstance.userInterface.showBusy.call_args[0][0]
         # Player should catch fish based on success rate
         assert docksInstance.player.fishCount >= 1
         assert docksInstance.stats.totalFishCaught >= 1
@@ -242,11 +240,7 @@ def test_fish_consumes_energy():
     docksInstance.userInterface.divider = MagicMock()
     docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
 
-    with patch("src.location.docks.print"), patch(
-        "src.location.docks.sys.stdout.flush"
-    ), patch("src.location.docks.time.sleep"), patch(
-        "src.location.docks.random.randint", return_value=3
-    ):
+    with patch("src.location.docks.random.randint", return_value=3):
         docksInstance.timeService.increaseTime = MagicMock(
             return_value={"evicted": False}
         )
@@ -268,11 +262,7 @@ def test_fish_with_limited_energy():
     docksInstance.userInterface.divider = MagicMock()
     docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
 
-    with patch("src.location.docks.print"), patch(
-        "src.location.docks.sys.stdout.flush"
-    ), patch("src.location.docks.time.sleep"), patch(
-        "src.location.docks.random.randint", return_value=5
-    ):
+    with patch("src.location.docks.random.randint", return_value=5):
         docksInstance.timeService.increaseTime = MagicMock(
             return_value={"evicted": False}
         )
@@ -295,11 +285,7 @@ def test_fish_mentions_eviction_when_a_day_rolls_over_mid_trip():
     docksInstance.userInterface.divider = MagicMock()
     docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
 
-    with patch("src.location.docks.print"), patch(
-        "src.location.docks.sys.stdout.flush"
-    ), patch("src.location.docks.time.sleep"), patch(
-        "src.location.docks.random.randint", side_effect=[3, 6]
-    ):
+    with patch("src.location.docks.random.randint", side_effect=[3, 6]):
         # the day rolls over (and evicts) partway through the trip
         docksInstance.timeService.increaseTime = MagicMock(
             side_effect=[
@@ -324,11 +310,7 @@ def test_fish_interactive_success():
     # Quick reaction => perfect-quality catch.
     docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
 
-    with patch("src.location.docks.print"), patch(
-        "src.location.docks.sys.stdout.flush"
-    ), patch("src.location.docks.time.sleep"), patch(
-        "src.location.docks.random.randint", side_effect=[3, 6]
-    ):
+    with patch("src.location.docks.random.randint", side_effect=[3, 6]):
         docksInstance.timeService.increaseTime = MagicMock(
             return_value={"evicted": False}
         )
@@ -356,11 +338,7 @@ def test_fish_slow_reaction_yields_fewer_than_fast():
         docksInstance = make_docks()
         docksInstance.userInterface.timedKeyPress = MagicMock(return_value=reactionTime)
 
-        with patch("src.location.docks.print"), patch(
-            "src.location.docks.sys.stdout.flush"
-        ), patch("src.location.docks.time.sleep"), patch(
-            "src.location.docks.random.randint", side_effect=[3, 10]
-        ):
+        with patch("src.location.docks.random.randint", side_effect=[3, 10]):
             docksInstance.timeService.increaseTime = MagicMock(
                 return_value={"evicted": False}
             )
@@ -418,9 +396,7 @@ def test_fish_applies_weather_modifier():
     for weather in ("stormy", "rainy"):
         docksInstance = make_docks_in(weather)
         docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
-        with patch("src.location.docks.print"), patch(
-            "src.location.docks.sys.stdout.flush"
-        ), patch("src.location.docks.time.sleep"), patch(
+        with patch(
             "src.location.docks.random.randint", side_effect=[5, 10]
         ):  # 5 hours, baseFish 10
             docksInstance.timeService.increaseTime = MagicMock(
@@ -441,11 +417,7 @@ def test_fish_mentions_weather_label():
     docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
     docksInstance.timeService.weather = "rainy"
 
-    with patch("src.location.docks.print"), patch(
-        "src.location.docks.sys.stdout.flush"
-    ), patch("src.location.docks.time.sleep"), patch(
-        "src.location.docks.random.randint", side_effect=[3, 6]
-    ):
+    with patch("src.location.docks.random.randint", side_effect=[3, 6]):
         docksInstance.timeService.increaseTime = MagicMock(
             return_value={"evicted": False}
         )
@@ -484,9 +456,7 @@ def test_fish_applies_time_of_day_modifier():
     for label, hour in (("midday", 12), ("dawn", 6)):
         docksInstance = make_docks_at(hour)
         docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
-        with patch("src.location.docks.print"), patch(
-            "src.location.docks.sys.stdout.flush"
-        ), patch("src.location.docks.time.sleep"), patch(
+        with patch(
             "src.location.docks.random.randint", side_effect=[5, 10]
         ):  # 5 hours, baseFish 10
             docksInstance.timeService.increaseTime = MagicMock(
@@ -514,11 +484,7 @@ def test_fish_higher_rod_widens_reaction_window():
         docksInstance = make_docks_with_rod(rod)
         # A 2.5s reaction is too slow at rod level 1 but within a high rod's window.
         docksInstance.userInterface.timedKeyPress = MagicMock(return_value=2.5)
-        with patch("src.location.docks.print"), patch(
-            "src.location.docks.sys.stdout.flush"
-        ), patch("src.location.docks.time.sleep"), patch(
-            "src.location.docks.random.randint", side_effect=[5, 10]
-        ):
+        with patch("src.location.docks.random.randint", side_effect=[5, 10]):
             docksInstance.timeService.increaseTime = MagicMock(
                 return_value={"evicted": False}
             )

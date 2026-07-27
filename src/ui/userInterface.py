@@ -130,6 +130,20 @@ class UserInterface(BaseUserInterface):
         self.divider()
         return input("> ")
 
+    def showBusy(self, message, seconds=1.0):
+        """Print the message, then a dot row per second spent waiting."""
+        self.lotsOfSpace()
+        self.divider()
+        print(message)
+        sys.stdout.flush()
+        remaining = seconds
+        while remaining > 0:
+            step = min(1.0, remaining)
+            time.sleep(step)
+            remaining -= step
+            print("... ")
+            sys.stdout.flush()
+
     def timedKeyPress(self, message):
         print(message)
         sys.stdout.flush()

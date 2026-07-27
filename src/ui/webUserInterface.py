@@ -157,6 +157,10 @@ function render(screen) {
     inp.onkeydown = (e) => { if (e.key === "Enter") submit(); };
     b.onclick = submit;
     app.append(inp); app.append(b); inp.focus();
+  } else if (screen.type === "busy") {
+    // A pause the game takes on its own — shown, but with nothing to click;
+    // the next screen replaces it when the pause is over.
+    app.append(el("div", { className: "descriptor", textContent: screen.message }));
   } else if (screen.type === "timed") {
     app.append(el("div", { className: "descriptor", textContent: screen.message }));
     const b = el("button", { textContent: "React!", className: "action" });
@@ -331,6 +335,13 @@ class WebUserInterface(BaseUserInterface):
             return float(self._inputQueue.get())
         except (ValueError, TypeError):
             return None
+
+    def showBusy(self, message, seconds=1.0):
+        # Published as its own screen type so the browser shows the message
+        # instead of sitting on the previous screen. No input is consumed —
+        # whatever the game presents next supersedes it.
+        self._present({"type": "busy", "message": message})
+        time.sleep(seconds)
 
     def timedKeyPress(self, message):
         self._present({"type": "timed", "message": message})

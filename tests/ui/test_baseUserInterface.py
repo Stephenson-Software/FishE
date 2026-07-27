@@ -7,6 +7,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 import pytest
+from unittest.mock import patch
 
 from ui.baseUserInterface import BaseUserInterface
 from ui.userInterface import UserInterface
@@ -80,6 +81,22 @@ class FakeNPC:
 
     def introduce(self):
         return "Hello"
+
+
+def test_showBusy_is_inherited_and_only_waits():
+    # prepare - RecordingUserInterface implements the abstract primitives only,
+    # so it exercises the default a new front-end would get for free
+    prompt, timeService, player = makeArgs()
+    ui = RecordingUserInterface(prompt, timeService, player, choices=[])
+
+    # call
+    with patch("ui.baseUserInterface.time.sleep") as sleep:
+        ui.showBusy("Fishing...", 2)
+
+    # check - the pause happens and nothing is shown or acknowledged
+    sleep.assert_called_once_with(2)
+    assert ui.shownDialogues == []
+    assert ui.currentPrompt.text == "What would you like to do?"
 
 
 def test_promptForNumber_parses_or_returns_none():

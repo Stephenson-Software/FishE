@@ -259,3 +259,36 @@ def test_timedKeyPress_returns_reaction_seconds():
 
     # check
     assert reaction == 1.5
+
+
+def test_showBusy_prints_the_message_and_waits():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+    printed = []
+    userInterface.print = MagicMock(side_effect=lambda text: printed.append(text))
+
+    # call - a 3 second pause, without actually spending 3 seconds
+    with patch("src.ui.userInterface.time.sleep") as sleep:
+        userInterfaceInstance.showBusy("Fishing...", 3)
+
+    # check - the message is shown, then one dot row per second waited
+    assert printed[0] == "Fishing..."
+    assert printed[1:] == ["... "] * 3
+    assert [call.args[0] for call in sleep.call_args_list] == [1.0, 1.0, 1.0]
+
+
+def test_showBusy_waits_a_fractional_second_in_one_step():
+    # setup
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+    userInterface.print = MagicMock()
+
+    # call
+    with patch("src.ui.userInterface.time.sleep") as sleep:
+        userInterfaceInstance.showBusy("Fishing...", 0.5)
+
+    # check - a sub-second wait isn't rounded up into a full second
+    assert [call.args[0] for call in sleep.call_args_list] == [0.5]
