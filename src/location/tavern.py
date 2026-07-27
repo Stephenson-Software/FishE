@@ -68,7 +68,7 @@ class Tavern:
                     "response": "Ah, the tavern! This is the place to unwind after a long day. "
                     "You can get yourself drunk for $10 - though you'll wake up at home with a headache the next day! "
                     "Or if you're feeling lucky, you can gamble with the dice. Place a bet, pick a number from 1 to 6, "
-                    "and if the dice matches your choice, you'll double your money!",
+                    "and if the dice matches your choice, you'll win %dx your money!" % DICE_WIN_MULTIPLIER,
                 },
                 {
                     "question": "Tell me about the other villagers.",
@@ -246,7 +246,11 @@ class Tavern:
             return
         self.amount = int(amount)
 
-        if self.player.canAfford(self.amount):
+        if self.amount < 1:
+            self.currentPrompt.text = (
+                "You have to bet at least $1! Money: $%.2f" % self.player.money
+            )
+        elif self.player.canAfford(self.amount):
             self.currentBet = self.amount
 
             self.currentPrompt.text = (
