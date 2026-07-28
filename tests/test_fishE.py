@@ -11,6 +11,8 @@ from src.player.playerJsonReaderWriter import PlayerJsonReaderWriter
 from src.stats.statsJsonReaderWriter import StatsJsonReaderWriter
 from src.world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
 from src.saveFileManager import SaveFileManager
+from src.location.enum.locationType import LocationType
+from src.housing import housing
 
 # Imported the same way fishE.py imports it (bare, not "src."-prefixed) so
 # isinstance checks against fishE.FishE's real self.config compare the same
@@ -173,6 +175,30 @@ def test_init_rebinds_timeService_when_only_player_file_present():
         # check
         assert game.timeService.player is game.player
         assert game.timeService.stats is game.stats
+
+
+def test_init_loads_timeService_when_present():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - a slot with all three files, timeService.json holding
+        # non-default state that only loadTimeService() would restore
+        savedTimeService = TimeService(Player(), Stats())
+        savedTimeService.day = 5
+        savedTimeService.time = 14
+        game = createGameThroughInit(
+            data_directory,
+            {
+                "player.json": PlayerJsonReaderWriter().createJsonFromPlayer(Player()),
+                "stats.json": StatsJsonReaderWriter().createJsonFromStats(Stats()),
+                "timeService.json": TimeServiceJsonReaderWriter().createJsonFromTimeService(
+                    savedTimeService
+                ),
+            },
+        )
+
+        # check - the loaded timeService's own state came from the file, not
+        # the defaults built in __init__
+        assert game.timeService.day == 5
+        assert game.timeService.time == 14
 
 
 def test_init_daily_tick_credits_the_loaded_player():
@@ -342,6 +368,81 @@ def test_loadPlayer_recovers_from_out_of_range_value():
         assert game.player.homeTier == Player().homeTier
 
 
+def test_loadStats_recovers_from_corrupt_file():
+    # restore the real Stats so the except-path fallback builds real stats
+    fishE.Stats = Stats
+
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - a stats save file containing invalid JSON
+        game = createGameForPersistence(data_directory)
+        path = game.saveFileManager.get_save_path("stats.json")
+        with open(path, "w") as f:
+            f.write("{ not valid json")
+
+        # call - must not raise; falls back to fresh stats
+        game.loadStats()
+
+        # check
+        assert isinstance(game.stats, Stats)
+        assert game.stats.totalFishCaught == Stats().totalFishCaught
+
+
+def test_loadTimeService_recovers_from_corrupt_file():
+    # restore the real classes so the except-path fallback builds a real one
+    fishE.Player = Player
+    fishE.Stats = Stats
+    fishE.TimeService = TimeService
+
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - a timeService save file containing invalid JSON
+        game = createGameForPersistence(data_directory)
+        game.player = Player()
+        game.stats = Stats()
+        path = game.saveFileManager.get_save_path("timeService.json")
+        with open(path, "w") as f:
+            f.write("{ not valid json")
+
+        # call - must not raise; falls back to a fresh TimeService bound to
+        # the game's current player/stats
+        game.loadTimeService()
+
+        # check
+        assert game.timeService.day == TimeService(Player(), Stats()).day
+        assert game.timeService.player is game.player
+        assert game.timeService.stats is game.stats
+
+
+def test_save_creates_missing_data_directory():
+    with tempfile.TemporaryDirectory() as parent:
+        # prepare - a data directory that does not exist yet
+        data_directory = os.path.join(parent, "does-not-exist-yet")
+        game = createGameForPersistence(data_directory)
+        game.player = Player()
+        game.stats = Stats()
+        game.timeService = TimeService(game.player, game.stats)
+
+        # call
+        game.save()
+
+        # check - save() created the directory tree itself
+        assert os.path.exists(
+            os.path.join(data_directory, "slot_1", "player.json")
+        )
+
+
+def test_save_handles_write_failure_without_raising():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare
+        game = createGameForPersistence(data_directory)
+        game.player = Player()
+        game.stats = Stats()
+        game.timeService = TimeService(game.player, game.stats)
+
+        # call - must not raise even though writing to disk fails
+        with patch("builtins.open", side_effect=IOError("disk full")):
+            game.save()
+
+
 def test_selectSaveFile_new_game_selects_next_slot():
     # prepare - no existing saves; choosing the only non-quit option creates one
     game = fishE.FishE.__new__(fishE.FishE)
@@ -405,3 +506,161 @@ def test_deleteSaveFile_cancelled():
     # check
     assert result is False
     game.saveFileManager.delete_save_slot.assert_not_called()
+
+
+def test_deleteSaveFile_declined_at_confirmation():
+    # prepare - choose the slot, then decline at the "are you sure?" step
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.side_effect = ["1", "2"]  # Delete Slot 1, then No
+
+    # call
+    result = game._deleteSaveFile([{"slot": 1, "metadata": {}}])
+
+    # check
+    assert result is False
+    game.saveFileManager.delete_save_slot.assert_not_called()
+
+
+def test_deleteSaveFile_reports_failure():
+    # prepare - confirmed, but the underlying delete fails
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.delete_save_slot.return_value = False
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.side_effect = ["1", "1"]  # Delete Slot 1, then Yes
+
+    # call
+    result = game._deleteSaveFile([{"slot": 1, "metadata": {}}])
+
+    # check
+    assert result is False
+    game.userInterface.showDialogue.assert_called_once_with("Failed to delete Slot 1.")
+
+
+def test_selectSaveFile_delete_then_quit():
+    # prepare - one existing save; pick "Delete a Save File", cancel out of the
+    # delete submenu, then pick "Quit" from the refreshed menu
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.list_save_files.return_value = [
+        {"slot": 1, "metadata": {"day": 1, "money": 0, "fishCount": 0}}
+    ]
+    game.saveFileManager.get_next_available_slot.return_value = 2
+    game.userInterface = MagicMock()
+    # Menu (with a save present): Load Slot 1 / Create New / Delete / Quit -> "3"
+    # Delete submenu: Delete Slot 1 / Cancel -> "2" (Cancel)
+    # Menu again: same options -> "4" (Quit)
+    game.userInterface.showOptions.side_effect = ["3", "2", "4"]
+
+    # call/check - Quit calls exit(0), which raises SystemExit
+    try:
+        game._selectSaveFile()
+        assert False, "expected SystemExit"
+    except SystemExit as e:
+        assert e.code == 0
+    game.saveFileManager.select_save_slot.assert_not_called()
+
+
+def createGameForPlay():
+    # A FishE built without running __init__, wired with mocks for everything
+    # play() touches so a full iteration of the game loop can run in isolation.
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.running = True
+    game.currentLocation = LocationType.HOME
+    game.player = Player()
+    game.stats = Stats()
+    game.prompt = Prompt("What would you like to do?")
+    game.userInterface = MagicMock()
+    game.timeService = MagicMock()
+    game.timeService.increaseTime.return_value = {"evicted": False}
+    game.locations = {
+        LocationType.HOME: MagicMock(),
+        LocationType.DOCKS: MagicMock(),
+    }
+    game.save = MagicMock()
+    return game
+
+
+def test_play_stops_when_location_returns_none():
+    # prepare
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+
+    # call
+    game.play()
+
+    # check
+    assert game.running is False
+    game.save.assert_called_once()
+
+
+def test_play_transitions_between_locations():
+    # prepare - HOME sends the player to DOCKS, then DOCKS ends the run
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.DOCKS
+    game.locations[LocationType.DOCKS].run.return_value = LocationType.NONE
+
+    # call
+    game.play()
+
+    # check - both locations ran exactly once, in order, and each iteration saved
+    game.locations[LocationType.HOME].run.assert_called_once()
+    game.locations[LocationType.DOCKS].run.assert_called_once()
+    assert game.save.call_count == 2
+
+
+def test_play_appends_milestone_message():
+    # prepare - crossing the "First Catch" threshold this iteration
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.stats.totalFishCaught = 1
+
+    # call
+    game.play()
+
+    # check
+    assert "Milestone unlocked: First Catch!" in game.prompt.text
+
+
+def test_play_appends_eviction_message():
+    # prepare - the daily tick reports an eviction
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.timeService.increaseTime.return_value = {"evicted": True}
+
+    # call
+    game.play()
+
+    # check
+    assert housing.EVICTION_MESSAGE in game.prompt.text
+
+
+def test_play_announces_goal_once_reached():
+    # prepare - wealth already at the goal amount
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.player.money = fishE.GOAL_AMOUNT
+
+    # call
+    game.play()
+
+    # check
+    assert "GOAL REACHED" in game.prompt.text
+    assert fishE.GOAL_MILESTONE_NAME in game.stats.earnedMilestones
+
+
+def test_play_updates_ui_header_before_running_location():
+    # prepare
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.player.money = 10
+    game.player.moneyInBank = 5
+
+    # call
+    game.play()
+
+    # check - header fields are set from the location/wealth before run() is called
+    assert game.userInterface.currentLocationName == LocationType.HOME.capitalize()
+    assert game.userInterface.goalProgress == "$15 / $%d" % fishE.GOAL_AMOUNT
