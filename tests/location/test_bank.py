@@ -290,6 +290,43 @@ def test_withdraw_with_decimal():
     assert bankInstance.player.money == 10.50
 
 
+def test_deposit_invalid_input_retries_then_succeeds():
+    # prepare - the player types something non-numeric first (promptForNumber
+    # returns None), then a valid amount
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.money = 100
+    bankInstance.player.moneyInBank = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(side_effect=[None, 10.0])
+
+    # call
+    bankInstance.deposit()
+
+    # check - prompted twice, and the valid second attempt went through
+    assert bankInstance.userInterface.promptForNumber.call_count == 2
+    assert bankInstance.player.moneyInBank == 10
+    assert bankInstance.player.money == 90
+
+
+def test_withdraw_invalid_input_retries_then_succeeds():
+    # prepare - same invalid-then-valid input sequence as deposit, on withdraw
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.moneyInBank = 100
+    bankInstance.player.money = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(side_effect=[None, 10.0])
+
+    # call
+    bankInstance.withdraw()
+
+    # check - prompted twice, and the valid second attempt went through
+    assert bankInstance.userInterface.promptForNumber.call_count == 2
+    assert bankInstance.player.moneyInBank == 90
+    assert bankInstance.player.money == 10
+
+
 def test_manageInvestments_buy_when_affordable():
     # prepare
     from src.investments import investments
