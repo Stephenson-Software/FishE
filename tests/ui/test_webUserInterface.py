@@ -3,6 +3,7 @@ import os
 import json
 import time
 import threading
+import urllib.error
 import urllib.request
 
 # Use the bare `ui.*`/`player.*` import style (matching production) so class
@@ -176,5 +177,63 @@ def test_http_server_serves_and_accepts_input():
         urllib.request.urlopen(request, timeout=2).read()
         thread.join(timeout=2)
         assert box["result"] == "1"
+    finally:
+        ui.cleanup()
+
+
+def test_http_server_returns_404_for_unknown_get_path():
+    ui = makeWebUI(start_server=True, port=0)
+    try:
+        host, port = ui.address
+        base = "http://127.0.0.1:%d" % port
+
+        try:
+            urllib.request.urlopen(base + "/nonexistent", timeout=2)
+            assert False, "expected HTTPError"
+        except urllib.error.HTTPError as error:
+            assert error.code == 404
+    finally:
+        ui.cleanup()
+
+
+def test_http_server_returns_404_for_unknown_post_path():
+    ui = makeWebUI(start_server=True, port=0)
+    try:
+        host, port = ui.address
+        base = "http://127.0.0.1:%d" % port
+
+        request = urllib.request.Request(
+            base + "/nonexistent",
+            data=b"{}",
+            method="POST",
+        )
+        try:
+            urllib.request.urlopen(request, timeout=2)
+            assert False, "expected HTTPError"
+        except urllib.error.HTTPError as error:
+            assert error.code == 404
+    finally:
+        ui.cleanup()
+
+
+def test_http_server_post_input_with_malformed_json_defaults_to_empty_value():
+    # A malformed body (or one missing "value") must not crash the handler -
+    # it should fall back to submitting an empty string, same as a body-less request.
+    ui = makeWebUI(start_server=True, port=0)
+    try:
+        host, port = ui.address
+        base = "http://127.0.0.1:%d" % port
+
+        thread, box = runInThread(lambda: ui.promptForText("Your name?"))
+        waitForScreen(ui, "prompt")
+
+        request = urllib.request.Request(
+            base + "/input",
+            data=b"not valid json",
+            method="POST",
+        )
+        urllib.request.urlopen(request, timeout=2).read()
+        thread.join(timeout=2)
+        assert box["result"] == ""
     finally:
         ui.cleanup()
