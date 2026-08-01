@@ -1408,9 +1408,11 @@ def test_takeTheHelm_back_sails_nobody():
 
 
 def test_a_voyage_sails_every_leg_costs_days_and_comes_home():
-    # prepare - the shortest plan, full stores. randint is pinned to 0 so no
-    # event does any hull damage, which is what would otherwise cut a voyage
-    # short before its last leg (see the foundering test below).
+    # prepare - the shortest plan, full stores. Both dice are pinned: randint
+    # to 0 so nothing damages the hull, and random high so the starvation roll
+    # never lands - events that eat stores can otherwise empty a full load and
+    # starve a small crew to nothing on the last leg, which founders her (see
+    # the foundering test below).
     docksInstance, boat = createSailingDocks()
     plan = adventures.VOYAGE_PLANS[0]
     docksInstance.userInterface.showOptions = MagicMock(
@@ -1421,7 +1423,8 @@ def test_a_voyage_sails_every_leg_costs_days_and_comes_home():
 
     # call
     with patch("src.business.adventures.random.randint", return_value=0):
-        docksInstance.takeTheHelm()
+        with patch("src.business.adventures.random.random", return_value=0.99):
+            docksInstance.takeTheHelm()
 
     # check - a day per leg, and she's back in the fleet
     assert docksInstance.timeService.day == startingDay + plan["legs"]
@@ -1460,8 +1463,8 @@ def test_a_voyage_that_founders_ends_early():
 
 
 def test_a_voyage_pays_out_what_it_brought_home():
-    # prepare - pinned so nothing damages the hull and the voyage runs full
-    # length; the payout is then the legs' own earnings
+    # prepare - both dice pinned so the voyage runs its full length; the
+    # payout is then the legs' own earnings
     docksInstance, boat = createSailingDocks(role=boats.ROLE_PIRACY)
     docksInstance.userInterface.showOptions = MagicMock(
         side_effect=voyageChooser("Marauder", "A short run", "Full stores")
@@ -1470,7 +1473,8 @@ def test_a_voyage_pays_out_what_it_brought_home():
 
     # call
     with patch("src.business.adventures.random.randint", return_value=0):
-        docksInstance.takeTheHelm()
+        with patch("src.business.adventures.random.random", return_value=0.99):
+            docksInstance.takeTheHelm()
 
     # check
     assert docksInstance.stats.totalMoneyFromVoyages > 0
