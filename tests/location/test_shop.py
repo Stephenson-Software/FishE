@@ -5,6 +5,7 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
+from src.business import business
 from unittest.mock import MagicMock
 
 
@@ -210,7 +211,10 @@ def test_buyBetterBait_refused_at_cap():
     assert shopInstance.player.fishMultiplier == MAX_FISH_MULTIPLIER
     assert shopInstance.player.money == 10000
     assert shopInstance.player.priceForBait == priceBefore
-    assert shopInstance.currentPrompt.text == "Your bait is already the best money can buy!"
+    assert (
+        shopInstance.currentPrompt.text
+        == "Your bait is already the best money can buy!"
+    )
 
 
 def test_buyBetterRod():
@@ -261,12 +265,14 @@ def test_buyBetterRod_refused_at_cap():
     # check - no purchase past the cap
     assert shopInstance.player.rodLevel == MAX_ROD_LEVEL
     assert shopInstance.player.money == 1000000
-    assert shopInstance.currentPrompt.text == "Your rod is already the finest in the village!"
+    assert (
+        shopInstance.currentPrompt.text
+        == "Your rod is already the finest in the village!"
+    )
 
 
 def test_sellFish_limited_by_shop_budget():
     # prepare - a haul worth far more than the shop's daily budget
-    from src.fish import fish
     from src.location.shop import SHOP_DAILY_BUDGET
 
     shopInstance = createShop()
@@ -279,7 +285,9 @@ def test_sellFish_limited_by_shop_budget():
 
     # check - the shop spent (about) its whole budget and some fish remain unsold
     assert shopInstance.player.money <= SHOP_DAILY_BUDGET
-    assert shopInstance.player.money > SHOP_DAILY_BUDGET - 25  # within one fish of the cap
+    assert (
+        shopInstance.player.money > SHOP_DAILY_BUDGET - 25
+    )  # within one fish of the cap
     assert shopInstance.money < 25  # budget nearly exhausted
     assert shopInstance.player.fishCount > 0  # leftovers carried over
     assert "out of money for today" in shopInstance.currentPrompt.text
@@ -313,3 +321,43 @@ def test_sellFish_no_fish_message():
 
     # check
     assert shopInstance.currentPrompt.text == "You have no fish to sell."
+
+
+def test_gilbert_crew_customer_question_is_locked_until_someone_is_hired():
+    # prepare
+    shopInstance = createShop()
+
+    # call
+    questions = [
+        option["question"] for option in shopInstance.npc.get_dialogue_options()
+    ]
+
+    # check
+    assert "Do my crew shop here?" not in questions
+
+    # prepare - hire a villager
+    shopInstance.player.hasBoat = True
+    business.hireWorker(shopInstance.player, "Marta Kell")
+
+    # call
+    options = shopInstance.npc.get_dialogue_options()
+    questions = [option["question"] for option in options]
+
+    # check - Gilbert now recognises them across the counter
+    assert "Do my crew shop here?" in questions
+    index = questions.index("Do my crew shop here?")
+    assert "Marta Kell" in shopInstance.npc.get_dialogue_response(index)
+
+
+def test_gilbert_crew_customer_dialogue_names_a_whole_crew():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.player.hasBoat = True
+    business.hireWorker(shopInstance.player, "Marta Kell")
+    business.hireWorker(shopInstance.player, "Owen Brackish")
+
+    # call
+    response = shopInstance._crewCustomerDialogue()
+
+    # check
+    assert "Marta Kell and Owen Brackish" in response

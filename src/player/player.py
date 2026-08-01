@@ -26,6 +26,12 @@ class Player:
         # upgrades (0 = no boat); businessName is purely cosmetic ownership flavor.
         self.hasBoat = False
         self.workers = 0
+        # Names of the villagers hired onto the crew (see src/npc/villagers).
+        # workers stays the authoritative headcount - saves made before crews
+        # had names have workers without any entries here, and those unnamed
+        # hands are still real crew - so this list is never longer than
+        # workers (business._trimCrewRoster enforces that).
+        self.hiredWorkers = []
         self.boatTier = 0
         self.businessName = ""
         # Home ownership: a second, independent property track (see

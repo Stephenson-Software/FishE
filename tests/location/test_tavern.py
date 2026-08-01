@@ -5,6 +5,7 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
+from src.business import business
 from unittest.mock import MagicMock, patch
 
 
@@ -586,3 +587,48 @@ def test_getDrunk_loses_money_in_drunken_stupor():
     assert tavernInstance.player.money == 72  # 100 - 10 - int(90 * 0.2)
     assert tavernInstance.stats.moneyLostWhileDrunk == 18
     assert "In your drunken stupor, you lost $18!" in tavernInstance.currentPrompt.text
+
+
+def test_old_tom_crew_question_is_locked_until_someone_is_hired():
+    # prepare
+    tavernInstance = createTavern()
+
+    # call
+    questions = [
+        option["question"] for option in tavernInstance.npc.get_dialogue_options()
+    ]
+
+    # check
+    assert "Do my crew drink in here?" not in questions
+
+    # prepare - hire a villager and cover their wages
+    tavernInstance.player.hasBoat = True
+    tavernInstance.player.money = 1000
+    business.hireWorker(tavernInstance.player, "Marta Kell")
+
+    # call
+    options = tavernInstance.npc.get_dialogue_options()
+    questions = [option["question"] for option in options]
+
+    # check
+    assert "Do my crew drink in here?" in questions
+    index = questions.index("Do my crew drink in here?")
+    response = tavernInstance.npc.get_dialogue_response(index)
+    assert "Marta Kell" in response
+    assert "not one of them's had a bad word" in response
+
+
+def test_old_tom_crew_dialogue_warns_about_unpaid_wages():
+    # prepare - a crew whose payroll the player can't cover
+    tavernInstance = createTavern()
+    tavernInstance.player.hasBoat = True
+    business.hireWorker(tavernInstance.player, "Marta Kell")
+    business.hireWorker(tavernInstance.player, "Owen Brackish")
+    tavernInstance.player.money = 5
+
+    # call
+    response = tavernInstance._crewDialogue()
+
+    # check - Old Tom passes on what the crew are saying at the bar
+    assert "payday" in response
+    assert "$%d a day" % (2 * business.WORKER_DAILY_WAGE) in response

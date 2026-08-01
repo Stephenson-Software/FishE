@@ -18,6 +18,7 @@ class PlayerJsonReaderWriter:
             "fishByType": player.fishByType,
             "hasBoat": player.hasBoat,
             "workers": player.workers,
+            "hiredWorkers": player.hiredWorkers,
             "boatTier": player.boatTier,
             "businessName": player.businessName,
             "homeTier": player.homeTier,
@@ -39,6 +40,7 @@ class PlayerJsonReaderWriter:
         player.fishByType = playerJson.get("fishByType", player.fishByType)
         player.hasBoat = playerJson.get("hasBoat", player.hasBoat)
         player.workers = playerJson.get("workers", player.workers)
+        player.hiredWorkers = playerJson.get("hiredWorkers", player.hiredWorkers)
         player.boatTier = playerJson.get("boatTier", player.boatTier)
         player.businessName = playerJson.get("businessName", player.businessName)
         player.homeTier = playerJson.get("homeTier", player.homeTier)

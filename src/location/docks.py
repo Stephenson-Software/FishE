@@ -7,6 +7,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
+from npc import villagers
 from fish import fish
 from business import business
 from housing import housing
@@ -84,6 +85,13 @@ class Docks:
                     "question": "How's my fishing business doing?",
                     "response": self._businessDialogue,
                 },
+                {
+                    # Sam only has villagers to gossip about once you've hired
+                    # some - see NPC.get_dialogue_options.
+                    "question": "What do you make of the crew I hired?",
+                    "response": self._crewDialogue,
+                    "condition": lambda: bool(self.player.hiredWorkers),
+                },
             ],
         )
 
@@ -97,6 +105,11 @@ class Docks:
             "Go to Bank",
             "Manage Boat & Crew",
         ]
+        # Appended (rather than slotted in next to the other "Talk to" option)
+        # so the numbering of everything above stays put whether or not the
+        # player has anyone to talk to.
+        if self.player.hiredWorkers:
+            li.append("Talk to Your Crew")
         if self.player.hasBoat and self.player.businessName:
             descriptor = (
                 "%s is docked and ready for the day." % self.player.businessName
@@ -141,6 +154,10 @@ class Docks:
             self.manageBusiness()
             return LocationType.DOCKS
 
+        elif input == "8" and self.player.hiredWorkers:
+            self.talkToCrew()
+            return LocationType.DOCKS
+
     def _businessDialogue(self):
         """Sam's take on the player's fishing business, staged by boat tier and
         crew size so it reflects real progress rather than being fixed text."""
@@ -172,6 +189,48 @@ class Docks:
             "Never thought I'd see an outfit like that around here." % name
         )
 
+    def _crewDialogue(self):
+        """Sam's read on the specific villagers aboard - he grew up with all of
+        them, so hiring anyone gives him something new to say."""
+        described = []
+        for name in self.player.hiredWorkers:
+            villager = villagers.getVillager(name)
+            if villager is None:
+                described.append(name)
+            else:
+                described.append("%s on %s" % (name, villager["specialty"]))
+        text = (
+            "You've got %s. I've known every one of 'em since they were "
+            "knee-high - you picked well." % villagers.joinNames(described)
+        )
+        unnamed = self.player.workers - len(self.player.hiredWorkers)
+        if unnamed > 0:
+            text += " And %d hand%s besides, whose name I never did catch." % (
+                unnamed,
+                "s" if unnamed != 1 else "",
+            )
+        return text
+
+    def talkToCrew(self):
+        """Pick a hired villager to talk to. Their conversation is separate
+        from the village NPCs' - see villagers.createCrewNPC."""
+        while True:
+            options = list(self.player.hiredWorkers)
+            options.append("Back")
+            choice = int(
+                self.userInterface.showOptions(
+                    "Your crew are working the boat. Who would you like to " "talk to?",
+                    options,
+                )
+            )
+            if choice == len(options):
+                self.currentPrompt.text = "What would you like to do?"
+                return
+            name = self.player.hiredWorkers[choice - 1]
+            self.userInterface.showInteractiveDialogue(
+                villagers.createCrewNPC(self.player, name)
+            )
+
     def _businessStatus(self):
         if not self.player.hasBoat:
             starter = business.tierInfo(1)
@@ -183,7 +242,7 @@ class Docks:
         tier = business.currentTier(self.player)
         info = business.tierInfo(tier)
         name = self.player.businessName or "Unnamed Fishing Co."
-        return (
+        status = (
             "%s - %s (tier %d/%d)\n"
             "Crew: %d/%d workers. Each catches %d fish per day for $%d in "
             "wages, paid automatically every new day."
@@ -198,6 +257,9 @@ class Docks:
                 business.WORKER_DAILY_WAGE,
             )
         )
+        if self.player.hiredWorkers:
+            status += "\nAboard: %s." % villagers.joinNames(self.player.hiredWorkers)
+        return status
 
     def manageBusiness(self):
         while True:
@@ -212,7 +274,7 @@ class Docks:
                 info = business.tierInfo(tier)
                 if self.player.workers < info["maxWorkers"]:
                     options.append(
-                        "Hire a Worker (+%d fish/day for $%d/day)"
+                        "Hire a Villager (+%d fish/day for $%d/day)"
                         % (info["fishPerDay"], business.WORKER_DAILY_WAGE)
                     )
                     actions.append("hire")
@@ -249,14 +311,9 @@ class Docks:
                 else:
                     self.currentPrompt.text = "You can't afford a boat yet."
             elif action == "hire":
-                self.player.workers += 1
-                self.stats.totalWorkersHired += 1
-                self.currentPrompt.text = (
-                    "You hired a worker. They'll fish each day for their wage."
-                )
+                self._hireVillager()
             elif action == "dismiss":
-                self.player.workers -= 1
-                self.currentPrompt.text = "You let a worker go."
+                self._dismissWorker()
             elif action == "sell_boat":
                 tier = business.currentTier(self.player)
                 info = business.tierInfo(tier)
@@ -279,6 +336,60 @@ class Docks:
             elif action == "back":
                 self.currentPrompt.text = "What would you like to do?"
                 return
+
+    def _hireVillager(self):
+        """Pick which villager joins the crew. Hiring is a choice of person
+        rather than a headcount bump, so each hire opens up a conversation
+        the player couldn't have before."""
+        available = villagers.availableVillagers(self.player)
+        if not available:
+            self.currentPrompt.text = (
+                "Nobody left in the village is looking for a berth right now."
+            )
+            return
+
+        options = ["%s - %s" % (v["name"], v["blurb"]) for v in available]
+        options.append("Back")
+        choice = int(
+            self.userInterface.showOptions(
+                "Sam points out who's looking for work. Any hand you take on "
+                "costs $%d a day in wages." % business.WORKER_DAILY_WAGE,
+                options,
+            )
+        )
+        if choice == len(options):
+            return
+
+        villager = available[choice - 1]
+        if business.hireWorker(self.player, villager["name"]):
+            self.stats.totalWorkersHired += 1
+            self.currentPrompt.text = (
+                "You hired %s. They'll fish each day for their wage - come "
+                "talk to them at the docks." % villager["name"]
+            )
+        else:
+            self.currentPrompt.text = "There's no room aboard for another hand."
+
+    def _dismissWorker(self):
+        """Pick which hand leaves the crew. Unnamed hands from an older save
+        are listed as a group, since there's no one in particular to name."""
+        options = list(self.player.hiredWorkers)
+        unnamed = self.player.workers - len(self.player.hiredWorkers)
+        if unnamed > 0:
+            options.append("An unnamed deckhand (%d aboard)" % unnamed)
+        options.append("Back")
+
+        choice = int(self.userInterface.showOptions("Who are you letting go?", options))
+        if choice == len(options):
+            return
+
+        if choice <= len(self.player.hiredWorkers):
+            name = self.player.hiredWorkers[choice - 1]
+            business.dismissWorker(self.player, name)
+            self.currentPrompt.text = "You let %s go." % name
+        else:
+            business.dismissWorker(self.player)
+            self.currentPrompt.text = "You let an unnamed deckhand go."
 
     def _weatherDescriptor(self):
         """Flavour text for the current day's weather, shown alongside the

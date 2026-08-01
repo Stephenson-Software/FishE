@@ -392,3 +392,38 @@ def test_createPlayerFromJson_outOfRangeHomeTier_raisesValidationError():
     # call/check
     with pytest.raises(ValidationError):
         playerJsonReaderWriter.createPlayerFromJson(playerJson)
+
+
+def test_hired_workers_round_trip():
+    # prepare - a crew of named villagers
+    readerWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.hasBoat = True
+    player.workers = 2
+    player.hiredWorkers = ["Marta Kell", "Owen Brackish"]
+
+    # call
+    playerJson = readerWriter.createJsonFromPlayer(player)
+    loaded = readerWriter.createPlayerFromJson(playerJson)
+
+    # check - the crew survives a save/load, not just the headcount
+    assert playerJson["hiredWorkers"] == ["Marta Kell", "Owen Brackish"]
+    assert loaded.workers == 2
+    assert loaded.hiredWorkers == ["Marta Kell", "Owen Brackish"]
+
+
+def test_save_without_hired_workers_loads_with_an_empty_crew():
+    # prepare - a save written before crews had names
+    readerWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    player.hasBoat = True
+    player.workers = 3
+    legacyJson = readerWriter.createJsonFromPlayer(player)
+    del legacyJson["hiredWorkers"]
+
+    # call
+    loaded = readerWriter.createPlayerFromJson(legacyJson)
+
+    # check - the headcount is kept; those hands just have no names
+    assert loaded.workers == 3
+    assert loaded.hiredWorkers == []

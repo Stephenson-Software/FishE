@@ -292,3 +292,47 @@ def test_showBusy_waits_a_fractional_second_in_one_step():
 
     # check - a sub-second wait isn't rounded up into a full second
     assert [call.args[0] for call in sleep.call_args_list] == [0.5]
+
+
+def printedOutput(printMock):
+    """Everything a mocked print() was handed, as one searchable string."""
+    return " ".join(
+        " ".join(str(arg) for arg in call.args) for call in printMock.call_args_list
+    )
+
+
+def test_showInteractiveDialogue_shows_only_unlocked_options():
+    # setup - the console overrides showInteractiveDialogue, so it needs its
+    # own check that conditional options are filtered the same way
+    from src.npc.npc import NPC
+
+    userInterfaceInstance = createUserInterface()
+    unlocked = []
+    dialogue_options = [
+        {"question": "Always", "response": "A"},
+        {"question": "Locked", "response": "B", "condition": lambda: bool(unlocked)},
+    ]
+    npc = NPC("Test NPC", "A test character", dialogue_options)
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call - while locked, "2" is [Back]
+    with patch.object(userInterface, "print", create=True) as printed:
+        userInterface.input = MagicMock(side_effect=["2"])
+        userInterfaceInstance.showInteractiveDialogue(npc)
+
+    # check - the locked question was never offered
+    printedText = printedOutput(printed)
+    assert "Always" in printedText
+    assert "Locked" not in printedText
+
+    # call - unlocking it offers the question and shows its response
+    unlocked.append(1)
+    with patch.object(userInterface, "print", create=True) as printed:
+        userInterface.input = MagicMock(side_effect=["2", "", "3"])
+        userInterfaceInstance.showInteractiveDialogue(npc)
+
+    # check
+    printedText = printedOutput(printed)
+    assert "Locked" in printedText
+    assert "Test NPC: B" in printedText

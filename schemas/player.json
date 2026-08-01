@@ -44,6 +44,12 @@
             "type": "integer",
             "minimum": 0
         },
+        "hiredWorkers": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
         "boatTier": {
             "type": "integer",
             "minimum": 0

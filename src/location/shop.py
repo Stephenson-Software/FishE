@@ -5,6 +5,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
+from npc import villagers
 from fish import fish
 from business import business
 
@@ -55,44 +56,50 @@ class Shop:
                 {
                     "question": "Tell me about yourself.",
                     "response": "I've been running this shop for thirty years, ever since I inherited it from my father. "
-                               "I've seen many fishermen come and go, but the best ones always come back for quality bait. "
-                               "I may not fish much anymore, but I know good gear when I see it!"
+                    "I've seen many fishermen come and go, but the best ones always come back for quality bait. "
+                    "I may not fish much anymore, but I know good gear when I see it!",
                 },
                 {
                     "question": "What do you sell here?",
                     "response": "I deal in all things fishing! I'll buy any fish you catch - the price varies, "
-                               "but you can expect $3 to $5 per fish. I also sell better bait that'll help you catch more fish. "
-                               "The price goes up each time you upgrade, but trust me, it's worth it! "
-                               "Better bait means more fish, and more fish means more money!"
+                    "but you can expect $3 to $5 per fish. I also sell better bait that'll help you catch more fish. "
+                    "The price goes up each time you upgrade, but trust me, it's worth it! "
+                    "Better bait means more fish, and more fish means more money!",
                 },
                 {
                     "question": "How does fishing work?",
                     "response": "Ah, fishing! Head down to the docks when you've got some energy. "
-                               "You'll spend a few hours out there, and each hour costs 10 energy. "
-                               "When a fish bites, you need to press Enter quickly - within 2 seconds! "
-                               "Your success rate determines how many fish you catch. "
-                               "Better bait from my shop will multiply your catch!"
+                    "You'll spend a few hours out there, and each hour costs 10 energy. "
+                    "When a fish bites, you need to press Enter quickly - within 2 seconds! "
+                    "Your success rate determines how many fish you catch. "
+                    "Better bait from my shop will multiply your catch!",
                 },
                 {
                     "question": "Tell me about the bait upgrades.",
                     "response": "Starting bait is decent, but my premium bait? That's where the magic happens! "
-                               "Each upgrade increases your fish multiplier by 1. So if you normally catch 5 fish, "
-                               "with a 2x multiplier you'll catch 10! The bait gets more expensive each time - "
-                               "starts at one price then increases by 25% with each purchase. "
-                               "But serious fishermen know it's the best investment you can make!"
+                    "Each upgrade increases your fish multiplier by 1. So if you normally catch 5 fish, "
+                    "with a 2x multiplier you'll catch 10! The bait gets more expensive each time - "
+                    "starts at one price then increases by 25% with each purchase. "
+                    "But serious fishermen know it's the best investment you can make!",
                 },
                 {
                     "question": "Any tips for selling fish?",
                     "response": "Well, the price per fish is random between $3 and $5, so sometimes you get lucky! "
-                               "I'd say don't hoard your fish too long - sell regularly to keep money flowing. "
-                               "Use that money to buy better bait, which helps you catch more, which means more money! "
-                               "It's a beautiful cycle, really. And don't forget to save some money at the bank!"
+                    "I'd say don't hoard your fish too long - sell regularly to keep money flowing. "
+                    "Use that money to buy better bait, which helps you catch more, which means more money! "
+                    "It's a beautiful cycle, really. And don't forget to save some money at the bank!",
                 },
                 {
                     "question": "Have you noticed my crew hauling in fish?",
                     "response": self._crewDialogue,
                 },
-            ]
+                {
+                    # Unlocked by hiring villagers - see NPC.get_dialogue_options.
+                    "question": "Do my crew shop here?",
+                    "response": self._crewCustomerDialogue,
+                    "condition": lambda: bool(self.player.hiredWorkers),
+                },
+            ],
         )
         # Daily budget for buying fish; refills when a new day begins.
         self.money = SHOP_DAILY_BUDGET
@@ -112,6 +119,23 @@ class Shop:
         return (
             "That I have! Word is your crew hauls in about %d fish a day. "
             "Keep that up and I might need a bigger vault!" % dailyCatch
+        )
+
+    def _crewCustomerDialogue(self):
+        """Gilbert's shopkeeper's-eye view of the villagers on the player's
+        payroll - he sees them across the counter, not on the water."""
+        crew = self.player.hiredWorkers
+        first = crew[0]
+        if len(crew) == 1:
+            return (
+                "%s does, aye - in here every few days for tackle. A hand "
+                "with wages in their pocket is a customer, and I've you to "
+                "thank for that." % first
+            )
+        return (
+            "They do! %s are all through that door regular now. Whole crews "
+            "spend better than lone fishermen ever did - keep hiring and I'll "
+            "have to widen the aisles." % villagers.joinNames(crew)
         )
 
     def run(self):

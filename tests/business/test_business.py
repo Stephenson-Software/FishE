@@ -186,3 +186,200 @@ def test_sellBoat_fails_when_no_boat_owned():
     # check - nothing changes
     assert sold is False
     assert player.money == startingMoney
+
+
+def test_hireWorker_records_the_villager_by_name():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+
+    # call
+    hired = business.hireWorker(player, "Marta Kell")
+
+    # check
+    assert hired is True
+    assert player.workers == 1
+    assert player.hiredWorkers == ["Marta Kell"]
+
+
+def test_hireWorker_without_a_name_adds_an_unnamed_hand():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+
+    # call
+    hired = business.hireWorker(player)
+
+    # check - the headcount grows without a roster entry
+    assert hired is True
+    assert player.workers == 1
+    assert player.hiredWorkers == []
+
+
+def test_hireWorker_requires_a_boat():
+    # prepare
+    player = Player()
+
+    # call
+    hired = business.hireWorker(player, "Marta Kell")
+
+    # check
+    assert hired is False
+    assert player.workers == 0
+    assert player.hiredWorkers == []
+
+
+def test_hireWorker_refuses_a_full_crew():
+    # prepare - every berth on the Rowboat taken
+    player = Player()
+    player.hasBoat = True
+    player.boatTier = 1
+    player.workers = business.tierInfo(1)["maxWorkers"]
+
+    # call
+    hired = business.hireWorker(player, "Marta Kell")
+
+    # check
+    assert hired is False
+    assert player.workers == business.tierInfo(1)["maxWorkers"]
+
+
+def test_hireWorker_refuses_someone_already_aboard():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+    business.hireWorker(player, "Marta Kell")
+
+    # call
+    hired = business.hireWorker(player, "Marta Kell")
+
+    # check - nobody works two berths
+    assert hired is False
+    assert player.workers == 1
+    assert player.hiredWorkers == ["Marta Kell"]
+
+
+def test_dismissWorker_by_name():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+    business.hireWorker(player, "Marta Kell")
+    business.hireWorker(player, "Owen Brackish")
+
+    # call
+    dismissed = business.dismissWorker(player, "Marta Kell")
+
+    # check
+    assert dismissed is True
+    assert player.workers == 1
+    assert player.hiredWorkers == ["Owen Brackish"]
+
+
+def test_dismissWorker_without_a_name_drops_an_unnamed_hand_first():
+    # prepare - a named villager alongside an unnamed hand from an older save
+    player = Player()
+    player.hasBoat = True
+    player.workers = 1
+    business.hireWorker(player, "Marta Kell")
+
+    # call
+    dismissed = business.dismissWorker(player)
+
+    # check - the villager the player knows by name stays
+    assert dismissed is True
+    assert player.workers == 1
+    assert player.hiredWorkers == ["Marta Kell"]
+
+
+def test_dismissWorker_without_a_name_falls_back_to_a_named_hand():
+    # prepare - the whole crew is named, so there's no unnamed hand to drop
+    player = Player()
+    player.hasBoat = True
+    business.hireWorker(player, "Marta Kell")
+
+    # call
+    dismissed = business.dismissWorker(player)
+
+    # check - the roster never outlasts the headcount
+    assert dismissed is True
+    assert player.workers == 0
+    assert player.hiredWorkers == []
+
+
+def test_dismissWorker_with_an_unknown_name_changes_nothing():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+    business.hireWorker(player, "Marta Kell")
+
+    # call
+    dismissed = business.dismissWorker(player, "Nobody At All")
+
+    # check
+    assert dismissed is False
+    assert player.workers == 1
+    assert player.hiredWorkers == ["Marta Kell"]
+
+
+def test_dismissWorker_with_no_crew():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+
+    # call
+    dismissed = business.dismissWorker(player)
+
+    # check
+    assert dismissed is False
+    assert player.workers == 0
+
+
+def test_sellBoat_clears_the_named_crew_too():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+    player.boatTier = 1
+    business.hireWorker(player, "Marta Kell")
+    business.hireWorker(player, "Owen Brackish")
+
+    # call
+    business.sellBoat(player)
+
+    # check - nobody's left on a boat that no longer exists
+    assert player.workers == 0
+    assert player.hiredWorkers == []
+
+
+def test_unpaid_workers_quit_by_name():
+    # prepare - three named hands but only enough money for one day's wage
+    player = Player()
+    player.hasBoat = True
+    player.money = business.WORKER_DAILY_WAGE
+    business.hireWorker(player, "Marta Kell")
+    business.hireWorker(player, "Owen Brackish")
+    business.hireWorker(player, "Piety Shaw")
+
+    # call
+    summary = business.runDailyProduction(player)
+
+    # check - the most recent hires walk, and the summary names them
+    assert summary["quit"] == 2
+    assert summary["quitNames"] == ["Piety Shaw", "Owen Brackish"]
+    assert player.workers == 1
+    assert player.hiredWorkers == ["Marta Kell"]
+
+
+def test_paid_workers_stay_on_the_roster():
+    # prepare
+    player = Player()
+    player.hasBoat = True
+    player.money = 1000
+    business.hireWorker(player, "Marta Kell")
+
+    # call
+    summary = business.runDailyProduction(player)
+
+    # check
+    assert summary["quit"] == 0
+    assert summary["quitNames"] == []
+    assert player.hiredWorkers == ["Marta Kell"]

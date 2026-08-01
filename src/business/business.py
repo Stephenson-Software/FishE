@@ -1,8 +1,11 @@
 # @author Daniel McCoy Stephenson
 #
-# The fishing business: once the player owns a boat they can hire workers, who
-# bring in a passive catch each day in exchange for a daily wage. This turns
-# accumulated money into ongoing production rather than just a number that grows.
+# The fishing business: once the player owns a boat they can hire villagers as
+# workers, who bring in a passive catch each day in exchange for a daily wage.
+# This turns accumulated money into ongoing production rather than just a
+# number that grows. Every hire is a named villager (see src/npc/villagers)
+# the player can then talk to at the docks; player.workers remains the
+# headcount the production maths runs on.
 
 from fish import fish
 
@@ -60,6 +63,50 @@ def sellBoat(player):
     player.hasBoat = False
     player.boatTier = 0
     player.workers = 0
+    player.hiredWorkers = []
+    return True
+
+
+def _trimCrewRoster(player):
+    """Drop named crew until the roster fits the headcount, and return the
+    names dropped (most recent hire first).
+
+    workers counts every hand aboard, named or not, so any unnamed hands from
+    an older save are absorbed before a named villager is asked to leave."""
+    dropped = []
+    while len(player.hiredWorkers) > player.workers:
+        dropped.append(player.hiredWorkers.pop())
+    return dropped
+
+
+def hireWorker(player, name=None):
+    """Take on one more hand, optionally a named villager. Returns True if the
+    hire happened; False if there's no boat, no free berth, or that villager
+    is already on the crew."""
+    if not player.hasBoat:
+        return False
+    if player.workers >= tierInfo(currentTier(player))["maxWorkers"]:
+        return False
+    if name is not None:
+        if name in player.hiredWorkers:
+            return False
+        player.hiredWorkers.append(name)
+    player.workers += 1
+    return True
+
+
+def dismissWorker(player, name=None):
+    """Let one hand go. With a name, that specific villager leaves; without
+    one, an unnamed hand goes first (see _trimCrewRoster). Returns True if
+    someone was dismissed; False if there was no such crew member."""
+    if player.workers <= 0:
+        return False
+    if name is not None:
+        if name not in player.hiredWorkers:
+            return False
+        player.hiredWorkers.remove(name)
+    player.workers -= 1
+    _trimCrewRoster(player)
     return True
 
 
@@ -74,6 +121,7 @@ def runDailyProduction(player, stats=None):
         "fishCaught": 0,
         "wagesPaid": 0,
         "quit": 0,
+        "quitNames": [],
     }
     if not player.hasBoat or player.workers <= 0:
         return summary
@@ -85,6 +133,7 @@ def runDailyProduction(player, stats=None):
     if affordable < player.workers:
         summary["quit"] = player.workers - affordable
         player.workers = affordable
+        summary["quitNames"] = _trimCrewRoster(player)
     summary["workers"] = player.workers
 
     if affordable <= 0:

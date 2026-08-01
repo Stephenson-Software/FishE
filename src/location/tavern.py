@@ -8,6 +8,7 @@ from world.timeService import TimeService
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
+from npc import villagers
 from business import business
 from housing import housing
 
@@ -87,7 +88,31 @@ class Tavern:
                     "question": "What do you make of my fishing business?",
                     "response": self._businessDialogue,
                 },
+                {
+                    # Unlocked by hiring villagers - see NPC.get_dialogue_options.
+                    "question": "Do my crew drink in here?",
+                    "response": self._crewDialogue,
+                    "condition": lambda: bool(self.player.hiredWorkers),
+                },
             ],
+        )
+
+    def _crewDialogue(self):
+        """Old Tom's barside gossip about the villagers the player employs -
+        he hears what they say about the job once you're not in earshot."""
+        crew = self.player.hiredWorkers
+        payroll = self.player.workers * business.WORKER_DAILY_WAGE
+        if not self.player.operatorMode and self.player.money < payroll:
+            return (
+                "They do, and I'll be straight with you: %s have been asking "
+                "at the bar whether payday's coming. Wages run $%d a day and "
+                "you're carrying $%.2f. Sort it out before they walk."
+                % (villagers.joinNames(crew), payroll, self.player.money)
+            )
+        return (
+            "Every night! %s hold court at that table by the window, and not "
+            "one of them's had a bad word about you yet. That's rarer than "
+            "you'd think in this village." % villagers.joinNames(crew)
         )
 
     def _businessDialogue(self):
