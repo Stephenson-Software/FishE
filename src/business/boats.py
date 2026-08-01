@@ -591,19 +591,53 @@ def _lastCrewedBoat(player):
     return None
 
 
+def dailyCatch(boat):
+    """Fish a fishing boat's crew land in a day. Zero for every other role."""
+    if boat["role"] != ROLE_FISHING:
+        return 0
+    return business.tierInfo(boat["tier"])["fishPerDay"] * crewSize(boat)
+
+
 def describeBoat(boat):
-    """One line for a fleet listing: what it is, what it's for, who's aboard."""
-    line = "%s - %s, %s (crew %d/%d)" % (
+    """One scannable line for a fleet listing.
+
+    Role comes first because it's what the player is deciding about, and the
+    hull is labelled - "Fishing Fleet, Fishing" read as a stutter when the
+    tier name and the role name sat side by side unlabelled. The earnings are
+    here because a boat's whole purpose is what she brings in, and without
+    them there was no way to tell a boat that pays her wages from one that
+    doesn't."""
+    parts = [
         boat["name"],
-        business.tierInfo(boat["tier"])["name"],
         ROLES[boat["role"]]["name"],
-        crewSize(boat),
-        maxCrew(boat),
-    )
+        business.tierInfo(boat["tier"])["name"] + " hull",
+        "crew %d/%d" % (crewSize(boat), maxCrew(boat)),
+    ]
+    if isAtSea(boat):
+        parts.append("AT SEA")
+    elif crewSize(boat) == 0:
+        parts.append("idle - no crew, earning nothing")
+    elif boat["role"] == ROLE_FISHING:
+        parts.append("%d fish/day" % dailyCatch(boat))
+    else:
+        parts.append("$%d/day" % dailyIncome(boat))
+    line = " | ".join(parts)
     if boat["damage"] > 0:
-        line += ", %d%% damaged" % boat["damage"]
+        line += " | %d%% damaged" % boat["damage"]
         if not isSeaworthy(boat):
             line += " - CAN'T SAIL"
-    elif crewSize(boat) == 0:
-        line += " - idle, no crew"
     return line
+
+
+def fleetDailyIncome(player):
+    return sum(
+        dailyIncome(boat) for boat in player.boats if not isAtSea(boat)
+    )
+
+
+def fleetDailyCatch(player):
+    return sum(dailyCatch(boat) for boat in player.boats if not isAtSea(boat))
+
+
+def dailyPayroll(player):
+    return player.workers * business.WORKER_DAILY_WAGE

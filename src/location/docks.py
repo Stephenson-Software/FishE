@@ -274,25 +274,37 @@ class Docks:
                 "costs $%d." % (starter["name"], starter["cost"])
             )
         name = self.player.businessName or "Unnamed Fishing Co."
+        # Lead with the one number that decides everything else: is the fleet
+        # paying for itself? Before this the player had to multiply the crew
+        # count by the wage in their head and compare it to nothing.
+        income = boats.fleetDailyIncome(self.player)
+        catch = boats.fleetDailyCatch(self.player)
+        payroll = boats.dailyPayroll(self.player)
+        earning = "$%d" % income
+        if catch:
+            earning += " and %d fish" % catch
         lines = [
-            "%s - %d boat%s, %d crew at $%d/day each"
+            "%s - %d boat%s, %d crew"
+            % (name, len(self.player.boats), "s" if len(self.player.boats) != 1 else "", self.player.workers),
+            "Earning %s a day. Payroll $%d a day. Net $%d%s."
             % (
-                name,
-                len(self.player.boats),
-                "s" if len(self.player.boats) != 1 else "",
-                self.player.workers,
-                business.WORKER_DAILY_WAGE,
-            )
+                earning,
+                payroll,
+                income - payroll,
+                " plus the fish" if catch else "",
+            ),
+            "",
         ]
         for boat in self.player.boats:
             lines.append("  " + boats.describeBoat(boat))
         idle = boats.unassignedNames(self.player)
         idleHands = boats.unassignedHands(self.player)
         if idle or idleHands:
-            spare = list(idle) + (
-                ["%d unnamed hand(s)" % idleHands] if idleHands else []
+            spare = list(idle) + (["%d unnamed hand(s)" % idleHands] if idleHands else [])
+            lines.append(
+                "Ashore on full wages, earning nothing: %s"
+                % villagers.joinNames(spare)
             )
-            lines.append("Drawing wages with no berth: %s" % villagers.joinNames(spare))
         return "\n".join(lines)
 
     def manageFleet(self):
