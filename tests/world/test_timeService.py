@@ -1,3 +1,4 @@
+from src.business import boats
 from unittest.mock import patch
 
 from src.player.player import Player
@@ -121,8 +122,8 @@ def test_increaseDay_runs_business_production():
     from src.business import business
 
     timeService = createTimeService()
-    timeService.player.hasBoat = True
-    timeService.player.workers = 1
+    boats.addBoat(timeService.player, 1)
+    boats.hireWorker(timeService.player, "Marta Kell")
     timeService.player.money = 1000
     timeService.player.moneyInBank = 0
 

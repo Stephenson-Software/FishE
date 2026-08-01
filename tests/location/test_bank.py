@@ -1,3 +1,4 @@
+from src.business import boats
 from src.location.enum.locationType import LocationType
 from src.location import bank
 from src.player.player import Player
@@ -157,7 +158,7 @@ def test_npc_business_dialogue_no_boat():
 def test_npc_business_dialogue_no_crew():
     # prepare
     bankInstance = createBank()
-    bankInstance.player.hasBoat = True
+    boats.addBoat(bankInstance.player, 1)
 
     # check
     assert "rowboat and a dream" in bankInstance._businessDialogue()
@@ -166,7 +167,7 @@ def test_npc_business_dialogue_no_crew():
 def test_npc_business_dialogue_reports_wages_paid():
     # prepare
     bankInstance = createBank()
-    bankInstance.player.hasBoat = True
+    boats.addBoat(bankInstance.player, 1)
     bankInstance.player.workers = 2
     bankInstance.stats.totalWagesPaid = 240
 
@@ -179,8 +180,7 @@ def test_npc_business_dialogue_fleet_tier():
     from src.business import business
 
     bankInstance = createBank()
-    bankInstance.player.hasBoat = True
-    bankInstance.player.boatTier = len(business.BOAT_TIERS)
+    boats.addBoat(bankInstance.player, len(business.BOAT_TIERS))
     bankInstance.player.workers = 2
     bankInstance.stats.totalWagesPaid = 500
 

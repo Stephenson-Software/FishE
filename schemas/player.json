@@ -69,6 +69,55 @@
                 "minimum": 1,
                 "maximum": 3
             }
+        },
+        "boats": {
+            "type": "array",
+            "description": "The player's fleet; each boat has a role and its own assigned crew.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "tier": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "fishing",
+                            "hauling",
+                            "piracy",
+                            "transport"
+                        ]
+                    },
+                    "crew": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "hands": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "damage": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                    }
+                },
+                "required": [
+                    "id",
+                    "tier",
+                    "role"
+                ]
+            }
         }
     },
     "required": [

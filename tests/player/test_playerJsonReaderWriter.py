@@ -1,4 +1,5 @@
 from src.player import playerJsonReaderWriter
+from src.business import boats
 from src.player.player import Player
 import json
 import pytest
@@ -197,7 +198,7 @@ def test_business_fields_round_trip():
     # prepare
     playerJsonReaderWriter = createPlayerJsonReaderWriter()
     player = Player()
-    player.hasBoat = True
+    boats.addBoat(player, 1)
     player.workers = 3
 
     # call
@@ -215,8 +216,7 @@ def test_boatTier_and_businessName_round_trip():
     # prepare
     playerJsonReaderWriter = createPlayerJsonReaderWriter()
     player = Player()
-    player.hasBoat = True
-    player.boatTier = 2
+    boats.addBoat(player, 2)
     player.businessName = "Salty Sea Co."
 
     # call
@@ -398,7 +398,7 @@ def test_hired_workers_round_trip():
     # prepare - a crew of named villagers
     readerWriter = createPlayerJsonReaderWriter()
     player = Player()
-    player.hasBoat = True
+    boats.addBoat(player, 1)
     player.workers = 2
     player.hiredWorkers = ["Marta Kell", "Owen Brackish"]
 
@@ -416,7 +416,7 @@ def test_save_without_hired_workers_loads_with_an_empty_crew():
     # prepare - a save written before crews had names
     readerWriter = createPlayerJsonReaderWriter()
     player = Player()
-    player.hasBoat = True
+    boats.addBoat(player, 1)
     player.workers = 3
     legacyJson = readerWriter.createJsonFromPlayer(player)
     del legacyJson["hiredWorkers"]
@@ -427,3 +427,112 @@ def test_save_without_hired_workers_loads_with_an_empty_crew():
     # check - the headcount is kept; those hands just have no names
     assert loaded.workers == 3
     assert loaded.hiredWorkers == []
+
+
+def test_save_from_before_roles_migrates_into_one_fishing_boat():
+    # prepare - exactly what a save looked like before boats had roles: a flag,
+    # a tier, a headcount and a roster, with no "boats" key at all
+    readerWriter = createPlayerJsonReaderWriter()
+    legacyJson = {
+        "fishCount": 0,
+        "money": 100,
+        "moneyInBank": 1,
+        "fishMultiplier": 1,
+        "priceForBait": 50,
+        "energy": 60,
+        "hasBoat": True,
+        "boatTier": 2,
+        "workers": 5,
+        "hiredWorkers": ["Marta Kell", "Owen Brackish"],
+        "businessName": "Salty Dawn",
+    }
+
+    # call
+    player = readerWriter.createPlayerFromJson(legacyJson)
+
+    # check - one boat, at the tier they had, carrying the whole crew they had:
+    # nobody loses a boat or a hand by loading an old file
+    assert len(player.boats) == 1
+    boat = player.boats[0]
+    assert boat["tier"] == 2
+    assert boat["role"] == "fishing"
+    assert boat["name"] == "Salty Dawn"
+    assert boat["crew"] == ["Marta Kell", "Owen Brackish"]
+    assert boat["hands"] == 3  # the unnamed remainder of workers
+    assert player.hasBoat is True
+    assert player.boatTier == 2
+
+
+def test_save_from_before_roles_with_no_boat_migrates_to_an_empty_fleet():
+    # prepare
+    readerWriter = createPlayerJsonReaderWriter()
+    legacyJson = {
+        "fishCount": 0,
+        "money": 20,
+        "moneyInBank": 1,
+        "fishMultiplier": 1,
+        "priceForBait": 50,
+        "energy": 60,
+        "hasBoat": False,
+    }
+
+    # call
+    player = readerWriter.createPlayerFromJson(legacyJson)
+
+    # check
+    assert player.boats == []
+    assert player.hasBoat is False
+    assert player.boatTier == 0
+
+
+def test_fleet_round_trips():
+    # prepare - a mixed fleet
+    readerWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    boats.addBoat(player, 2, boats.ROLE_PIRACY, "Marauder")
+    boats.addBoat(player, 1, boats.ROLE_HAULING, "Mule")
+    boats.hireWorker(player, "Marta Kell")
+    boats.damageBoat(player.boats[0], 25)
+
+    # call
+    playerJson = readerWriter.createJsonFromPlayer(player)
+    restored = readerWriter.createPlayerFromJson(playerJson)
+
+    # check
+    assert restored.boats == player.boats
+    assert restored.boatTier == 2
+    assert restored.boats[0]["damage"] == 25
+
+
+def test_a_partial_boat_entry_loads_with_defaults():
+    # prepare - a hand-edited save missing most of a boat's fields
+    readerWriter = createPlayerJsonReaderWriter()
+    playerJson = readerWriter.createJsonFromPlayer(Player())
+    playerJson["boats"] = [{"id": 4, "tier": 2, "role": "piracy"}]
+
+    # call
+    player = readerWriter.createPlayerFromJson(playerJson)
+
+    # check - the gaps are filled rather than crashing the fleet on load
+    boat = player.boats[0]
+    assert boat["id"] == 4
+    assert boat["crew"] == []
+    assert boat["hands"] == 0
+    assert boat["damage"] == 0
+    assert boat["name"]
+
+
+def test_derived_boat_fields_are_still_written_for_older_builds():
+    # prepare
+    readerWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    boats.addBoat(player, 1)
+    boats.addBoat(player, 3, boats.ROLE_PIRACY)
+
+    # call
+    playerJson = readerWriter.createJsonFromPlayer(player)
+
+    # check - a build from before roles reads these two and still knows the
+    # player owns a boat and how good their best one is
+    assert playerJson["hasBoat"] is True
+    assert playerJson["boatTier"] == 3

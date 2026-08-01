@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from src.business import business
+from src.business import boats
 from src.business import export
 from src.player.player import Player
 from src.stats.stats import Stats
@@ -9,8 +10,7 @@ from src.stats.stats import Stats
 
 def createExporter(tier=2, money=1000, fish=None):
     player = Player()
-    player.hasBoat = True
-    player.boatTier = tier
+    boats.addBoat(player, tier)
     player.money = money
     for species, count in (fish or {}).items():
         player.addFish(species, count)

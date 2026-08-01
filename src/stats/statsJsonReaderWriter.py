@@ -23,6 +23,13 @@ class StatsJsonReaderWriter:
             "totalFishExported": stats.totalFishExported,
             "totalMoneyFromExports": stats.totalMoneyFromExports,
             "totalShippingPaid": stats.totalShippingPaid,
+            "totalHaulingContracts": stats.totalHaulingContracts,
+            "totalTransportRuns": stats.totalTransportRuns,
+            "totalRaids": stats.totalRaids,
+            "totalPlunder": stats.totalPlunder,
+            "totalMoneyFromVoyages": stats.totalMoneyFromVoyages,
+            "crewLostToPiracy": stats.crewLostToPiracy,
+            "boatsOwned": stats.boatsOwned,
             "totalRentalIncome": stats.totalRentalIncome,
             "highestHomeTier": stats.highestHomeTier,
             "totalPropertiesBought": stats.totalPropertiesBought,
@@ -71,6 +78,21 @@ class StatsJsonReaderWriter:
         stats.totalShippingPaid = statsJson.get(
             "totalShippingPaid", stats.totalShippingPaid
         )
+        stats.totalHaulingContracts = statsJson.get(
+            "totalHaulingContracts", stats.totalHaulingContracts
+        )
+        stats.totalTransportRuns = statsJson.get(
+            "totalTransportRuns", stats.totalTransportRuns
+        )
+        stats.totalRaids = statsJson.get("totalRaids", stats.totalRaids)
+        stats.totalPlunder = statsJson.get("totalPlunder", stats.totalPlunder)
+        stats.totalMoneyFromVoyages = statsJson.get(
+            "totalMoneyFromVoyages", stats.totalMoneyFromVoyages
+        )
+        stats.crewLostToPiracy = statsJson.get(
+            "crewLostToPiracy", stats.crewLostToPiracy
+        )
+        stats.boatsOwned = statsJson.get("boatsOwned", stats.boatsOwned)
         stats.totalRentalIncome = statsJson.get(
             "totalRentalIncome", stats.totalRentalIncome
         )

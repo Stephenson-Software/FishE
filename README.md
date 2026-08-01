@@ -19,13 +19,34 @@ The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dial
 ### Your Goal
 Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the bank). Your progress toward the goal is shown in the status header, and reaching it earns a one-time victory — after which you're free to keep fishing or retire from the Home menu.
 
-### Fishing Business
-Once you can afford it, buy a **boat** at the docks ("Manage Boat & Crew") and **hire villagers** onto your crew. Every hire is a specific person — Marta Kell the net-mender, Iris Dunmore who reads the weather, and a dozen others — each with their own backstory and specialty, listed alongside the wage before you take them on. Each day your crew brings in a passive catch in exchange for a daily wage, turning saved-up money into ongoing production. If you over-hire and can't make payroll, the hands you can't pay quit, so keep enough cash on hand to cover wages. Changed your mind? You can **sell the boat** back at any time for a portion of its cost, same as walking away from a home or investment property — any remaining crew is let go along with it.
+### Your Fleet
+Once you can afford it, buy a **boat** at the docks ("Manage Fleet") — and then another, and another. Every boat is dedicated to one of four **roles**, and you can re-dedicate her whenever you like:
 
-Hiring also opens up conversations you couldn't have before. **Talk to Your Crew** appears at the docks as soon as anyone is aboard, and each crew member has their own dialogue: how the work is going, what they make of the boat, whether the wages are turning up on time — with further questions unlocking as the outfit grows into them (a full crew, a named business, a whole Fishing Fleet). The villagers you already know react too: Sam sizes up who you hired, Gilbert notices them spending their wages in his shop, and Old Tom passes on what they say at the bar once you're out of earshot — including a warning when payday is looking doubtful.
+| Role | What she does |
+|---|---|
+| **Fishing** | Her crew bring in a catch every morning, automatically. The only role that catches anything. |
+| **Hauling** | Takes paid freight contracts, and her cargo hold raises how many fish an export run can carry. |
+| **Piracy** | Raids shipping lanes. Pays far better than honest work, and can cost you a crew member. |
+| **Transport** | Passenger runs: less money than freight, but they pay every time and never scratch the hull. |
+
+**Crew come from one shared roster.** You hire villagers by name (see below), and assign them to whichever boat you like — a new hire goes aboard the first boat with a free berth, and you can move anyone between boats from **Assign Crew to a Boat**. A second boat therefore means splitting the crew you have or hiring more, and since **wages are owed on every hand you've hired whether or not you found them a berth**, an idle boat is a real cost. If you can't make payroll, the hands you can't pay quit — the idle ones first.
+
+Boats can be renamed, upgraded through the same Rowboat → Trawler → Fishing Fleet ladder (each hull individually), repaired, and sold back for a portion of their cost. Selling a boat doesn't fire her crew: they come ashore and stay on the payroll until you give them another berth or let them go.
+
+### Sending Boats Out
+A fishing boat earns on her own each morning. The other three roles are things you *do*: choose **Send Out a Boat** at the docks, pick a boat, pick a job. Every run costs a day at sea, so your crew fish, wages come due and rent falls while you're away. Pay scales with the boat's tier and how many hands are aboard, so who you put where is what determines the payout.
+
+**Piracy** is the deep end. Every raid shows you its real odds before you commit — a Fishing Fleet with a full crew is about 90% to take the fishing skiffs off Saltmarsh, but under 50% against the escorted Thornhaven bullion run. Four things can happen:
+
+- **A rich take** — the strongbox alone pays half again over the usual haul.
+- **An ordinary take** — coin, plus whatever fish came off their hold, straight into yours to sell or export.
+- **Driven off** — nothing gained, and some damage taken running for it.
+- **A disaster** — heavy damage, and one of the villagers you hired by name doesn't come home. They're gone from the boat and off the roster for good.
+
+Damage is lasting: past halfway a boat can't sail at all until you pay the yard to put her right. That's what makes a raid above your weight a decision rather than a free roll.
 
 ### Exporting to Other Villages
-Gilbert's shop only has so much money each day, so once your crew is landing more fish than the village can absorb, the surplus just piles up. A **Trawler or better** can carry a hold out to neighbouring villages, which have no daily limit at all — choose **Export Fish to Other Villages** at the docks. Three markets are reachable: **Saltmarsh** down the coast (cheap freight, modest prices), **Kestrel Cove** (a real harbour town that pays well for a proper haul), and **Thornhaven**, the far city market, which only a **Fishing Fleet** can reach and which pays double the village rate.
+Gilbert's shop only has so much money each day, so once your crew is landing more fish than the village can absorb, the surplus just piles up. A **Trawler or better** can carry a hold out to neighbouring villages (and a boat dedicated to **hauling** carries half again as much), which have no daily limit at all — choose **Export Fish to Other Villages** at the docks. Three markets are reachable: **Saltmarsh** down the coast (cheap freight, modest prices), **Kestrel Cove** (a real harbour town that pays well for a proper haul), and **Thornhaven**, the far city market, which only a **Fishing Fleet** can reach and which pays double the village rate.
 
 Each market charges more freight for a better price, so which one is worth sailing to depends on how much is in the hold — the menu shows what your current load would fetch at each before you commit. Your boat's hold sets how many fish go per run (a Trawler carries 250, a Fishing Fleet 600), the best fish are loaded first, and anything that doesn't fit waits for the next run. Freight is charged before you sail, so a run can never put you in debt, and the round trip costs you a day — your crew fish, wages come due, and rent falls while you're away.
 
@@ -39,7 +60,7 @@ Separately from where you live, you can build a real-estate portfolio. At the ba
 Cast a line at the docks to spend a random 1-10 hours fishing (10 energy per hour, so you need at least 10 energy to start). When a fish bites, react as fast as you can to set the hook — the faster you react, the better the catch quality, and a better rod (bought at the shop) gives you more time to react. What you reel in also depends on the day: fish feed best at dawn and dusk and go quiet under the midday sun, and the weather — rolled fresh each morning and shown in the docks description — can help (rain) or hurt (storms) your haul on top of that. Which species you land is random and weighted by rarity, from common Minnows to rare, high-value Golden Koi.
 
 ### Milestones
-Lifetime stats — fish caught, money earned, hours spent fishing, crew hired, fish exported, homes owned, and more — unlock milestones as you reach their thresholds, from your very first catch up to owning the finest home in the village. Each milestone is announced once, the first time you reach it, even across save reloads.
+Lifetime stats — fish caught, money earned, hours spent fishing, crew hired, fish exported, raids run, homes owned, and more — unlock milestones as you reach their thresholds, from your very first catch up to owning the finest home in the village. Each milestone is announced once, the first time you reach it, even across save reloads.
 
 ### Selling Fish
 Sell your catch at the shop. The shop has a limited amount of money each day that refills overnight, so a very large haul may sell out the shop and need to be finished the next day — sell regularly, and park your earnings in the bank or reinvest them in gear and your crew. Once you outgrow the shop entirely, a big enough boat lets you ship the surplus out to other villages instead (see Exporting to Other Villages above).

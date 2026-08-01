@@ -10,7 +10,9 @@ from npc.npc import NPC
 from npc import villagers
 from fish import fish
 from business import business
+from business import boats
 from business import export
+from business import voyages
 from housing import housing
 
 
@@ -109,7 +111,7 @@ class Docks:
             "Go to Shop",
             "Go to Tavern",
             "Go to Bank",
-            "Manage Boat & Crew",
+            "Manage Fleet",
         ]
         actions = [
             "fish",
@@ -126,6 +128,9 @@ class Docks:
         if export.canExport(self.player):
             li.append("Export Fish to Other Villages")
             actions.append("export")
+        if voyages.readyBoats(self.player):
+            li.append("Send Out a Boat")
+            actions.append("voyage")
         if self.player.hasBoat and self.player.businessName:
             descriptor = (
                 "%s is docked and ready for the day." % self.player.businessName
@@ -170,7 +175,7 @@ class Docks:
             return LocationType.BANK
 
         elif action == "manage":
-            self.manageBusiness()
+            self.manageFleet()
             return LocationType.DOCKS
 
         elif action == "talk_crew":
@@ -179,6 +184,10 @@ class Docks:
 
         elif action == "export":
             self.exportFish()
+            return LocationType.DOCKS
+
+        elif action == "voyage":
+            self.sendOutBoat()
             return LocationType.DOCKS
 
     def _businessDialogue(self):
@@ -254,111 +263,291 @@ class Docks:
                 villagers.createCrewNPC(self.player, name)
             )
 
-    def _businessStatus(self):
-        if not self.player.hasBoat:
+    def _fleetStatus(self):
+        """The fleet at a glance: every boat, what it's for, who's on it, and
+        who's drawing wages without a berth."""
+        if not self.player.boats:
             starter = business.tierInfo(1)
             return (
-                "You have no boat. A boat lets you hire a crew that brings in a "
-                "passive catch each day. A %s costs $%d."
-                % (starter["name"], starter["cost"])
+                "You have no boats. A boat lets you hire a crew and dedicate "
+                "her to a trade - fishing, hauling, piracy or transport. A %s "
+                "costs $%d." % (starter["name"], starter["cost"])
             )
-        tier = business.currentTier(self.player)
-        info = business.tierInfo(tier)
         name = self.player.businessName or "Unnamed Fishing Co."
-        status = (
-            "%s - %s (tier %d/%d)\n"
-            "Crew: %d/%d workers. Each catches %d fish per day for $%d in "
-            "wages, paid automatically every new day."
+        lines = [
+            "%s - %d boat%s, %d crew at $%d/day each"
             % (
                 name,
-                info["name"],
-                tier,
-                len(business.BOAT_TIERS),
+                len(self.player.boats),
+                "s" if len(self.player.boats) != 1 else "",
                 self.player.workers,
-                info["maxWorkers"],
-                info["fishPerDay"],
                 business.WORKER_DAILY_WAGE,
             )
-        )
-        if self.player.hiredWorkers:
-            status += "\nAboard: %s." % villagers.joinNames(self.player.hiredWorkers)
-        return status
+        ]
+        for boat in self.player.boats:
+            lines.append("  " + boats.describeBoat(boat))
+        idle = boats.unassignedNames(self.player)
+        idleHands = boats.unassignedHands(self.player)
+        if idle or idleHands:
+            spare = list(idle) + (
+                ["%d unnamed hand(s)" % idleHands] if idleHands else []
+            )
+            lines.append("Drawing wages with no berth: %s" % villagers.joinNames(spare))
+        return "\n".join(lines)
 
-    def manageBusiness(self):
+    def manageFleet(self):
         while True:
             options = []
             actions = []
-            if not self.player.hasBoat:
-                starter = business.tierInfo(1)
-                options.append("Buy a %s ($%d)" % (starter["name"], starter["cost"]))
-                actions.append("buy_boat")
-            else:
-                tier = business.currentTier(self.player)
-                info = business.tierInfo(tier)
-                if self.player.workers < info["maxWorkers"]:
+
+            starter = business.tierInfo(1)
+            options.append("Buy a %s ($%d)" % (starter["name"], starter["cost"]))
+            actions.append("buy_boat")
+
+            if self.player.boats:
+                berths = boats.totalCrewBerths(self.player)
+                if self.player.workers < berths:
                     options.append(
-                        "Hire a Villager (+%d fish/day for $%d/day)"
-                        % (info["fishPerDay"], business.WORKER_DAILY_WAGE)
+                        "Hire a Villager ($%d/day)" % business.WORKER_DAILY_WAGE
                     )
                     actions.append("hire")
                 if self.player.workers > 0:
                     options.append("Dismiss a Worker")
                     actions.append("dismiss")
-                options.append("Sell the Boat ($%d)" % info["resaleValue"])
-                actions.append("sell_boat")
-                if tier < len(business.BOAT_TIERS):
-                    nextInfo = business.tierInfo(tier + 1)
-                    options.append(
-                        "Upgrade to a %s ($%d)" % (nextInfo["name"], nextInfo["cost"])
-                    )
+                    options.append("Assign Crew to a Boat")
+                    actions.append("assign")
+                options.append("Change a Boat's Role")
+                actions.append("role")
+                if any(boat["damage"] > 0 for boat in self.player.boats):
+                    options.append("Repair a Boat")
+                    actions.append("repair")
+                if any(
+                    boat["tier"] < len(business.BOAT_TIERS)
+                    for boat in self.player.boats
+                ):
+                    options.append("Upgrade a Boat")
                     actions.append("upgrade_boat")
+                options.append("Rename a Boat")
+                actions.append("rename_boat")
+                options.append("Sell a Boat")
+                actions.append("sell_boat")
                 options.append("Rename Business")
                 actions.append("rename")
             options.append("Back")
             actions.append("back")
 
-            choice = int(
-                self.userInterface.showOptions(self._businessStatus(), options)
-            )
+            choice = int(self.userInterface.showOptions(self._fleetStatus(), options))
             action = actions[choice - 1]
 
             if action == "buy_boat":
-                starter = business.tierInfo(1)
-                if self.player.canAfford(starter["cost"]):
-                    self.player.spendMoney(starter["cost"])
-                    self.player.hasBoat = True
-                    self.player.boatTier = 1
-                    self.currentPrompt.text = (
-                        "You bought a %s! Now hire a crew." % starter["name"]
-                    )
-                else:
-                    self.currentPrompt.text = "You can't afford a boat yet."
+                self._buyBoat()
             elif action == "hire":
                 self._hireVillager()
             elif action == "dismiss":
                 self._dismissWorker()
-            elif action == "sell_boat":
-                tier = business.currentTier(self.player)
-                info = business.tierInfo(tier)
-                business.sellBoat(self.player)
-                self.currentPrompt.text = "You sold the %s for $%d." % (
-                    info["name"],
-                    info["resaleValue"],
-                )
+            elif action == "assign":
+                self._assignCrew()
+            elif action == "role":
+                self._changeRole()
+            elif action == "repair":
+                self._repairBoat()
             elif action == "upgrade_boat":
-                tier = business.currentTier(self.player)
-                nextInfo = business.tierInfo(tier + 1)
-                if self.player.canAfford(nextInfo["cost"]):
-                    self.player.spendMoney(nextInfo["cost"])
-                    self.player.boatTier = tier + 1
-                    self.currentPrompt.text = "You upgraded to a %s!" % nextInfo["name"]
-                else:
-                    self.currentPrompt.text = "You can't afford that upgrade yet."
+                self._upgradeBoat()
+            elif action == "rename_boat":
+                self._renameBoat()
+            elif action == "sell_boat":
+                self._sellBoat()
             elif action == "rename":
                 self._renameBusiness()
             elif action == "back":
                 self.currentPrompt.text = "What would you like to do?"
                 return
+
+    def _pickBoat(self, prompt, candidates=None):
+        """Shared boat chooser. Returns the boat, or None if the player backed
+        out - every fleet action needs one and they should all read the same."""
+        candidates = self.player.boats if candidates is None else candidates
+        if not candidates:
+            return None
+        options = [boats.describeBoat(boat) for boat in candidates]
+        options.append("Back")
+        choice = int(self.userInterface.showOptions(prompt, options))
+        if choice == len(options):
+            return None
+        return candidates[choice - 1]
+
+    def _buyBoat(self):
+        starter = business.tierInfo(1)
+        if not self.player.canAfford(starter["cost"]):
+            self.currentPrompt.text = (
+                "A %s costs $%d and you're carrying $%.2f. Sell some fish "
+                "first." % (starter["name"], starter["cost"], self.player.money)
+            )
+            return
+        self.player.spendMoney(starter["cost"])
+        boat = boats.addBoat(self.player, 1)
+        self.stats.boatsOwned += 1
+        self.currentPrompt.text = (
+            "You bought a %s. She's a fishing boat for now - crew her up, or "
+            "change her role to put her to other work." % starter["name"]
+        )
+        self._renameBoatPrompt(boat, firstTime=True)
+
+    def _changeRole(self):
+        boat = self._pickBoat("Which boat are you re-dedicating?")
+        if boat is None:
+            return
+        options = []
+        for role in boats.ROLE_ORDER:
+            marker = " (current)" if role == boat["role"] else ""
+            options.append(
+                "%s - %s%s"
+                % (boats.ROLES[role]["name"], boats.ROLES[role]["summary"], marker)
+            )
+        options.append("Back")
+        choice = int(
+            self.userInterface.showOptions(
+                "What should %s be doing?\n\n%s"
+                % (
+                    boat["name"],
+                    "\n".join(
+                        "%s: %s" % (boats.ROLES[r]["name"], boats.ROLES[r]["detail"])
+                        for r in boats.ROLE_ORDER
+                    ),
+                ),
+                options,
+            )
+        )
+        if choice == len(options):
+            return
+        role = boats.ROLE_ORDER[choice - 1]
+        boats.setRole(self.player, boat["id"], role)
+        self.currentPrompt.text = "%s is now a %s boat." % (
+            boat["name"],
+            boats.ROLES[role]["name"].lower(),
+        )
+
+    def _assignCrew(self):
+        boat = self._pickBoat("Which boat are you crewing?")
+        if boat is None:
+            return
+        while True:
+            options = []
+            actions = []
+            for name in boat["crew"]:
+                options.append("Take %s off %s" % (name, boat["name"]))
+                actions.append(("off", name))
+            if boat["hands"] > 0:
+                options.append("Take an unnamed hand off %s" % boat["name"])
+                actions.append(("off_hand", None))
+            if boats.hasRoom(boat):
+                for name in boats.unassignedNames(self.player):
+                    options.append("Put %s aboard" % name)
+                    actions.append(("on", name))
+                if boats.unassignedHands(self.player) > 0:
+                    options.append("Put an unnamed hand aboard")
+                    actions.append(("on_hand", None))
+            options.append("Back")
+            actions.append(("back", None))
+
+            choice = int(
+                self.userInterface.showOptions(
+                    "%s\n%s"
+                    % (
+                        boats.describeBoat(boat),
+                        "Her berths are full."
+                        if not boats.hasRoom(boat)
+                        else "%d berth(s) free."
+                        % (boats.maxCrew(boat) - boats.crewSize(boat)),
+                    ),
+                    options,
+                )
+            )
+            action, name = actions[choice - 1]
+            if action == "back":
+                return
+            if action == "on":
+                boats.assignCrew(self.player, boat["id"], name)
+                self.currentPrompt.text = "%s joined %s." % (name, boat["name"])
+            elif action == "off":
+                boats.unassignCrew(self.player, boat["id"], name)
+                self.currentPrompt.text = "%s came ashore off %s." % (
+                    name,
+                    boat["name"],
+                )
+            elif action == "on_hand":
+                boats.assignHand(self.player, boat["id"])
+                self.currentPrompt.text = "A hand joined %s." % boat["name"]
+            elif action == "off_hand":
+                boats.unassignHand(self.player, boat["id"])
+                self.currentPrompt.text = "A hand came ashore off %s." % boat["name"]
+
+    def _repairBoat(self):
+        damaged = [boat for boat in self.player.boats if boat["damage"] > 0]
+        boat = self._pickBoat("Which boat needs work?", damaged)
+        if boat is None:
+            return
+        cost = boats.repairCost(boat)
+        paid = boats.repairBoat(self.player, boat["id"])
+        if paid is None:
+            self.currentPrompt.text = (
+                "Patching %s up costs $%d and you're carrying $%.2f. Earn it "
+                "first - she'll keep." % (boat["name"], cost, self.player.money)
+            )
+            return
+        self.currentPrompt.text = "%s is sound again. The yard took $%d." % (
+            boat["name"],
+            paid,
+        )
+
+    def _upgradeBoat(self):
+        upgradable = [
+            boat
+            for boat in self.player.boats
+            if boat["tier"] < len(business.BOAT_TIERS)
+        ]
+        boat = self._pickBoat("Which boat are you upgrading?", upgradable)
+        if boat is None:
+            return
+        nextInfo = business.tierInfo(boat["tier"] + 1)
+        if not self.player.canAfford(nextInfo["cost"]):
+            self.currentPrompt.text = "A %s costs $%d and you're carrying $%.2f." % (
+                nextInfo["name"],
+                nextInfo["cost"],
+                self.player.money,
+            )
+            return
+        self.player.spendMoney(nextInfo["cost"])
+        boat["tier"] += 1
+        self.currentPrompt.text = "%s is now a %s." % (boat["name"], nextInfo["name"])
+
+    def _renameBoat(self):
+        boat = self._pickBoat("Which boat are you renaming?")
+        if boat is None:
+            return
+        self._renameBoatPrompt(boat)
+
+    def _renameBoatPrompt(self, boat, firstTime=False):
+        name = self.userInterface.promptForText(
+            "What will you call her?" if firstTime else "What's her new name?"
+        )
+        name = (name or "").strip()[:40]
+        if name:
+            boat["name"] = name
+            self.currentPrompt.text += " She's the %s." % name
+
+    def _sellBoat(self):
+        boat = self._pickBoat("Which boat are you selling?")
+        if boat is None:
+            return
+        crew = list(boat["crew"])
+        value = boats.sellBoat(self.player, boat["id"])
+        self.currentPrompt.text = "You sold %s for $%d." % (boat["name"], value)
+        if crew:
+            self.currentPrompt.text += (
+                " %s came ashore - they're still on the payroll until you give "
+                "them another berth or let them go." % villagers.joinNames(crew)
+            )
 
     def _hireVillager(self):
         """Pick which villager joins the crew. Hiring is a choice of person
@@ -376,7 +565,8 @@ class Docks:
         choice = int(
             self.userInterface.showOptions(
                 "Sam points out who's looking for work. Any hand you take on "
-                "costs $%d a day in wages." % business.WORKER_DAILY_WAGE,
+                "costs $%d a day in wages, whether or not you've found them a "
+                "berth." % business.WORKER_DAILY_WAGE,
                 options,
             )
         )
@@ -384,14 +574,17 @@ class Docks:
             return
 
         villager = available[choice - 1]
-        if business.hireWorker(self.player, villager["name"]):
+        if boats.hireWorker(self.player, villager["name"]):
             self.stats.totalWorkersHired += 1
             self.currentPrompt.text = (
-                "You hired %s. They'll fish each day for their wage - come "
-                "talk to them at the docks." % villager["name"]
+                "You hired %s. Assign them to a boat to put them to work - "
+                "they draw wages either way." % villager["name"]
             )
         else:
-            self.currentPrompt.text = "There's no room aboard for another hand."
+            self.currentPrompt.text = (
+                "There's no free berth in the fleet for another hand. Buy "
+                "another boat, or upgrade one you have."
+            )
 
     def _dismissWorker(self):
         """Pick which hand leaves the crew. Unnamed hands from an older save
@@ -408,31 +601,145 @@ class Docks:
 
         if choice <= len(self.player.hiredWorkers):
             name = self.player.hiredWorkers[choice - 1]
-            business.dismissWorker(self.player, name)
+            boats.dismissWorker(self.player, name)
             self.currentPrompt.text = "You let %s go." % name
         else:
-            business.dismissWorker(self.player)
+            boats.dismissWorker(self.player)
             self.currentPrompt.text = "You let an unnamed deckhand go."
+
+    def sendOutBoat(self):
+        """Pick a boat and a job for it. Fishing boats never appear here - they
+        earn every morning on their own; this is where the other three roles
+        actually do something."""
+        while True:
+            ready = voyages.readyBoats(self.player)
+            idle = [boat for boat in self.player.boats if boat not in ready]
+            options = [
+                "%s (%s) - %s"
+                % (
+                    boat["name"],
+                    boats.ROLES[boat["role"]]["name"],
+                    boats.ROLES[boat["role"]]["summary"],
+                )
+                for boat in ready
+            ]
+            options.append("Back")
+
+            descriptor = "Which boat are you sending out?"
+            if idle:
+                descriptor += "\n\nNot going anywhere: " + "; ".join(
+                    voyages.unsailableReason(boat) for boat in idle
+                )
+            choice = int(self.userInterface.showOptions(descriptor, options))
+            if choice == len(options):
+                self.currentPrompt.text = "What would you like to do?"
+                return
+            if self._pickJob(ready[choice - 1]):
+                return
+
+    def _pickJob(self, boat):
+        """Choose what this boat goes out to do. Returns True once it sails, so
+        the caller leaves the menu - the day is gone either way."""
+        jobs = voyages.availableJobs(boat)
+        options = [voyages.describeJob(boat, job) for job in jobs]
+        options.append("Back")
+        choice = int(
+            self.userInterface.showOptions(
+                "%s\n%s" % (boats.describeBoat(boat), self._jobBoardHint(boat)),
+                options,
+            )
+        )
+        if choice == len(options):
+            return False
+        self._runVoyage(boat, jobs[choice - 1])
+        return True
+
+    def _jobBoardHint(self, boat):
+        if boat["role"] == boats.ROLE_PIRACY:
+            return (
+                "A bigger hull and a fuller crew make a raid more likely to "
+                "land. Odds shown are for this boat as she stands."
+            )
+        return "Pay scales with how many hands you have aboard."
+
+    def _runVoyage(self, boat, job):
+        summary = voyages.runVoyage(self.player, boat, job, self.stats)
+        self.currentPrompt.text = self._voyageReport(summary)
+
+        # The voyage is a day at sea, same as an export run - so everything a
+        # new day brings happens while the boat is away.
+        if self.timeService.increaseDay()["evicted"]:
+            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
+
+    def _voyageReport(self, summary):
+        """Tell the player what happened out there, in the voice of the job."""
+        outcome = summary["outcome"]
+        if outcome == "paid":
+            return "%s carried her passengers and came home with $%d." % (
+                summary["boat"],
+                summary["earned"],
+            )
+        if outcome == "delivered":
+            return "%s delivered the cargo without trouble. $%d." % (
+                summary["boat"],
+                summary["earned"],
+            )
+        if outcome == "rough_seas":
+            return (
+                "%s got the cargo through, but heavy seas battered her on the "
+                "way back. $%d earned, and %d%% damage to show for it."
+                % (summary["boat"], summary["earned"], summary["damage"])
+            )
+        if outcome in ("rich", "success"):
+            text = "%s ran down her prize and took $%d." % (
+                summary["boat"],
+                summary["earned"],
+            )
+            if outcome == "rich":
+                text = "%s caught them cold. The strongbox alone was worth $%d!" % (
+                    summary["boat"],
+                    summary["earned"],
+                )
+            if summary["fishTaken"]:
+                text += " %d fish came off their hold too." % summary["fishTaken"]
+            return text
+        if outcome == "driven_off":
+            return (
+                "%s was seen coming and driven off empty-handed. She took %d%% "
+                "damage running for it." % (summary["boat"], summary["damage"])
+            )
+        text = "It went badly. %s limped home with %d%% damage" % (
+            summary["boat"],
+            summary["damage"],
+        )
+        if summary["crewLost"]:
+            text += ", and %s didn't come home at all." % summary["crewLost"]
+        else:
+            text += ", and a hand was lost overboard."
+        return text
 
     def _exportStatus(self):
         """What the next export run would look like, shown above the market
         list so the player can see the load and the day it costs before
         picking where to sail."""
-        info = business.tierInfo(business.currentTier(self.player))
+        # With a fleet, say which boat would actually make the crossing - the
+        # answer changes when a hauling boat is fitted out for cargo.
+        runner = export.exportBoat(self.player)
+        name = runner["name"] if runner else "your boat"
         capacity = export.exportCapacity(self.player)
         cargo = export.buildCargo(self.player)
         if not cargo:
             return (
-                "The %s can carry %d fish to another village, but your hold "
-                "is empty. Land a catch first - the crossing costs you a day "
-                "either way." % (info["name"], capacity)
+                "%s can carry %d fish to another village, but your hold is "
+                "empty. Land a catch first - the crossing costs you a day "
+                "either way." % (name, capacity)
             )
         leftBehind = self.player.fishCount - len(cargo)
         status = (
-            "The %s can carry %d fish per run. You'd load %d of your %d, "
+            "%s can carry %d fish per run. You'd load %d of your %d, "
             "best first"
             % (
-                info["name"],
+                name,
                 capacity,
                 len(cargo),
                 self.player.fishCount,
