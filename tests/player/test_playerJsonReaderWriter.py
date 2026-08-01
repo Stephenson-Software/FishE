@@ -536,3 +536,19 @@ def test_derived_boat_fields_are_still_written_for_older_builds():
     # player owns a boat and how good their best one is
     assert playerJson["hasBoat"] is True
     assert playerJson["boatTier"] == 3
+
+
+def test_a_boat_never_loads_still_at_sea():
+    # prepare - a save whose boat was somehow marked as away with the captain
+    readerWriter = createPlayerJsonReaderWriter()
+    player = Player()
+    boats.addBoat(player, 2, boats.ROLE_PIRACY, "Kipper")
+    playerJson = readerWriter.createJsonFromPlayer(player)
+    playerJson["boats"][0]["atSea"] = True
+
+    # call
+    restored = readerWriter.createPlayerFromJson(playerJson)
+
+    # check - a voyage can't be resumed across a load, so she comes home
+    # rather than being stranded out of the fleet economy forever
+    assert boats.isAtSea(restored.boats[0]) is False
