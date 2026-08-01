@@ -207,6 +207,8 @@ class Tavern:
             self.currentPrompt.text = "You have a headache."
 
         summary = self.timeService.increaseDay()
+        for line in summary.get("report", []):
+            self.currentPrompt.text += " " + line
         if summary["evicted"]:
             self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
 

@@ -30,6 +30,8 @@ class StatsJsonReaderWriter:
             "totalMoneyFromVoyages": stats.totalMoneyFromVoyages,
             "crewLostToPiracy": stats.crewLostToPiracy,
             "boatsOwned": stats.boatsOwned,
+            "totalVoyagesCaptained": stats.totalVoyagesCaptained,
+            "totalVoyagesFoundered": stats.totalVoyagesFoundered,
             "totalRentalIncome": stats.totalRentalIncome,
             "highestHomeTier": stats.highestHomeTier,
             "totalPropertiesBought": stats.totalPropertiesBought,
@@ -93,6 +95,12 @@ class StatsJsonReaderWriter:
             "crewLostToPiracy", stats.crewLostToPiracy
         )
         stats.boatsOwned = statsJson.get("boatsOwned", stats.boatsOwned)
+        stats.totalVoyagesCaptained = statsJson.get(
+            "totalVoyagesCaptained", stats.totalVoyagesCaptained
+        )
+        stats.totalVoyagesFoundered = statsJson.get(
+            "totalVoyagesFoundered", stats.totalVoyagesFoundered
+        )
         stats.totalRentalIncome = statsJson.get(
             "totalRentalIncome", stats.totalRentalIncome
         )

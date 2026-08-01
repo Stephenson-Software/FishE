@@ -12,7 +12,7 @@ from fish import fish
 from business import business
 from business import boats
 from business import export
-from business import voyages
+from business import adventures
 from housing import housing
 
 
@@ -128,8 +128,8 @@ class Docks:
         if export.canExport(self.player):
             li.append("Export Fish to Other Villages")
             actions.append("export")
-        if voyages.readyBoats(self.player):
-            li.append("Send Out a Boat")
+        if self.readyToSail():
+            li.append("Take the Helm")
             actions.append("voyage")
         if self.player.hasBoat and self.player.businessName:
             descriptor = (
@@ -138,6 +138,12 @@ class Docks:
         else:
             descriptor = "You breathe in the fresh air. Salty."
         descriptor += " " + self._weatherDescriptor()
+        # Anything wrong with the fleet is said here, on the screen the player
+        # is already on. Before this it could only be found by opening Manage
+        # Fleet and reading every line - a boat could sit idle for days.
+        notices = boats.needsAttention(self.player)
+        if notices:
+            descriptor += "\n\nNeeds attention: " + "; ".join(notices) + "."
         input = self.userInterface.showOptions(descriptor, li)
 
         choice = int(input)
@@ -187,7 +193,7 @@ class Docks:
             return LocationType.DOCKS
 
         elif action == "voyage":
-            self.sendOutBoat()
+            self.takeTheHelm()
             return LocationType.DOCKS
 
     def _businessDialogue(self):
@@ -274,15 +280,31 @@ class Docks:
                 "costs $%d." % (starter["name"], starter["cost"])
             )
         name = self.player.businessName or "Unnamed Fishing Co."
+        # Lead with the one number that decides everything else: is the fleet
+        # paying for itself? Before this the player had to multiply the crew
+        # count by the wage in their head and compare it to nothing.
+        income = boats.fleetDailyIncome(self.player)
+        catch = boats.fleetDailyCatch(self.player)
+        payroll = boats.dailyPayroll(self.player)
+        earning = "$%d" % income
+        if catch:
+            earning += " and %d fish" % catch
         lines = [
-            "%s - %d boat%s, %d crew at $%d/day each"
+            "%s - %d boat%s, %d crew"
             % (
                 name,
                 len(self.player.boats),
                 "s" if len(self.player.boats) != 1 else "",
                 self.player.workers,
-                business.WORKER_DAILY_WAGE,
-            )
+            ),
+            "Earning %s a day. Payroll $%d a day. Net $%d%s."
+            % (
+                earning,
+                payroll,
+                income - payroll,
+                " plus the fish" if catch else "",
+            ),
+            "",
         ]
         for boat in self.player.boats:
             lines.append("  " + boats.describeBoat(boat))
@@ -292,7 +314,9 @@ class Docks:
             spare = list(idle) + (
                 ["%d unnamed hand(s)" % idleHands] if idleHands else []
             )
-            lines.append("Drawing wages with no berth: %s" % villagers.joinNames(spare))
+            lines.append(
+                "Ashore on full wages, earning nothing: %s" % villagers.joinNames(spare)
+            )
         return "\n".join(lines)
 
     def manageFleet(self):
@@ -491,8 +515,9 @@ class Docks:
         paid = boats.repairBoat(self.player, boat["id"])
         if paid is None:
             self.currentPrompt.text = (
-                "Patching %s up costs $%d and you're carrying $%.2f. Earn it "
-                "first - she'll keep." % (boat["name"], cost, self.player.money)
+                "Patching %s up costs $%d and you're carrying $%.2f. Sell fish "
+                "at the shop, or send another boat out, and come back to her - "
+                "she'll keep." % (boat["name"], cost, self.player.money)
             )
             return
         self.currentPrompt.text = "%s is sound again. The yard took $%d." % (
@@ -607,116 +632,270 @@ class Docks:
             boats.dismissWorker(self.player)
             self.currentPrompt.text = "You let an unnamed deckhand go."
 
-    def sendOutBoat(self):
-        """Pick a boat and a job for it. Fishing boats never appear here - they
-        earn every morning on their own; this is where the other three roles
-        actually do something."""
-        while True:
-            ready = voyages.readyBoats(self.player)
-            idle = [boat for boat in self.player.boats if boat not in ready]
-            options = [
-                "%s (%s) - %s"
+    def readyToSail(self):
+        """Boats the player could take the helm of: crewed, seaworthy, and not
+        already away."""
+        return [
+            boat
+            for boat in self.player.boats
+            if boats.crewSize(boat) > 0
+            and boats.isSeaworthy(boat)
+            and not boats.isAtSea(boat)
+        ]
+
+    def takeTheHelm(self):
+        """Sail one of your own boats yourself.
+
+        The fleet earns on its own every morning; this is the part you play.
+        Pick a boat, decide how far out to go, provision her, and then take
+        her leg by leg."""
+        ready = self.readyToSail()
+        # Each line says what she currently brings in, because taking her out
+        # is giving that up - an opportunity cost the player was being asked
+        # to weigh without being shown.
+        options = []
+        for boat in ready:
+            earning = (
+                "%d fish/day" % boats.dailyCatch(boat)
+                if boat["role"] == boats.ROLE_FISHING
+                else "$%d/day" % boats.dailyIncome(boat)
+            )
+            options.append(
+                "%s (%s) - %d crew, hull %d%%, gives up %s"
                 % (
                     boat["name"],
                     boats.ROLES[boat["role"]]["name"],
-                    boats.ROLES[boat["role"]]["summary"],
+                    boats.crewSize(boat),
+                    boats.MAX_DAMAGE - boat["damage"],
+                    earning,
                 )
-                for boat in ready
-            ]
-            options.append("Back")
+            )
+        options.append("Back")
 
-            descriptor = "Which boat are you sending out?"
-            if idle:
-                descriptor += "\n\nNot going anywhere: " + "; ".join(
-                    voyages.unsailableReason(boat) for boat in idle
-                )
-            choice = int(self.userInterface.showOptions(descriptor, options))
-            if choice == len(options):
-                self.currentPrompt.text = "What would you like to do?"
-                return
-            if self._pickJob(ready[choice - 1]):
-                return
+        descriptor = (
+            "Which boat are you taking out yourself? She earns nothing at home "
+            "while you have her - what you bring back is the point."
+        )
+        idle = [boat for boat in self.player.boats if boat not in ready]
+        if idle:
+            descriptor += "\n\nStaying in: " + "; ".join(
+                self._cannotSailReason(boat) for boat in idle
+            )
 
-    def _pickJob(self, boat):
-        """Choose what this boat goes out to do. Returns True once it sails, so
-        the caller leaves the menu - the day is gone either way."""
-        jobs = voyages.availableJobs(boat)
-        options = [voyages.describeJob(boat, job) for job in jobs]
+        choice = int(self.userInterface.showOptions(descriptor, options))
+        if choice == len(options):
+            self.currentPrompt.text = "What would you like to do?"
+            return
+        self._planVoyage(ready[choice - 1])
+
+    def _cannotSailReason(self, boat):
+        if boats.isAtSea(boat):
+            return "%s is already at sea." % boat["name"]
+        if boats.crewSize(boat) <= 0:
+            return "%s has no crew aboard." % boat["name"]
+        return "%s is too damaged to sail (%d%%); $%d to repair." % (
+            boat["name"],
+            boat["damage"],
+            boats.repairCost(boat),
+        )
+
+    def _planVoyage(self, boat):
+        """How far out to sail. Further is worth more and is less forgiving,
+        which is the whole decision before you leave the harbour."""
+        options = []
+        for plan in adventures.VOYAGE_PLANS:
+            money, catch = adventures.estimateVoyage(boat, plan)
+            expected = "about $%d" % money if money else "about %d fish" % catch
+            options.append(
+                "%s - %d days, %s if it goes well (%s)"
+                % (plan["name"], plan["legs"], expected, plan["description"])
+            )
         options.append("Back")
         choice = int(
             self.userInterface.showOptions(
-                "%s\n%s" % (boats.describeBoat(boat), self._jobBoardHint(boat)),
+                "%s, %s. How far are you taking her?"
+                % (boat["name"], boats.ROLES[boat["role"]]["name"].lower()),
                 options,
             )
         )
         if choice == len(options):
-            return False
-        self._runVoyage(boat, jobs[choice - 1])
-        return True
+            return
+        self._provisionVoyage(boat, adventures.VOYAGE_PLANS[choice - 1])
 
-    def _jobBoardHint(self, boat):
-        if boat["role"] == boats.ROLE_PIRACY:
-            return (
-                "A bigger hull and a fuller crew make a raid more likely to "
-                "land. Odds shown are for this boat as she stands."
+    def _provisionVoyage(self, boat, plan):
+        """Stores for the crossing. Under-provisioning is allowed on purpose -
+        it's cheaper, and it's how a voyage starts going wrong."""
+        recommended = adventures.recommendedSupplies(boat, plan)
+        options = []
+        amounts = []
+        # Over-provisioning is on the menu because events can eat the stores:
+        # a full load covers the legs and nothing else, so insuring against a
+        # bad week is a decision the player gets to make rather than a trap.
+        for label, units in (
+            ("Deep stores", int(recommended * 1.5)),
+            ("Full stores", recommended),
+            ("Three quarters", int(recommended * 0.75)),
+            ("Half rations", int(recommended * 0.5)),
+        ):
+            cost = adventures.supplyCost(units)
+            lasts = adventures.legsSupplied(boat, units)
+            # Say when it runs out. Half rations on a long voyage is starvation
+            # and crew deaths with certainty, and it read as a neutral option
+            # sitting next to the others.
+            if lasts >= plan["legs"]:
+                note = "lasts the voyage"
+            else:
+                note = "runs out on day %d of %d" % (lasts + 1, plan["legs"])
+            options.append("%s - %d supplies, $%d, %s" % (label, units, cost, note))
+            amounts.append(units)
+        options.append("Back")
+
+        descriptor = (
+            "%d hands aboard for %d days. Full stores is %d supplies at $%d "
+            "each - enough for the legs and no more, and events at sea can "
+            "eat into it. You're carrying $%.2f."
+            % (
+                boats.crewSize(boat),
+                plan["legs"],
+                recommended,
+                adventures.SUPPLY_COST,
+                self.player.money,
             )
-        return "Pay scales with how many hands you have aboard."
+        )
+        # Sailing a damaged hull on a long voyage is how a whole hold gets
+        # lost; flag it before departure rather than at the bottom of the sea.
+        if boat["damage"] >= boats.UNSEAWORTHY_DAMAGE / 2:
+            descriptor += (
+                "\n\nShe's already %d%% damaged. That's %d%% of hull between "
+                "you and losing everything aboard - $%d would put her right "
+                "before you go."
+                % (
+                    boat["damage"],
+                    boats.MAX_DAMAGE - boat["damage"],
+                    boats.repairCost(boat),
+                )
+            )
 
-    def _runVoyage(self, boat, job):
-        summary = voyages.runVoyage(self.player, boat, job, self.stats)
-        self.currentPrompt.text = self._voyageReport(summary)
+        choice = int(self.userInterface.showOptions(descriptor, options))
+        if choice == len(options):
+            return
 
-        # The voyage is a day at sea, same as an export run - so everything a
-        # new day brings happens while the boat is away.
-        if self.timeService.increaseDay()["evicted"]:
-            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
+        units = amounts[choice - 1]
+        cost = adventures.supplyCost(units)
+        if not self.player.canAfford(cost):
+            self.currentPrompt.text = (
+                "That's $%d of stores and you're carrying $%.2f. Sell some "
+                "fish, or sail lighter." % (cost, self.player.money)
+            )
+            return
+        self.player.spendMoney(cost)
+        self._sailVoyage(adventures.startVoyage(boat, plan, units))
+
+    def _voyageStatus(self, voyage):
+        """The line at the top of every leg: where you are and what's left.
+
+        The hold is on it because the voyage is about the hold. Without it the
+        only numbers moving on screen were the player's money and fish at
+        home - which climb from the rest of the fleet's day and have nothing
+        to do with the voyage, so they read as progress when they weren't."""
+        hold = "$%d" % voyage["money"]
+        if voyage["fish"]:
+            hold += " + %d fish" % voyage["fish"]
+        return "LEG %d of %d   Hull %d%%   Supplies %d   Crew %d   Hold %s" % (
+            voyage["leg"] + 1,
+            voyage["legs"],
+            voyage["hull"],
+            voyage["supplies"],
+            adventures.crewAboard(voyage),
+            hold,
+        )
+
+    def _sailVoyage(self, voyage):
+        """One leg at a time until she's home or she isn't."""
+        while not adventures.isOver(voyage):
+            # The standing prompt is "What would you like to do?", which is
+            # meaningless once you're at sea and belongs to the village screens.
+            self.currentPrompt.text = "Your call, captain."
+            event = adventures.rollEvent(voyage)
+            choices = adventures.offeredChoices(voyage, event)
+            # Always offered, because being unable to break off turned a bad
+            # hull into a slow walk to the bottom rather than a decision.
+            options = [choice["text"] for choice in choices] + [
+                "Break off and run for home (keep the hold)"
+            ]
+
+            picked = int(
+                self.userInterface.showOptions(
+                    "%s\n\n%s" % (self._voyageStatus(voyage), event["text"]),
+                    options,
+                )
+            )
+            if picked == len(options):
+                adventures.turnBack(voyage)
+                break
+            outcome = adventures.resolveChoice(voyage, choices[picked - 1])
+            notes = adventures.advanceLeg(voyage)
+
+            self.userInterface.showDialogue(
+                "\n".join([outcome] + notes) if notes else outcome
+            )
+            # A day at sea is a day at home too.
+            self.timeService.increaseDay()
+
+        self._endVoyage(voyage)
+
+    def _endVoyage(self, voyage):
+        summary = adventures.finishVoyage(self.player, voyage, self.stats)
+        self.userInterface.showDialogue(self._voyageReport(summary))
+        self.currentPrompt.text = "What would you like to do?"
 
     def _voyageReport(self, summary):
-        """Tell the player what happened out there, in the voice of the job."""
-        outcome = summary["outcome"]
-        if outcome == "paid":
-            return "%s carried her passengers and came home with $%d." % (
-                summary["boat"],
-                summary["earned"],
-            )
-        if outcome == "delivered":
-            return "%s delivered the cargo without trouble. $%d." % (
-                summary["boat"],
-                summary["earned"],
-            )
-        if outcome == "rough_seas":
-            return (
-                "%s got the cargo through, but heavy seas battered her on the "
-                "way back. $%d earned, and %d%% damage to show for it."
-                % (summary["boat"], summary["earned"], summary["damage"])
-            )
-        if outcome in ("rich", "success"):
-            text = "%s ran down her prize and took $%d." % (
-                summary["boat"],
-                summary["earned"],
-            )
-            if outcome == "rich":
-                text = "%s caught them cold. The strongbox alone was worth $%d!" % (
-                    summary["boat"],
-                    summary["earned"],
-                )
-            if summary["fishTaken"]:
-                text += " %d fish came off their hold too." % summary["fishTaken"]
-            return text
-        if outcome == "driven_off":
-            return (
-                "%s was seen coming and driven off empty-handed. She took %d%% "
-                "damage running for it." % (summary["boat"], summary["damage"])
-            )
-        text = "It went badly. %s limped home with %d%% damage" % (
-            summary["boat"],
-            summary["damage"],
-        )
-        if summary["crewLost"]:
-            text += ", and %s didn't come home at all." % summary["crewLost"]
+        """The homecoming, good or bad."""
+        if summary["foundered"]:
+            lines = [
+                "The hull gives at last, %d days out of %d."
+                % (summary["legsSailed"], summary["legs"]),
+                "",
+                "You make port on the pumps.",
+                "  Cargo    lost overboard",
+            ]
         else:
-            text += ", and a hand was lost overboard."
-        return text
+            lines = [
+                "%s comes home%s."
+                % (
+                    summary["boat"],
+                    " early - you broke off" if summary.get("turnedBack") else "",
+                ),
+                "",
+                "  Earned   $%d" % summary["money"],
+            ]
+            if summary["fish"]:
+                lines.append("  Hold     %d fish" % summary["fish"])
+        if summary["crewLost"]:
+            lines.append(
+                "  Crew     %s did not come back"
+                % villagers.joinNames(summary["crewLost"])
+            )
+        else:
+            lines.append("  Crew     all hands accounted for")
+        lines.append(
+            "  Hull     %d%% - $%d to repair"
+            % (
+                boats.MAX_DAMAGE - summary["hullDamage"],
+                boats.REPAIR_COST_PER_POINT * summary["hullDamage"],
+            )
+            if summary["hullDamage"]
+            else "  Hull     sound"
+        )
+        return "\n".join(lines)
+
+    def _reportTheDay(self, summary):
+        """Append what happened while a day passed - the fleet's overnight
+        takings, and anything that went wrong at home."""
+        for line in summary.get("report", []):
+            self.currentPrompt.text += " " + line
+        if summary["evicted"]:
+            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
 
     def _exportStatus(self):
         """What the next export run would look like, shown above the market
@@ -813,8 +992,7 @@ class Docks:
         # The round trip is what stops exporting from being a free repeatable
         # action, so the day passes here (and everything a new day brings -
         # the crew's catch, wages, rent - happens while you're away).
-        if self.timeService.increaseDay()["evicted"]:
-            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
+        self._reportTheDay(self.timeService.increaseDay())
         return True
 
     def _exportRefusal(self, summary, market):

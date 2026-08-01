@@ -61,7 +61,8 @@ def test_increaseTime_returns_not_evicted_without_a_day_rollover():
     summary = timeService.increaseTime()
 
     # check
-    assert summary == {"evicted": False}
+    assert summary["evicted"] is False
+    assert summary["report"] == []
 
 
 def test_increaseTime_surfaces_eviction_on_day_rollover():
@@ -75,7 +76,7 @@ def test_increaseTime_surfaces_eviction_on_day_rollover():
     summary = timeService.increaseTime()
 
     # check
-    assert summary == {"evicted": True}
+    assert summary["evicted"] is True
     assert timeService.player.homeTier == 0
 
 

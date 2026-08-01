@@ -67,6 +67,10 @@ class Home:
         self.currentPrompt.text = (
             "You sleep until the next morning. You feel refreshed!"
         )
+        # What the fleet did overnight, so a crew lost or a hull damaged is
+        # news the player is told rather than something they discover later.
+        for line in summary.get("report", []):
+            self.currentPrompt.text += " " + line
         if summary["evicted"]:
             self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
 
