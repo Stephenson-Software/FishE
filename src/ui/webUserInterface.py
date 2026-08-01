@@ -38,15 +38,33 @@ def _readWebAsset(name):
         ) from e
 
 
-CLIENT_CSS = _readWebAsset("client.css")
-CLIENT_JS = _readWebAsset("client.js")
+# Read on first use rather than at import, and cached after. This module is
+# imported by the Pyodide front-end too (PyodideUserInterface subclasses the
+# class below), and there these files are NOT on the filesystem: the browser
+# fetches them over HTTP, so only the server-backed front-end has any reason to
+# read them. Reading them at import time made merely importing this module fail
+# inside the Worker.
+_clientAssetCache = {}
+_pageCache = {}
 
 
-# The single-page client. It polls /state and renders whatever screen the game
-# is currently waiting on, posting the player's response to /input. Served as-is
-# (no templating); it talks to the server via relative URLs.
-HTML_PAGE = (
-    """<!DOCTYPE html>
+def _clientAsset(name):
+    if name not in _clientAssetCache:
+        _clientAssetCache[name] = _readWebAsset(name)
+    return _clientAssetCache[name]
+
+
+def htmlPage():
+    """The single-page client, built on first use.
+
+    It polls /state and renders whatever screen the game is currently waiting
+    on, posting the player's response to /input. Served as-is (no templating);
+    it talks to the server via relative URLs.
+    """
+    if "page" in _pageCache:
+        return _pageCache["page"]
+    page = (
+        """<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -54,8 +72,8 @@ HTML_PAGE = (
 <title>FishE</title>
 <style>
 """
-    + CLIENT_CSS
-    + """</style>
+        + _clientAsset("client.css")
+        + """</style>
 </head>
 <body>
 <h2>FishE <span class="tagline">— fish a seaside village and build a fortune of $10,000</span></h2>
@@ -63,8 +81,8 @@ HTML_PAGE = (
 <p class="controls">Tip: click an option or press its number key (1-9). Enter or Space continues.</p>
 <script>
 """
-    + CLIENT_JS
-    + """
+        + _clientAsset("client.js")
+        + """
 // Transport: this front-end runs the game on a server, so responses are POSTed
 // and new screens are discovered by polling. (The Pyodide front-end swaps this
 // block for a Worker/SharedArrayBuffer transport and shares everything above.)
@@ -96,7 +114,25 @@ poll();
 </body>
 </html>
 """
-)
+    )
+    _pageCache["page"] = page
+    return page
+
+
+def __getattr__(name):
+    """Keep HTML_PAGE / CLIENT_CSS / CLIENT_JS readable as module attributes.
+
+    They are the names this module has always exposed, so tests and any other
+    reader still reach them the same way — they are just no longer computed
+    unless something actually asks (PEP 562).
+    """
+    if name == "HTML_PAGE":
+        return htmlPage()
+    if name == "CLIENT_CSS":
+        return _clientAsset("client.css")
+    if name == "CLIENT_JS":
+        return _clientAsset("client.js")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _makeRequestHandler(ui):
@@ -105,7 +141,7 @@ def _makeRequestHandler(ui):
     class _Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path in ("/", "/index.html"):
-                self._send(200, "text/html; charset=utf-8", HTML_PAGE.encode("utf-8"))
+                self._send(200, "text/html; charset=utf-8", htmlPage().encode("utf-8"))
             elif self.path.startswith("/state"):
                 body = json.dumps(ui.get_state()).encode("utf-8")
                 self._send(200, "application/json", body)

@@ -17,7 +17,17 @@ OUTPUT_PATH = "web/game.zip"
 # tree that matches a checkout — which is what makes the cwd-relative schema
 # paths in the *JsonReaderWriter modules resolve there.
 SOURCE_DIRECTORIES = ("src", "schemas")
-EXTRA_FILES = ("version.txt", "web/pyodide_main.py")
+# client.js/client.css are fetched over HTTP by the page, so the browser does
+# not need them from the bundle — they are included anyway because
+# webUserInterface reads them from the filesystem, and PyodideUserInterface
+# subclasses it. Belt and braces: the read is lazy so it never happens in the
+# browser, and if a future change makes it happen, the files are there.
+EXTRA_FILES = (
+    "version.txt",
+    "web/pyodide_main.py",
+    "web/client.js",
+    "web/client.css",
+)
 
 
 def build(outputPath=OUTPUT_PATH):

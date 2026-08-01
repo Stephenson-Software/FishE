@@ -42,6 +42,17 @@ def test_bundle_carries_the_worker_entry_point(tmp_path, monkeypatch):
     assert os.path.join("web", "pyodide_main.py") in names
 
 
+def test_bundle_carries_the_shared_browser_client(tmp_path, monkeypatch):
+    # The page fetches these over HTTP, so the browser does not need them from
+    # the bundle - but webUserInterface reads them from the filesystem, and the
+    # Pyodide front-end subclasses it. Shipping them means that read can never
+    # be the thing that fails inside the Worker.
+    names = buildBundle(tmp_path, monkeypatch)
+
+    assert os.path.join("web", "client.js") in names
+    assert os.path.join("web", "client.css") in names
+
+
 def test_bundle_excludes_build_artifacts(tmp_path, monkeypatch):
     names = buildBundle(tmp_path, monkeypatch)
 

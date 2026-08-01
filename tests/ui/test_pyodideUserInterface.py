@@ -239,6 +239,44 @@ def test_ring_wraps_around_without_losing_a_message(fakeJs):
     assert ui.promptForText("Name?") == "Harbourmaster"
 
 
+# --- independence from the server-backed front-end's files ---------------
+
+
+def test_the_front_end_works_with_no_web_directory_on_disk(fakeJs, monkeypatch):
+    """Regression: the Worker's filesystem has src/ but not web/client.*.
+
+    web/client.js and web/client.css reach the browser over HTTP, so they are
+    not on the filesystem the Python game sees. WebUserInterface reads them to
+    build its own page, and PyodideUserInterface subclasses it — so reading
+    them at import time made the game fail to start in a real browser with
+    FileNotFoundError on /game/web/client.css. Nothing on this front-end's path
+    may touch them.
+    """
+    from ui import webUserInterface
+
+    monkeypatch.setattr(webUserInterface, "WEB_ASSET_DIRECTORY", "/no/such/directory")
+    monkeypatch.setattr(webUserInterface, "_clientAssetCache", {})
+    monkeypatch.setattr(webUserInterface, "_pageCache", {})
+
+    ui = makePyodideUI(fakeJs)
+    fakeJs.writePlayerInput("1")
+
+    assert ui.showOptions("The Docks", ["Fish", "Leave"]) == "1"
+    assert lastScreen(fakeJs)["options"] == ["Fish", "Leave"]
+
+
+def test_the_server_backed_page_is_not_built_unless_it_is_asked_for(fakeJs):
+    # The page is what needs those files; building it eagerly is what put the
+    # read on every importer's path.
+    from ui import webUserInterface
+
+    webUserInterface._pageCache.clear()
+
+    makePyodideUI(fakeJs)
+
+    assert webUserInterface._pageCache == {}
+
+
 # --- construction errors -------------------------------------------------
 
 
