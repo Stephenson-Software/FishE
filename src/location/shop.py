@@ -8,6 +8,7 @@ from npc.npc import NPC
 from npc import villagers
 from fish import fish
 from business import business
+from business import export
 
 
 # Upper bound on fishMultiplier so bait upgrades stop being an infinite power
@@ -99,6 +100,13 @@ class Shop:
                     "response": self._crewCustomerDialogue,
                     "condition": lambda: bool(self.player.hiredWorkers),
                 },
+                {
+                    # Only worth asking once the player has a boat that can
+                    # actually reach the other villages.
+                    "question": "Why can't you buy my whole catch?",
+                    "response": self._dailyBudgetDialogue,
+                    "condition": lambda: export.canExport(self.player),
+                },
             ],
         )
         # Daily budget for buying fish; refills when a new day begins.
@@ -135,6 +143,21 @@ class Shop:
             "They do! %s are all through that door regular now. Whole crews "
             "spend better than lone fishermen ever did - keep hiring and I'll "
             "have to widen the aisles." % villagers.joinNames(crew)
+        )
+
+    def _dailyBudgetDialogue(self):
+        """Gilbert on his own daily budget, and the export markets it pushes a
+        big producer toward. He'd rather keep the business, but he'd rather
+        the player kept fishing than let a hoard rot on the dock."""
+        markets = export.availableMarkets(self.player)
+        names = villagers.joinNames([market["name"] for market in markets])
+        return (
+            "Because there's only so much coin in that drawer, and only so "
+            "many mouths in this village to eat what I buy! I take about $%d "
+            "of fish a day and then I'm done until morning. A boat like yours "
+            "can carry a hold out to %s - they'll pay over my price, though "
+            "the freight'll sting. Don't be a stranger, mind."
+            % (SHOP_DAILY_BUDGET, names)
         )
 
     def run(self):
@@ -178,20 +201,10 @@ class Shop:
             self.currentPrompt.text = "You have no fish to sell."
             return
 
-        # One entry per held fish. Sell the most valuable species first so the
-        # best fish are cashed in before the shop's daily budget runs out; any
+        # One entry per held fish, most valuable species first, so the best
+        # fish are cashed in before the shop's daily budget runs out; any
         # unaffordable leftovers stay in the inventory for another day.
-        if self.player.fishByType:
-            queue = []
-            for species, count in self.player.fishByType.items():
-                queue.extend([species] * count)
-            queue.sort(
-                key=lambda s: (fish.getFishType(s) or {}).get("maxValue", 0),
-                reverse=True,
-            )
-        else:
-            # Legacy save with only an aggregate count (no species breakdown).
-            queue = [None] * self.player.fishCount
+        queue = fish.bestFirst(self.player.fishByType, self.player.fishCount)
 
         earned = 0.0
         for species in queue:
@@ -203,23 +216,26 @@ class Shop:
             self.player.money += value
             self.stats.totalMoneyMade += value
             earned += value
-            self._removeOneFish(species)
+            self.player.removeFish(species)
 
         if self.player.fishCount > 0:
             self.currentPrompt.text = (
                 "Sold fish for $%.2f, but the shop is out of money for today. "
-                "Come back tomorrow for the rest." % earned
+                "%s" % (earned, self._leftoverAdvice())
             )
         else:
             self.currentPrompt.text = "You sold your fish for $%.2f!" % earned
 
-    def _removeOneFish(self, species):
-        self.player.fishCount -= 1
-        if species is None:
-            return
-        self.player.fishByType[species] -= 1
-        if self.player.fishByType[species] == 0:
-            del self.player.fishByType[species]
+    def _leftoverAdvice(self):
+        """What to do with the fish the shop couldn't afford. Once the player
+        has a boat that can make the crossing, pointing them at the export
+        markets beats telling them to keep waiting a day at a time."""
+        if export.canExport(self.player):
+            return (
+                "Come back tomorrow for the rest, or ship them out from the "
+                "docks - the other villages have no daily limit."
+            )
+        return "Come back tomorrow for the rest."
 
     def buyBetterBait(self):
         if self.player.fishMultiplier >= MAX_FISH_MULTIPLIER:

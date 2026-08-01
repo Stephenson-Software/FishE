@@ -78,3 +78,56 @@ def test_addFish_and_clearFish_keep_count_in_sync():
     player.clearFish()
     assert player.fishByType == {}
     assert player.fishCount == 0
+
+
+def test_removeFish_keeps_the_breakdown_and_count_in_sync():
+    # prepare
+    player = createPlayer()
+    player.addFish("Bass", 3)
+
+    # call
+    player.removeFish("Bass")
+
+    # check
+    assert player.fishCount == 2
+    assert player.fishByType == {"Bass": 2}
+
+
+def test_removeFish_drops_a_species_once_it_runs_out():
+    # prepare
+    player = createPlayer()
+    player.addFish("Bass", 1)
+    player.addFish("Marlin", 1)
+
+    # call
+    player.removeFish("Bass")
+
+    # check - the emptied species leaves the breakdown entirely
+    assert player.fishByType == {"Marlin": 1}
+    assert player.fishCount == 1
+
+
+def test_removeFish_handles_an_untyped_legacy_fish():
+    # prepare - an aggregate count with no species breakdown
+    player = createPlayer()
+    player.fishCount = 2
+
+    # call
+    player.removeFish(None)
+
+    # check - the count drops and no breakdown entry is invented
+    assert player.fishCount == 1
+    assert player.fishByType == {}
+
+
+def test_removeFish_can_take_several_at_once():
+    # prepare
+    player = createPlayer()
+    player.addFish("Minnow", 5)
+
+    # call
+    player.removeFish("Minnow", 3)
+
+    # check
+    assert player.fishCount == 2
+    assert player.fishByType == {"Minnow": 2}

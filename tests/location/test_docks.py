@@ -6,6 +6,7 @@ from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.business import business
+from src.business import export
 from src.housing import housing
 from src.npc import villagers
 from unittest.mock import MagicMock, patch
@@ -950,3 +951,250 @@ def test_dismissWorker_back_dismisses_nobody():
     # check
     assert docksInstance.player.workers == 1
     assert docksInstance.player.hiredWorkers == ["Marta Kell"]
+
+
+def createExportingDocks(tier=2, money=1000, fishCount=100):
+    """Docks with a boat big enough to export and a hold worth shipping."""
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    docksInstance.player.boatTier = tier
+    docksInstance.player.money = money
+    if fishCount:
+        docksInstance.player.addFish("Bass", fishCount)
+    return docksInstance
+
+
+def test_run_export_option_appears_only_with_a_big_enough_boat():
+    # prepare - a Rowboat, which can't make the crossing
+    docksInstance = createExportingDocks(tier=1)
+    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    docksInstance.run()
+
+    # check
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert "Export Fish to Other Villages" not in options
+
+    # prepare - upgrade to a Trawler
+    docksInstance.player.boatTier = 2
+
+    # call
+    docksInstance.run()
+
+    # check
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert "Export Fish to Other Villages" in options
+
+
+def test_run_export_action():
+    # prepare - the export entry is last, after Manage Boat & Crew
+    docksInstance = createExportingDocks()
+    docksInstance.userInterface.showOptions = MagicMock(return_value="8")
+    docksInstance.exportFish = MagicMock()
+
+    # call
+    result = docksInstance.run()
+
+    # check
+    docksInstance.exportFish.assert_called_once()
+    assert result == LocationType.DOCKS
+
+
+def test_run_menu_positions_hold_when_both_extras_are_present():
+    # prepare - a crew to talk to *and* a boat that can export, so both
+    # conditional entries are on the menu at once
+    docksInstance = createExportingDocks()
+    business.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="9")
+    docksInstance.exportFish = MagicMock()
+    docksInstance.talkToCrew = MagicMock()
+
+    # call
+    docksInstance.run()
+
+    # check - export sits after the crew entry, and each action still lines up
+    # with its own option rather than the one beside it
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert options[7] == "Talk to Your Crew"
+    assert options[8] == "Export Fish to Other Villages"
+    docksInstance.exportFish.assert_called_once()
+    docksInstance.talkToCrew.assert_not_called()
+
+
+def test_run_crew_action_still_fires_without_the_export_entry():
+    # prepare - a crew but only a Rowboat, so "8" must still mean the crew
+    docksInstance = createDocks()
+    docksInstance.player.hasBoat = True
+    business.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="8")
+    docksInstance.talkToCrew = MagicMock()
+
+    # call
+    docksInstance.run()
+
+    # check
+    docksInstance.talkToCrew.assert_called_once()
+
+
+def test_exportFish_ships_to_the_chosen_market():
+    # prepare - pick the first market
+    docksInstance = createExportingDocks()
+    docksInstance.userInterface.showOptions = MagicMock(return_value="1")
+    startingDay = docksInstance.timeService.day
+
+    # call
+    docksInstance.exportFish()
+
+    # check - the hold sold and the round trip cost a day
+    market = export.EXPORT_MARKETS[0]
+    assert docksInstance.player.fishCount == 0
+    assert docksInstance.timeService.day == startingDay + 1
+    assert docksInstance.stats.totalFishExported == 100
+    assert market["name"] in docksInstance.currentPrompt.text
+
+
+def test_exportFish_reports_fish_left_in_the_hold():
+    # prepare - more fish than a Trawler can carry in one run
+    capacity = business.tierInfo(2)["exportCapacity"]
+    docksInstance = createExportingDocks(fishCount=capacity + 40)
+    docksInstance.userInterface.showOptions = MagicMock(return_value="1")
+
+    # call
+    docksInstance.exportFish()
+
+    # check
+    assert docksInstance.player.fishCount == 40
+    assert "40 fish are still in the hold" in docksInstance.currentPrompt.text
+
+
+def test_exportFish_back_ships_nothing():
+    # prepare - "Back" is the entry after the reachable markets
+    docksInstance = createExportingDocks()
+    backIndex = str(len(export.availableMarkets(docksInstance.player)) + 1)
+    docksInstance.userInterface.showOptions = MagicMock(return_value=backIndex)
+    startingDay = docksInstance.timeService.day
+
+    # call
+    docksInstance.exportFish()
+
+    # check - no fish sold, no day lost
+    assert docksInstance.player.fishCount == 100
+    assert docksInstance.timeService.day == startingDay
+    assert docksInstance.currentPrompt.text == "What would you like to do?"
+
+
+def test_exportFish_stays_open_when_the_freight_is_unaffordable():
+    # prepare - choose the pricier market with no money, then back out
+    docksInstance = createExportingDocks(money=0)
+    backIndex = str(len(export.availableMarkets(docksInstance.player)) + 1)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", backIndex])
+    startingDay = docksInstance.timeService.day
+
+    # call
+    docksInstance.exportFish()
+
+    # check - the player is told what went wrong and gets another choice
+    assert docksInstance.player.fishCount == 100
+    assert docksInstance.timeService.day == startingDay
+    assert docksInstance.userInterface.showOptions.call_count == 2
+
+
+def test_exportRefusal_explains_unaffordable_freight():
+    # prepare
+    docksInstance = createExportingDocks(money=5)
+    market = export.EXPORT_MARKETS[1]
+
+    # call
+    docksInstance._runExport(market)
+
+    # check - names the cost, the shortfall, and a way out
+    text = docksInstance.currentPrompt.text
+    assert market["name"] in text
+    assert "$%d" % market["shippingCost"] in text
+    assert "$5.00" in text
+    assert "shop" in text
+
+
+def test_exportRefusal_explains_an_empty_hold():
+    # prepare
+    docksInstance = createExportingDocks(fishCount=0)
+
+    # call
+    docksInstance._runExport(export.EXPORT_MARKETS[0])
+
+    # check
+    assert "no fish to ship" in docksInstance.currentPrompt.text
+
+
+def test_exportRefusal_explains_a_boat_that_is_too_small():
+    # prepare - a Trawler aimed at the tier 3 market
+    docksInstance = createExportingDocks(tier=2)
+    farMarket = next(m for m in export.EXPORT_MARKETS if m["minBoatTier"] == 3)
+
+    # call
+    docksInstance._runExport(farMarket)
+
+    # check - says which boat would be needed
+    text = docksInstance.currentPrompt.text
+    assert farMarket["name"] in text
+    assert business.tierInfo(farMarket["minBoatTier"])["name"] in text
+
+
+def test_exportStatus_describes_the_load():
+    # prepare - more fish than the hold takes
+    capacity = business.tierInfo(2)["exportCapacity"]
+    docksInstance = createExportingDocks(fishCount=capacity + 10)
+
+    # call
+    status = docksInstance._exportStatus()
+
+    # check
+    assert "can carry %d fish per run" % capacity in status
+    assert "leaving 10 for the next run" in status
+
+
+def test_exportStatus_when_the_hold_is_empty():
+    # prepare
+    docksInstance = createExportingDocks(fishCount=0)
+
+    # call
+    status = docksInstance._exportStatus()
+
+    # check
+    assert "hold is empty" in status
+
+
+def test_marketOption_shows_a_loss_as_a_loss():
+    # prepare - one cheap fish against the priciest freight
+    docksInstance = createExportingDocks(tier=3, fishCount=0)
+    docksInstance.player.addFish("Minnow", 1)
+    farMarket = max(export.EXPORT_MARKETS, key=lambda m: m["shippingCost"])
+
+    # call
+    line = docksInstance._marketOption(
+        farMarket, export.buildCargo(docksInstance.player)
+    )
+
+    # check - reads as a loss rather than a negative "clear" figure
+    assert "loss on this load" in line
+    assert "$-" not in line
+
+
+def test_exportFish_reports_an_eviction_from_the_day_that_passed():
+    # prepare - renting, but broke enough that the day's rent can't be paid
+    docksInstance = createExportingDocks()
+    docksInstance.player.homeTier = 1
+
+    def evictOnNewDay():
+        docksInstance.player.homeTier = 0
+        return {"evicted": True}
+
+    docksInstance.timeService.increaseDay = MagicMock(side_effect=evictOnNewDay)
+    docksInstance.userInterface.showOptions = MagicMock(return_value="1")
+
+    # call
+    docksInstance.exportFish()
+
+    # check - the trip report mentions what happened while the player was away
+    assert housing.EVICTION_MESSAGE in docksInstance.currentPrompt.text

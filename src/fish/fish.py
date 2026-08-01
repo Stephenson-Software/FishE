@@ -28,6 +28,23 @@ def rollFishType():
     return random.choices(FISH_TYPES, weights=weights)[0]["name"]
 
 
+def bestFirst(fishByType, fishCount):
+    """One entry per held fish, most valuable species first.
+
+    Shared by every buyer that can only take part of a hoard - the shop (whose
+    daily budget runs out) and the export markets (whose hold has a capacity) -
+    so the fish left behind are always the cheapest ones. A legacy save with
+    only an aggregate count and no species breakdown yields that many unknown
+    entries, which fishValue prices at the original flat range."""
+    if not fishByType:
+        return [None] * fishCount
+    queue = []
+    for species, count in fishByType.items():
+        queue.extend([species] * count)
+    queue.sort(key=lambda s: (getFishType(s) or {}).get("maxValue", 0), reverse=True)
+    return queue
+
+
 def fishValue(name):
     """Return a per-fish sale price for the given species.
 

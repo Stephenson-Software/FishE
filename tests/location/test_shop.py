@@ -6,6 +6,7 @@ from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.business import business
+from src.business import export
 from unittest.mock import MagicMock
 
 
@@ -361,3 +362,65 @@ def test_gilbert_crew_customer_dialogue_names_a_whole_crew():
 
     # check
     assert "Marta Kell and Owen Brackish" in response
+
+
+def test_gilbert_budget_question_unlocks_with_a_boat_that_can_export():
+    # prepare - a Rowboat can't reach the other villages
+    shopInstance = createShop()
+    shopInstance.player.hasBoat = True
+    shopInstance.player.boatTier = 1
+
+    # call
+    questions = [
+        option["question"] for option in shopInstance.npc.get_dialogue_options()
+    ]
+
+    # check
+    assert "Why can't you buy my whole catch?" not in questions
+
+    # prepare - upgrade to a Trawler
+    shopInstance.player.boatTier = 2
+
+    # call
+    options = shopInstance.npc.get_dialogue_options()
+    questions = [option["question"] for option in options]
+
+    # check - Gilbert explains his budget and points at the export markets
+    assert "Why can't you buy my whole catch?" in questions
+    index = questions.index("Why can't you buy my whole catch?")
+    response = shopInstance.npc.get_dialogue_response(index)
+    assert str(shop.SHOP_DAILY_BUDGET) in response
+    for market in export.availableMarkets(shopInstance.player):
+        assert market["name"] in response
+
+
+def test_sellFish_leftover_advice_mentions_exporting_once_possible():
+    # prepare - more fish than the shop's daily budget can cover, and a
+    # Trawler to ship the rest with
+    shopInstance = createShop()
+    shopInstance.player.hasBoat = True
+    shopInstance.player.boatTier = 2
+    shopInstance.player.addFish("Golden Koi", 100)
+
+    # call
+    shopInstance.sellFish()
+
+    # check - the player is pointed somewhere useful, not just told to wait
+    assert shopInstance.player.fishCount > 0
+    assert "ship them out from the docks" in shopInstance.currentPrompt.text
+
+
+def test_sellFish_leftover_advice_without_an_export_boat():
+    # prepare - the same backlog but only a Rowboat
+    shopInstance = createShop()
+    shopInstance.player.hasBoat = True
+    shopInstance.player.boatTier = 1
+    shopInstance.player.addFish("Golden Koi", 100)
+
+    # call
+    shopInstance.sellFish()
+
+    # check - the original advice stands when there's nowhere else to sell
+    assert shopInstance.player.fishCount > 0
+    assert "Come back tomorrow for the rest." in shopInstance.currentPrompt.text
+    assert "docks" not in shopInstance.currentPrompt.text
