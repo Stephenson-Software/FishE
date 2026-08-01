@@ -120,3 +120,52 @@ def test_inherited_interactive_dialogue_uses_primitives():
     # check - the response was shown via the showDialogue primitive, then it exited
     assert ui.shownDialogues == ["Tester: R1"]
     assert ui.currentPrompt.text == "What would you like to do?"
+
+
+class ConditionalNPC:
+    """An NPC whose second question only appears once `unlocked` is truthy -
+    the shape villagers/locations use to gate crew dialogue behind hiring."""
+
+    name = "Tester"
+
+    def __init__(self):
+        self.unlocked = []
+        self.options = [
+            {"question": "Q1", "response": "R1"},
+            {
+                "question": "Q2",
+                "response": "R2",
+                "condition": lambda: bool(self.unlocked),
+            },
+        ]
+
+    def get_dialogue_options(self):
+        return [o for o in self.options if o.get("condition", lambda: True)()]
+
+    def get_dialogue_response(self, index):
+        return self.get_dialogue_options()[index]["response"]
+
+    def introduce(self):
+        return "Hello"
+
+
+def test_inherited_interactive_dialogue_reflects_unlocked_options():
+    # prepare - the flow every front-end without an override inherits (pygame
+    # and web both use it), so conditional options have to work here
+    prompt, timeService, player = makeArgs()
+    npc = ConditionalNPC()
+
+    # call - only Q1 exists, so "2" is [Back]
+    ui = RecordingUserInterface(prompt, timeService, player, choices=["1", "2"])
+    ui.showInteractiveDialogue(npc)
+
+    # check
+    assert ui.shownDialogues == ["Tester: R1"]
+
+    # call - unlock Q2 on the same NPC and pick it; "3" is now [Back]
+    npc.unlocked.append(1)
+    ui = RecordingUserInterface(prompt, timeService, player, choices=["2", "3"])
+    ui.showInteractiveDialogue(npc)
+
+    # check - the newly available question resolves to its own response
+    assert ui.shownDialogues == ["Tester: R2"]
