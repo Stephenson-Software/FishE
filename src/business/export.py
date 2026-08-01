@@ -16,6 +16,7 @@
 # far more there than it would down the coast at Saltmarsh.
 
 from business import business
+from business import boats
 from fish import fish
 
 
@@ -49,11 +50,33 @@ MIN_EXPORT_BOAT_TIER = min(market["minBoatTier"] for market in EXPORT_MARKETS)
 
 
 def exportCapacity(player):
-    """How many fish the player's boat can carry in one run (0 if they have no
-    boat, or one too small to make the crossing)."""
-    if not player.hasBoat:
-        return 0
-    return business.tierInfo(business.currentTier(player)).get("exportCapacity", 0)
+    """How many fish one run can carry (0 with no boat, or none big enough to
+    make the crossing).
+
+    The run goes out on whichever boat carries the most: a hauling boat's hold
+    is fitted for cargo, so it beats a same-sized hull in any other role - which
+    is the passive half of what dedicating a boat to hauling buys you."""
+    best = 0
+    for boat in player.boats:
+        capacity = business.tierInfo(boat["tier"]).get("exportCapacity", 0)
+        if boat["role"] == boats.ROLE_HAULING:
+            capacity = int(capacity * boats.HAULING_CAPACITY_BONUS)
+        best = max(best, capacity)
+    return best
+
+
+def exportBoat(player):
+    """The boat an export run would actually sail on - the one with the biggest
+    effective hold. None if nothing in the fleet can make the crossing."""
+    best = None
+    bestCapacity = 0
+    for boat in player.boats:
+        capacity = business.tierInfo(boat["tier"]).get("exportCapacity", 0)
+        if boat["role"] == boats.ROLE_HAULING:
+            capacity = int(capacity * boats.HAULING_CAPACITY_BONUS)
+        if capacity > bestCapacity:
+            best, bestCapacity = boat, capacity
+    return best
 
 
 def canExport(player):
@@ -62,8 +85,8 @@ def canExport(player):
 
 
 def availableMarkets(player):
-    """The markets the player's boat can reach, in order."""
-    if not player.hasBoat:
+    """The markets the player's fleet can reach, in order."""
+    if not player.boats:
         return []
     tier = business.currentTier(player)
     return [market for market in EXPORT_MARKETS if market["minBoatTier"] <= tier]

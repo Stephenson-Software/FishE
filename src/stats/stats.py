@@ -21,6 +21,16 @@ class Stats:
         self.totalFishExported = 0
         self.totalMoneyFromExports = 0
         self.totalShippingPaid = 0
+        # Lifetime voyage totals (see src/business/voyages.py). totalPlunder is
+        # the money taken on raids specifically; totalMoneyFromVoyages is every
+        # role's takings together.
+        self.totalHaulingContracts = 0
+        self.totalTransportRuns = 0
+        self.totalRaids = 0
+        self.totalPlunder = 0
+        self.totalMoneyFromVoyages = 0
+        self.crewLostToPiracy = 0
+        self.boatsOwned = 0
         # Lifetime home-ownership totals (see src/housing). highestHomeTier
         # starts at 0 (Homeless) since that's every player's starting rung.
         self.highestHomeTier = 0

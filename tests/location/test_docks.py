@@ -6,6 +6,7 @@ from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.business import business
+from src.business import boats
 from src.business import export
 from src.housing import housing
 from src.npc import villagers
@@ -105,7 +106,7 @@ def test_npc_business_dialogue_staged_by_boat_ownership():
 def test_npc_business_dialogue_staged_by_empty_crew():
     # prepare - a boat but no crew hired yet
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
+    boats.addBoat(docksInstance.player, 1)
 
     # check
     response = docksInstance._businessDialogue()
@@ -117,8 +118,7 @@ def test_npc_business_dialogue_staged_by_tier():
     responses = {}
     for tier in (1, 2, 3):
         docksInstance = createDocks()
-        docksInstance.player.hasBoat = True
-        docksInstance.player.boatTier = tier
+        boats.addBoat(docksInstance.player, tier)
         docksInstance.player.workers = 1
         responses[tier] = docksInstance._businessDialogue()
 
@@ -130,7 +130,7 @@ def test_npc_business_dialogue_staged_by_tier():
 def test_npc_business_dialogue_mentions_business_name():
     # prepare
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
+    boats.addBoat(docksInstance.player, 1)
     docksInstance.player.workers = 1
     docksInstance.player.businessName = "Salty Dawn Fisheries"
 
@@ -150,7 +150,7 @@ def test_npc_dialogue_response_reflects_business_via_callable():
     before = docksInstance.npc.get_dialogue_response(optionIndex)
 
     # call - buy a boat, then ask again
-    docksInstance.player.hasBoat = True
+    boats.addBoat(docksInstance.player, 1)
 
     # check
     after = docksInstance.npc.get_dialogue_response(optionIndex)
@@ -498,258 +498,353 @@ def test_fish_higher_rod_widens_reaction_window():
     assert results["highRod"] > results["lowRod"]
 
 
-def test_run_manage_business_action():
+def test_run_manage_fleet_action():
     # prepare
     docksInstance = createDocks()
     docksInstance.userInterface.showOptions = MagicMock(return_value="7")
-    docksInstance.manageBusiness = MagicMock()
+    docksInstance.manageFleet = MagicMock()
 
     # call
     nextLocation = docksInstance.run()
 
     # check
     assert nextLocation == LocationType.DOCKS
-    docksInstance.manageBusiness.assert_called_once()
+    docksInstance.manageFleet.assert_called_once()
 
 
-def test_manageBusiness_buy_boat():
-    # prepare - enough money for a boat; buy it, then go Back
-    from src.business import business
+def fleetMenu(docksInstance):
+    """The option labels manageFleet last showed, so a test can assert on what
+    the player was actually offered rather than on a hardcoded position."""
+    return docksInstance.userInterface.showOptions.call_args[0][1]
 
+
+def fleetChooser(*wanted):
+    """A showOptions stand-in that drives a menu by label instead of position.
+
+    Each argument is a prefix of the option to pick from whatever menu is
+    showing next; once they run out it picks Back (always the last entry). The
+    fleet menus grow and shrink with game state, so choosing by label keeps
+    these tests from breaking every time an option is added."""
+    remaining = list(wanted)
+
+    def choose(descriptor, options):
+        if remaining:
+            prefix = remaining.pop(0)
+            for index, option in enumerate(options, start=1):
+                if option.startswith(prefix):
+                    return str(index)
+        return str(len(options))
+
+    return choose
+
+
+def test_manageFleet_buy_boat():
+    # prepare - no fleet, money for a Rowboat; "1" = Buy, "" = keep the default
+    # name, then Back
     docksInstance = createDocks()
-    docksInstance.player.money = business.BOAT_PRICE + 50
-    docksInstance.player.hasBoat = False
-    # "1" = Buy a Boat; then in the post-purchase menu
-    # (Hire/Sell the Boat/Upgrade/Rename/Back) "5" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "5"])
+    docksInstance.player.money = business.tierInfo(1)["cost"]
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Buy a")
+    )
+    docksInstance.userInterface.promptForText = MagicMock(return_value="")
 
     # call
-    docksInstance.manageBusiness()
+    docksInstance.manageFleet()
+
+    # check - one boat in the fleet, fishing by default, and it cost money
+    assert len(docksInstance.player.boats) == 1
+    assert docksInstance.player.boats[0]["role"] == boats.ROLE_FISHING
+    assert docksInstance.player.money == 0
+    assert docksInstance.stats.boatsOwned == 1
+
+
+def test_manageFleet_buy_boat_names_her():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.player.money = business.tierInfo(1)["cost"]
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Buy a")
+    )
+    docksInstance.userInterface.promptForText = MagicMock(return_value="Marauder")
+
+    # call
+    docksInstance.manageFleet()
 
     # check
-    assert docksInstance.player.hasBoat is True
-    assert docksInstance.player.money == 50
+    assert docksInstance.player.boats[0]["name"] == "Marauder"
 
 
-def test_manageBusiness_buy_boat_insufficient_funds():
-    # prepare - can't afford a boat
-    from src.business import business
-
+def test_manageFleet_buy_boat_insufficient_funds():
+    # prepare
     docksInstance = createDocks()
-    docksInstance.player.money = business.BOAT_PRICE - 1
-    docksInstance.player.hasBoat = False
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "2"])
+    docksInstance.player.money = 0
 
-    # call
-    docksInstance.manageBusiness()
+    # call - the action directly, since leaving the fleet menu resets the prompt
+    docksInstance._buyBoat()
 
-    # check - no boat, no money spent
-    assert docksInstance.player.hasBoat is False
-    assert docksInstance.player.money == business.BOAT_PRICE - 1
+    # check - no boat, and the message says what it costs and what they have
+    assert docksInstance.player.boats == []
+    assert "$%d" % business.tierInfo(1)["cost"] in docksInstance.currentPrompt.text
+    assert "$0.00" in docksInstance.currentPrompt.text
 
 
-def test_manageBusiness_hire_worker():
-    # prepare - own a boat, no crew yet
+def test_manageFleet_hire_puts_the_villager_straight_to_work():
+    # prepare - a boat with berths free; "2" = Hire, "1" = first villager
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.workers = 0
-    # "1" = Hire; "1" = the first villager on the roster; then in the menu with
-    # a worker (Hire/Dismiss/Sell the Boat/Upgrade/Rename/Back) "6" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "1", "6"])
-
-    # call
-    docksInstance.manageBusiness()
-
-    # check - the hire is a named villager, not an anonymous headcount bump
-    assert docksInstance.player.workers == 1
-    assert docksInstance.player.hiredWorkers == [villagers.VILLAGERS[0]["name"]]
-
-
-def test_manageBusiness_hire_worker_back_hires_nobody():
-    # prepare - own a boat, no crew yet
-    docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.workers = 0
-    # "1" = Hire; then "Back" out of the villager list (one entry per villager,
-    # plus Back); then "5" = Back out of the business menu, which still has no
-    # Dismiss entry because nobody was hired
-    backIndex = str(len(villagers.VILLAGERS) + 1)
+    boats.addBoat(docksInstance.player, 1)
     docksInstance.userInterface.showOptions = MagicMock(
-        side_effect=["1", backIndex, "5"]
+        side_effect=fleetChooser("Hire a Villager", villagers.VILLAGERS[0]["name"])
     )
 
     # call
-    docksInstance.manageBusiness()
+    docksInstance.manageFleet()
 
-    # check
-    assert docksInstance.player.workers == 0
-    assert docksInstance.player.hiredWorkers == []
-
-
-def test_manageBusiness_dismiss_named_worker():
-    # prepare - own a boat crewed by two named villagers
-    docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.workers = 2
-    docksInstance.player.hiredWorkers = ["Marta Kell", "Owen Brackish"]
-    # "2" = Dismiss; "1" = Marta; then "6" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "1", "6"])
-
-    # call
-    docksInstance.manageBusiness()
-
-    # check - the villager the player picked is the one who left
-    assert docksInstance.player.workers == 1
-    assert docksInstance.player.hiredWorkers == ["Owen Brackish"]
-
-
-def test_manageBusiness_dismiss_unnamed_worker():
-    # prepare - a legacy save's crew: a headcount with no names attached
-    docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.workers = 2
-    # "2" = Dismiss; "1" = the unnamed deckhands entry; then "6" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "1", "6"])
-
-    # call
-    docksInstance.manageBusiness()
-
-    # check
-    assert docksInstance.player.workers == 1
-    assert docksInstance.player.hiredWorkers == []
-
-
-def test_manageBusiness_sell_boat():
-    # prepare - own a Trawler (tier 2) with a worker
-    from src.business import business
-
-    docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = 2
-    docksInstance.player.workers = 1
-    docksInstance.player.money = 0
-    resaleValue = business.tierInfo(2)["resaleValue"]
-    # "3" = Sell the Boat (Hire/Dismiss/Sell the Boat/Upgrade/Rename/Back);
-    # after selling, hasBoat is False so the menu shrinks to (Buy a Boat/Back)
-    # and "2" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "2"])
-
-    # call
-    docksInstance.manageBusiness()
-
-    # check - refunded, and boat/tier/crew all cleared
-    assert docksInstance.player.hasBoat is False
-    assert docksInstance.player.boatTier == 0
-    assert docksInstance.player.workers == 0
-    assert docksInstance.player.money == resaleValue
-
-
-def test_manageBusiness_hire_worker_increments_lifetime_stat():
-    # prepare - own a boat, no crew yet
-    docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.workers = 0
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "1", "6"])
-
-    # call
-    docksInstance.manageBusiness()
-
-    # check - hiring is tracked as a lifetime business stat too
+    # check - hired onto the roster AND aboard, so they actually earn
+    name = villagers.VILLAGERS[0]["name"]
+    assert docksInstance.player.hiredWorkers == [name]
+    assert docksInstance.player.boats[0]["crew"] == [name]
     assert docksInstance.stats.totalWorkersHired == 1
 
 
-def test_manageBusiness_upgrade_boat():
-    # prepare - own a Rowboat (tier 1), enough money to upgrade to a Trawler
-    from src.business import business
-
+def test_manageFleet_hire_capacity_is_the_whole_fleet():
+    # prepare - two Rowboats, so the cap is both boats' berths together
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = 1
-    trawler = business.tierInfo(2)
-    docksInstance.player.money = trawler["cost"] + 50
-    # 0 workers under tier-1 capacity, so the menu is
-    # (Hire/Sell the Boat/Upgrade/Rename/Back): "3" = Upgrade, "5" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "5"])
+    boats.addBoat(docksInstance.player, 1)
+    boats.addBoat(docksInstance.player, 1)
+    berths = business.tierInfo(1)["maxWorkers"] * 2
+    for villager in villagers.VILLAGERS[:berths]:
+        assert boats.hireWorker(docksInstance.player, villager["name"]) is True
 
-    # call
-    docksInstance.manageBusiness()
-
-    # check
-    assert docksInstance.player.boatTier == 2
-    assert docksInstance.player.money == 50
+    # check - full at the fleet's capacity, not one boat's
+    assert docksInstance.player.workers == berths
+    assert boats.hireWorker(docksInstance.player, "Bastian Roe") is False
 
 
-def test_manageBusiness_upgrade_boat_insufficient_funds():
-    # prepare - can't afford the next tier
-    from src.business import business
-
+def test_manageFleet_dismiss_named_worker():
+    # prepare - two villagers aboard; "3" = Dismiss, "1" = the first of them
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = 1
-    docksInstance.player.money = business.tierInfo(2)["cost"] - 1
-    # (Hire/Sell the Boat/Upgrade/Rename/Back): "3" = Upgrade, "5" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["3", "5"])
-
-    # call
-    docksInstance.manageBusiness()
-
-    # check - tier and money are unchanged
-    assert docksInstance.player.boatTier == 1
-    assert docksInstance.player.money == business.tierInfo(2)["cost"] - 1
-
-
-def test_manageBusiness_upgrade_boat_unavailable_at_max_tier():
-    # prepare - already at the highest boat tier
-    from src.business import business
-
-    docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = len(business.BOAT_TIERS)
-    # No upgrade offered at max tier, so the menu is
-    # (Hire/Sell the Boat/Rename/Back); "4" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["4"])
-
-    # call
-    docksInstance.manageBusiness()
-
-    # check - "Back" (option 3) exits cleanly; no upgrade option was ever shown
-    options_shown = docksInstance.userInterface.showOptions.call_args[0][1]
-    assert not any("Upgrade" in option for option in options_shown)
-
-
-def test_manageBusiness_rename():
-    # prepare - own a boat, no crew, rename then back
-    docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = 1
-    # (Hire/Sell the Boat/Upgrade/Rename/Back): "4" = Rename, "5" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["4", "5"])
-    docksInstance.userInterface.promptForText = MagicMock(
-        return_value="  Salty Sea Co.  "
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.hireWorker(docksInstance.player, "Owen Brackish")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Dismiss a Worker", "Marta Kell")
     )
 
     # call
-    docksInstance.manageBusiness()
+    docksInstance.manageFleet()
 
-    # check - the name is trimmed
-    assert docksInstance.player.businessName == "Salty Sea Co."
+    # check - gone from the roster and off the boat
+    assert docksInstance.player.hiredWorkers == ["Owen Brackish"]
+    assert docksInstance.player.boats[0]["crew"] == ["Owen Brackish"]
+    assert docksInstance.player.workers == 1
 
 
-def test_manageBusiness_rename_blank_keeps_previous_name():
+def test_manageFleet_assign_crew_between_boats():
+    # prepare - a hand on the first boat, and a second boat with room
+    docksInstance = createDocks()
+    first = boats.addBoat(docksInstance.player, 1, name="Salty Dawn")
+    second = boats.addBoat(docksInstance.player, 1, boats.ROLE_PIRACY, "Marauder")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    assert first["crew"] == ["Marta Kell"]
+
+    # call - Assign (4) -> Salty Dawn (1) -> take Marta off (1) -> Back (2)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Assign Crew", "Salty Dawn", "Take Marta Kell off")
+    )
+    docksInstance.manageFleet()
+
+    # check - she's ashore, still hired, and available for the other boat
+    assert first["crew"] == []
+    assert second["crew"] == []
+    assert boats.unassignedNames(docksInstance.player) == ["Marta Kell"]
+
+
+def test_manageFleet_change_role():
+    # prepare - one fishing boat; "4" = Change a Boat's Role with no crew hired
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 2)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Change a Boat's Role", "Unnamed", "Piracy")
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check - dedicated to piracy, which is third in ROLE_ORDER
+    assert docksInstance.player.boats[0]["role"] == boats.ROLE_PIRACY
+
+
+def test_manageFleet_sell_boat_returns_her_crew_to_the_payroll():
+    # prepare - a Trawler with a hand aboard
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 2)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.player.money = 0
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Unnamed")
+    )
+
+    # call
+    docksInstance._sellBoat()
+
+    # check - paid out, boat gone, crew ashore but still hired and warned about
+    assert docksInstance.player.money == business.tierInfo(2)["resaleValue"]
+    assert docksInstance.player.boats == []
+    assert docksInstance.player.hiredWorkers == ["Marta Kell"]
+    assert "still on the payroll" in docksInstance.currentPrompt.text
+
+
+def test_manageFleet_upgrade_boat():
+    # prepare - a Rowboat and enough for a Trawler
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.player.money = business.tierInfo(2)["cost"]
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Upgrade a Boat", "Unnamed")
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check
+    assert docksInstance.player.boats[0]["tier"] == 2
+    assert docksInstance.player.money == 0
+
+
+def test_manageFleet_upgrade_boat_insufficient_funds():
     # prepare
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = 1
-    docksInstance.player.businessName = "Original Name"
-    # (Hire/Sell the Boat/Upgrade/Rename/Back): "4" = Rename, "5" = Back
-    docksInstance.userInterface.showOptions = MagicMock(side_effect=["4", "5"])
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.player.money = 0
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Upgrade a Boat", "Unnamed")
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check
+    assert docksInstance.player.boats[0]["tier"] == 1
+
+
+def test_manageFleet_upgrade_unavailable_at_max_tier():
+    # prepare - every boat already at the top of the ladder
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, len(business.BOAT_TIERS))
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=fleetChooser())
+
+    # call - the menu is rendered once, then Back
+    docksInstance.manageFleet()
+
+    # check
+    assert "Upgrade a Boat" not in fleetMenu(docksInstance)
+
+
+def test_manageFleet_repair_only_offered_when_something_is_damaged():
+    # prepare - a sound fleet
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=fleetChooser())
+    docksInstance.manageFleet()
+
+    # check
+    assert "Repair a Boat" not in fleetMenu(docksInstance)
+
+    # prepare - knock her about
+    boats.damageBoat(boat, 40)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=fleetChooser())
+    docksInstance.manageFleet()
+
+    # check
+    assert "Repair a Boat" in fleetMenu(docksInstance)
+
+
+def test_manageFleet_repair_boat():
+    # prepare - a damaged boat and the money to fix her
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1)
+    boats.damageBoat(boat, 40)
+    cost = boats.repairCost(boat)
+    docksInstance.player.money = cost
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Repair a Boat", "Unnamed")
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check
+    assert boat["damage"] == 0
+    assert docksInstance.player.money == 0
+
+
+def test_manageFleet_repair_refused_when_too_poor():
+    # prepare
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1)
+    boats.damageBoat(boat, 40)
+    docksInstance.player.money = 1
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Unnamed")
+    )
+
+    # call
+    docksInstance._repairBoat()
+
+    # check - still damaged, and told what it would cost
+    assert boat["damage"] == 40
+    assert "$%d" % boats.repairCost(boat) in docksInstance.currentPrompt.text
+
+
+def test_manageFleet_rename_business():
+    # prepare
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Rename Business")
+    )
+    docksInstance.userInterface.promptForText = MagicMock(
+        return_value="Salty Dawn Fisheries"
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check
+    assert docksInstance.player.businessName == "Salty Dawn Fisheries"
+
+
+def test_manageFleet_rename_business_blank_keeps_previous_name():
+    # prepare
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.player.businessName = "Salty Dawn Fisheries"
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Rename Business")
+    )
     docksInstance.userInterface.promptForText = MagicMock(return_value="   ")
 
     # call
-    docksInstance.manageBusiness()
+    docksInstance.manageFleet()
 
-    # check - a blank entry doesn't clear the existing name
-    assert docksInstance.player.businessName == "Original Name"
+    # check
+    assert docksInstance.player.businessName == "Salty Dawn Fisheries"
+
+
+def test_manageFleet_rename_boat():
+    # prepare
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Rename a Boat", "Unnamed")
+    )
+    docksInstance.userInterface.promptForText = MagicMock(return_value="Marauder")
+
+    # call
+    docksInstance.manageFleet()
+
+    # check
+    assert docksInstance.player.boats[0]["name"] == "Marauder"
 
 
 def test_run_talk_to_crew_option_appears_once_hired():
@@ -768,8 +863,8 @@ def test_run_talk_to_crew_option_appears_once_hired():
     )
 
     # prepare - hire someone
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
 
     # call
     docksInstance.run()
@@ -783,8 +878,8 @@ def test_run_talk_to_crew_option_appears_once_hired():
 def test_run_talk_to_crew_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
     docksInstance.userInterface.showOptions = MagicMock(return_value="8")
     docksInstance.talkToCrew = MagicMock()
 
@@ -799,9 +894,9 @@ def test_run_talk_to_crew_action():
 def test_talkToCrew_opens_the_chosen_crew_member():
     # prepare - two hands aboard; pick the second, then back out
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
-    business.hireWorker(docksInstance.player, "Owen Brackish")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.hireWorker(docksInstance.player, "Owen Brackish")
     docksInstance.userInterface.showOptions = MagicMock(side_effect=["2", "3"])
     docksInstance.userInterface.showInteractiveDialogue = MagicMock()
 
@@ -818,8 +913,8 @@ def test_talkToCrew_opens_the_chosen_crew_member():
 def test_talkToCrew_back_talks_to_nobody():
     # prepare - one hand aboard, so "2" is Back
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
     docksInstance.userInterface.showOptions = MagicMock(return_value="2")
     docksInstance.userInterface.showInteractiveDialogue = MagicMock()
 
@@ -843,8 +938,8 @@ def test_sam_crew_question_is_locked_until_someone_is_hired():
     assert "What do you make of the crew I hired?" not in questions
 
     # prepare - hire a villager
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
 
     # call
     options = docksInstance.npc.get_dialogue_options()
@@ -861,9 +956,9 @@ def test_sam_crew_question_is_locked_until_someone_is_hired():
 def test_sam_crew_question_mentions_unnamed_hands():
     # prepare - one named villager plus two hands from a legacy save
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
+    boats.addBoat(docksInstance.player, 1)
     docksInstance.player.workers = 2
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
 
     # call
     response = docksInstance._crewDialogue()
@@ -873,24 +968,27 @@ def test_sam_crew_question_mentions_unnamed_hands():
     assert "2 hands" in response
 
 
-def test_businessStatus_lists_the_crew_by_name():
+def test_fleetStatus_lists_every_boat_and_who_is_on_her():
     # prepare
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
-    business.hireWorker(docksInstance.player, "Owen Brackish")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.hireWorker(docksInstance.player, "Owen Brackish")
 
     # call
-    status = docksInstance._businessStatus()
+    status = docksInstance._fleetStatus()
 
-    # check
-    assert "Aboard: Marta Kell and Owen Brackish." in status
+    # check - the boat, her role, and her crew are all on the screen
+    assert "Fishing" in status
+    assert "crew 2/" in status
+    assert "Marta Kell" in docksInstance.player.boats[0]["crew"]
+    assert "Owen Brackish" in docksInstance.player.boats[0]["crew"]
 
 
 def test_hireVillager_with_nobody_left_to_hire():
     # prepare - the whole roster is already aboard
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
+    boats.addBoat(docksInstance.player, 1)
     docksInstance.player.hiredWorkers = [v["name"] for v in villagers.VILLAGERS]
     docksInstance.player.workers = len(villagers.VILLAGERS)
     docksInstance.userInterface.showOptions = MagicMock()
@@ -907,7 +1005,7 @@ def test_sam_crew_dialogue_handles_a_name_off_the_roster():
     # prepare - a crew member whose name isn't in the villager roster, as a
     # hand carried over from an older save could be
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
+    boats.addBoat(docksInstance.player, 1)
     docksInstance.player.workers = 1
     docksInstance.player.hiredWorkers = ["Some Old Hand"]
 
@@ -922,8 +1020,7 @@ def test_hireVillager_refuses_when_every_berth_is_taken():
     # prepare - a legacy save whose unnamed hands fill the Rowboat, so the
     # roster still has names free but the boat has no room
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = 1
+    boats.addBoat(docksInstance.player, 1)
     docksInstance.player.workers = business.tierInfo(1)["maxWorkers"]
     docksInstance.userInterface.showOptions = MagicMock(return_value="1")
 
@@ -933,16 +1030,14 @@ def test_hireVillager_refuses_when_every_berth_is_taken():
     # check - nobody is added past the boat's capacity
     assert docksInstance.player.workers == business.tierInfo(1)["maxWorkers"]
     assert docksInstance.player.hiredWorkers == []
-    assert (
-        docksInstance.currentPrompt.text == "There's no room aboard for another hand."
-    )
+    assert "no free berth in the fleet" in docksInstance.currentPrompt.text
 
 
 def test_dismissWorker_back_dismisses_nobody():
     # prepare - one named hand aboard, so "2" is Back
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
     docksInstance.userInterface.showOptions = MagicMock(return_value="2")
 
     # call
@@ -956,8 +1051,7 @@ def test_dismissWorker_back_dismisses_nobody():
 def createExportingDocks(tier=2, money=1000, fishCount=100):
     """Docks with a boat big enough to export and a hold worth shipping."""
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    docksInstance.player.boatTier = tier
+    boats.addBoat(docksInstance.player, tier)
     docksInstance.player.money = money
     if fishCount:
         docksInstance.player.addFish("Bass", fishCount)
@@ -977,7 +1071,7 @@ def test_run_export_option_appears_only_with_a_big_enough_boat():
     assert "Export Fish to Other Villages" not in options
 
     # prepare - upgrade to a Trawler
-    docksInstance.player.boatTier = 2
+    boats.addBoat(docksInstance.player, 2)
 
     # call
     docksInstance.run()
@@ -1005,7 +1099,7 @@ def test_run_menu_positions_hold_when_both_extras_are_present():
     # prepare - a crew to talk to *and* a boat that can export, so both
     # conditional entries are on the menu at once
     docksInstance = createExportingDocks()
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
     docksInstance.userInterface.showOptions = MagicMock(return_value="9")
     docksInstance.exportFish = MagicMock()
     docksInstance.talkToCrew = MagicMock()
@@ -1025,8 +1119,8 @@ def test_run_menu_positions_hold_when_both_extras_are_present():
 def test_run_crew_action_still_fires_without_the_export_entry():
     # prepare - a crew but only a Rowboat, so "8" must still mean the crew
     docksInstance = createDocks()
-    docksInstance.player.hasBoat = True
-    business.hireWorker(docksInstance.player, "Marta Kell")
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
     docksInstance.userInterface.showOptions = MagicMock(return_value="8")
     docksInstance.talkToCrew = MagicMock()
 
@@ -1198,3 +1292,184 @@ def test_exportFish_reports_an_eviction_from_the_day_that_passed():
 
     # check - the trip report mentions what happened while the player was away
     assert housing.EVICTION_MESSAGE in docksInstance.currentPrompt.text
+
+
+def createRaidingDocks(tier=3, crew=2, damage=0):
+    """Docks with a crewed pirate boat ready to be sent out."""
+    docksInstance = createDocks()
+    docksInstance.player.money = 1000
+    boat = boats.addBoat(docksInstance.player, tier, boats.ROLE_PIRACY, "Marauder")
+    for villager in villagers.VILLAGERS[:crew]:
+        boats.hireWorker(docksInstance.player, villager["name"])
+    if damage:
+        boats.damageBoat(boat, damage)
+    return docksInstance, boat
+
+
+def test_run_send_out_a_boat_appears_only_with_a_boat_that_can_go():
+    # prepare - a crewed fishing boat has nowhere to be sent
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 2, boats.ROLE_FISHING)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+    docksInstance.run()
+
+    # check
+    assert (
+        "Send Out a Boat" not in docksInstance.userInterface.showOptions.call_args[0][1]
+    )
+
+    # prepare - re-dedicate her to piracy
+    boats.setRole(
+        docksInstance.player, docksInstance.player.boats[0]["id"], boats.ROLE_PIRACY
+    )
+    docksInstance.run()
+
+    # check
+    assert "Send Out a Boat" in docksInstance.userInterface.showOptions.call_args[0][1]
+
+
+def test_run_send_out_a_boat_action():
+    # prepare - a crewed tier-3 pirate boat also unlocks the crew and export
+    # entries, so find the voyage entry by label rather than by position
+    docksInstance, _ = createRaidingDocks()
+    docksInstance.userInterface.showOptions = MagicMock(return_value="1")
+    docksInstance.fish = MagicMock()
+    docksInstance.run()
+    menu = docksInstance.userInterface.showOptions.call_args[0][1]
+
+    docksInstance.userInterface.showOptions = MagicMock(
+        return_value=str(menu.index("Send Out a Boat") + 1)
+    )
+    docksInstance.sendOutBoat = MagicMock()
+
+    # call
+    result = docksInstance.run()
+
+    # check
+    docksInstance.sendOutBoat.assert_called_once()
+    assert result == LocationType.DOCKS
+
+
+def test_sendOutBoat_runs_a_raid_and_costs_a_day():
+    # prepare - pick the boat, then the first raid
+    docksInstance, boat = createRaidingDocks()
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "1"])
+    startingDay = docksInstance.timeService.day
+
+    # call
+    docksInstance.sendOutBoat()
+
+    # check - the raid happened and the day is gone
+    assert docksInstance.stats.totalRaids == 1
+    assert docksInstance.timeService.day == startingDay + 1
+
+
+def test_sendOutBoat_back_sails_nobody():
+    # prepare - "2" is Back (one ready boat plus Back)
+    docksInstance, _ = createRaidingDocks()
+    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+    startingDay = docksInstance.timeService.day
+
+    # call
+    docksInstance.sendOutBoat()
+
+    # check
+    assert docksInstance.stats.totalRaids == 0
+    assert docksInstance.timeService.day == startingDay
+
+
+def test_sendOutBoat_explains_why_a_boat_is_staying_in_port():
+    # prepare - one boat ready, one too damaged to sail
+    docksInstance, ready = createRaidingDocks()
+    broken = boats.addBoat(docksInstance.player, 3, boats.ROLE_HAULING, "Leaky Sue")
+    boats.hireWorker(docksInstance.player, "Piety Shaw")
+    boats.unassignCrew(docksInstance.player, ready["id"], "Piety Shaw")
+    boats.assignCrew(docksInstance.player, broken["id"], "Piety Shaw")
+    boats.damageBoat(broken, boats.UNSEAWORTHY_DAMAGE)
+    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call
+    docksInstance.sendOutBoat()
+
+    # check - the descriptor says which boat is stuck and what to do about it
+    descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert "Leaky Sue" in descriptor
+    assert "Repair her" in descriptor
+
+
+def test_voyageReport_reads_differently_for_every_raid_outcome():
+    # prepare
+    docksInstance, boat = createRaidingDocks()
+    reports = {}
+    for outcome in ("rich", "success", "driven_off", "disaster"):
+        reports[outcome] = docksInstance._voyageReport(
+            {
+                "role": boats.ROLE_PIRACY,
+                "job": "raid",
+                "boat": "Marauder",
+                "outcome": outcome,
+                "earned": 500,
+                "damage": 30,
+                "fishTaken": 12,
+                "crewLost": "Marta Kell" if outcome == "disaster" else None,
+            }
+        )
+
+    # check - four distinct reports, and the disaster names who was lost
+    assert len(set(reports.values())) == 4
+    assert "Marta Kell" in reports["disaster"]
+    assert "12 fish" in reports["success"]
+    assert "driven off" in reports["driven_off"]
+
+
+def test_voyageReport_covers_honest_work_too():
+    # prepare
+    docksInstance, _ = createRaidingDocks()
+
+    # check
+    for outcome, expected in (
+        ("paid", "passengers"),
+        ("delivered", "without trouble"),
+        ("rough_seas", "heavy seas"),
+    ):
+        report = docksInstance._voyageReport(
+            {
+                "role": boats.ROLE_HAULING,
+                "job": "run",
+                "boat": "Marauder",
+                "outcome": outcome,
+                "earned": 200,
+                "damage": 15,
+                "fishTaken": 0,
+                "crewLost": None,
+            }
+        )
+        assert expected in report
+
+
+def test_sendOutBoat_reports_an_eviction_from_the_day_that_passed():
+    # prepare - renting, and the day rolls while the boat is away
+    docksInstance, _ = createRaidingDocks()
+    docksInstance.player.homeTier = 1
+    docksInstance.timeService.increaseDay = MagicMock(return_value={"evicted": True})
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=["1", "1"])
+
+    # call
+    docksInstance.sendOutBoat()
+
+    # check
+    assert housing.EVICTION_MESSAGE in docksInstance.currentPrompt.text
+
+
+def test_exportCapacity_prefers_a_hauling_boat():
+    # prepare - the same hull, fishing then hauling
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 2, boats.ROLE_FISHING)
+    asFishing = export.exportCapacity(docksInstance.player)
+
+    # call
+    boats.setRole(docksInstance.player, boat["id"], boats.ROLE_HAULING)
+
+    # check - the cargo fit-out is the passive half of dedicating her to hauling
+    assert export.exportCapacity(docksInstance.player) > asFishing

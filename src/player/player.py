@@ -21,10 +21,11 @@ class Player:
         # Per-species breakdown of the fish currently held. fishCount remains the
         # aggregate total; addFish/clearFish keep the two in sync.
         self.fishByType = {}
-        # Fishing business: a boat unlocks hiring workers who bring in a passive
-        # daily catch for a daily wage (see src/business). boatTier tracks boat
-        # upgrades (0 = no boat); businessName is purely cosmetic ownership flavor.
-        self.hasBoat = False
+        # The fleet (see src/business/boats.py). Every boat the player owns,
+        # each dedicated to a role. This is the source of truth for what the
+        # player can do on the water; hasBoat and boatTier below are derived
+        # from it rather than stored, so the two can't drift apart.
+        self.boats = []
         self.workers = 0
         # Names of the villagers hired onto the crew (see src/npc/villagers).
         # workers stays the authoritative headcount - saves made before crews
@@ -32,7 +33,6 @@ class Player:
         # hands are still real crew - so this list is never longer than
         # workers (business._trimCrewRoster enforces that).
         self.hiredWorkers = []
-        self.boatTier = 0
         self.businessName = ""
         # Home ownership: a second, independent property track (see
         # src/housing). homeTier is an index into the housing ladder - every
@@ -54,6 +54,26 @@ class Player:
             "true",
             "yes",
         )
+
+    @property
+    def hasBoat(self):
+        """Whether the player owns any boat at all.
+
+        Derived from the fleet rather than stored: before roles existed this
+        was a flag set alongside a single boatTier, and the two could disagree.
+        Read-only on purpose - put a boat in the fleet with boats.addBoat."""
+        return bool(self.boats)
+
+    @property
+    def boatTier(self):
+        """The tier of the best boat in the fleet (0 with no boats).
+
+        Everything that asks "how far along is this business?" - NPC dialogue,
+        the export markets' minimum, the boat-tier milestones - means the best
+        hull the player has, so that's what this answers."""
+        if not self.boats:
+            return 0
+        return max(boat["tier"] for boat in self.boats)
 
     def canAfford(self, cost):
         return self.operatorMode or self.money >= cost

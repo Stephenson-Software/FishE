@@ -5,7 +5,7 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
-from src.business import business
+from src.business import boats
 from src.business import export
 from unittest.mock import MagicMock
 
@@ -127,7 +127,7 @@ def test_npc_crew_dialogue_no_business():
 def test_npc_crew_dialogue_no_workers():
     # prepare - a boat but no crew hired
     shopInstance = createShop()
-    shopInstance.player.hasBoat = True
+    boats.addBoat(shopInstance.player, 1)
 
     # check
     assert "Can't say I have" in shopInstance._crewDialogue()
@@ -138,8 +138,7 @@ def test_npc_crew_dialogue_reports_daily_catch():
     from src.business import business
 
     shopInstance = createShop()
-    shopInstance.player.hasBoat = True
-    shopInstance.player.boatTier = 2
+    boats.addBoat(shopInstance.player, 2)
     shopInstance.player.workers = 3
 
     # check - the reported total matches tier fishPerDay * worker count
@@ -337,8 +336,8 @@ def test_gilbert_crew_customer_question_is_locked_until_someone_is_hired():
     assert "Do my crew shop here?" not in questions
 
     # prepare - hire a villager
-    shopInstance.player.hasBoat = True
-    business.hireWorker(shopInstance.player, "Marta Kell")
+    boats.addBoat(shopInstance.player, 1)
+    boats.hireWorker(shopInstance.player, "Marta Kell")
 
     # call
     options = shopInstance.npc.get_dialogue_options()
@@ -353,9 +352,9 @@ def test_gilbert_crew_customer_question_is_locked_until_someone_is_hired():
 def test_gilbert_crew_customer_dialogue_names_a_whole_crew():
     # prepare
     shopInstance = createShop()
-    shopInstance.player.hasBoat = True
-    business.hireWorker(shopInstance.player, "Marta Kell")
-    business.hireWorker(shopInstance.player, "Owen Brackish")
+    boats.addBoat(shopInstance.player, 1)
+    boats.hireWorker(shopInstance.player, "Marta Kell")
+    boats.hireWorker(shopInstance.player, "Owen Brackish")
 
     # call
     response = shopInstance._crewCustomerDialogue()
@@ -367,8 +366,7 @@ def test_gilbert_crew_customer_dialogue_names_a_whole_crew():
 def test_gilbert_budget_question_unlocks_with_a_boat_that_can_export():
     # prepare - a Rowboat can't reach the other villages
     shopInstance = createShop()
-    shopInstance.player.hasBoat = True
-    shopInstance.player.boatTier = 1
+    boats.addBoat(shopInstance.player, 1)
 
     # call
     questions = [
@@ -379,7 +377,7 @@ def test_gilbert_budget_question_unlocks_with_a_boat_that_can_export():
     assert "Why can't you buy my whole catch?" not in questions
 
     # prepare - upgrade to a Trawler
-    shopInstance.player.boatTier = 2
+    boats.addBoat(shopInstance.player, 2)
 
     # call
     options = shopInstance.npc.get_dialogue_options()
@@ -398,8 +396,7 @@ def test_sellFish_leftover_advice_mentions_exporting_once_possible():
     # prepare - more fish than the shop's daily budget can cover, and a
     # Trawler to ship the rest with
     shopInstance = createShop()
-    shopInstance.player.hasBoat = True
-    shopInstance.player.boatTier = 2
+    boats.addBoat(shopInstance.player, 2)
     shopInstance.player.addFish("Golden Koi", 100)
 
     # call
@@ -413,8 +410,7 @@ def test_sellFish_leftover_advice_mentions_exporting_once_possible():
 def test_sellFish_leftover_advice_without_an_export_boat():
     # prepare - the same backlog but only a Rowboat
     shopInstance = createShop()
-    shopInstance.player.hasBoat = True
-    shopInstance.player.boatTier = 1
+    boats.addBoat(shopInstance.player, 1)
     shopInstance.player.addFish("Golden Koi", 100)
 
     # call

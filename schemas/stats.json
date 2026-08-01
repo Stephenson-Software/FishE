@@ -79,6 +79,34 @@
         "totalRentPaid": {
             "type": "number",
             "description": "The lifetime total of rent paid for a rented room."
+        },
+        "totalHaulingContracts": {
+            "type": "integer",
+            "description": "The lifetime number of hauling contracts completed."
+        },
+        "totalTransportRuns": {
+            "type": "integer",
+            "description": "The lifetime number of passenger transport runs completed."
+        },
+        "totalRaids": {
+            "type": "integer",
+            "description": "The lifetime number of piracy raids attempted."
+        },
+        "totalPlunder": {
+            "type": "number",
+            "description": "The lifetime money taken on piracy raids."
+        },
+        "totalMoneyFromVoyages": {
+            "type": "number",
+            "description": "The lifetime money earned from all boat voyages."
+        },
+        "crewLostToPiracy": {
+            "type": "integer",
+            "description": "The lifetime number of crew lost on piracy raids."
+        },
+        "boatsOwned": {
+            "type": "integer",
+            "description": "The lifetime number of boats bought."
         }
     }
 }

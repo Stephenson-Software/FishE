@@ -6,6 +6,7 @@ from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.business import business
+from src.business import boats
 from unittest.mock import MagicMock, patch
 
 
@@ -149,8 +150,7 @@ def test_npc_business_dialogue_staged_by_tier():
     responses = {}
     for tier in (1, 2, 3):
         tavernInstance = createTavern()
-        tavernInstance.player.hasBoat = True
-        tavernInstance.player.boatTier = tier
+        boats.addBoat(tavernInstance.player, tier)
         responses[tier] = tavernInstance._businessDialogue()
 
     # check - each tier gets distinct banter
@@ -161,8 +161,7 @@ def test_npc_business_dialogue_staged_by_tier():
 def test_npc_business_dialogue_mentions_business_name():
     # prepare
     tavernInstance = createTavern()
-    tavernInstance.player.hasBoat = True
-    tavernInstance.player.boatTier = 3
+    boats.addBoat(tavernInstance.player, 3)
     tavernInstance.player.businessName = "Salty Dawn Fisheries"
 
     # check
@@ -602,9 +601,9 @@ def test_old_tom_crew_question_is_locked_until_someone_is_hired():
     assert "Do my crew drink in here?" not in questions
 
     # prepare - hire a villager and cover their wages
-    tavernInstance.player.hasBoat = True
+    boats.addBoat(tavernInstance.player, 1)
     tavernInstance.player.money = 1000
-    business.hireWorker(tavernInstance.player, "Marta Kell")
+    boats.hireWorker(tavernInstance.player, "Marta Kell")
 
     # call
     options = tavernInstance.npc.get_dialogue_options()
@@ -621,9 +620,9 @@ def test_old_tom_crew_question_is_locked_until_someone_is_hired():
 def test_old_tom_crew_dialogue_warns_about_unpaid_wages():
     # prepare - a crew whose payroll the player can't cover
     tavernInstance = createTavern()
-    tavernInstance.player.hasBoat = True
-    business.hireWorker(tavernInstance.player, "Marta Kell")
-    business.hireWorker(tavernInstance.player, "Owen Brackish")
+    boats.addBoat(tavernInstance.player, 1)
+    boats.hireWorker(tavernInstance.player, "Marta Kell")
+    boats.hireWorker(tavernInstance.player, "Owen Brackish")
     tavernInstance.player.money = 5
 
     # call

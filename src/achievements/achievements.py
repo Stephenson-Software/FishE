@@ -69,6 +69,24 @@ MILESTONES = [
         "description": "Have your crew catch 500 fish total",
     },
     {
+        "name": "Letter of Marque",
+        "stat": "totalRaids",
+        "threshold": 1,
+        "description": "Run your first piracy raid",
+    },
+    {
+        "name": "Scourge of the Coast",
+        "stat": "totalPlunder",
+        "threshold": 5000,
+        "description": "Take $5,000 in plunder",
+    },
+    {
+        "name": "A Fleet in Truth",
+        "stat": "boatsOwned",
+        "threshold": 3,
+        "description": "Own three boats over your career",
+    },
+    {
         "name": "First Export",
         "stat": "totalFishExported",
         "threshold": 1,

@@ -1,7 +1,7 @@
 import math
 import random
 
-from business import business
+from business import boats
 from housing import housing
 from investments import investments
 
@@ -57,7 +57,7 @@ class TimeService:
         self.stats.totalMoneyMade += moneyToAdd
 
         # The fishing business (if any) produces its daily catch and pays wages.
-        business.runDailyProduction(self.player, self.stats)
+        boats.runDailyProduction(self.player, self.stats)
 
         # Any investment properties (if owned) pay out their daily rental income.
         investments.runDailyIncome(self.player, self.stats)

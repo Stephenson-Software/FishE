@@ -1,14 +1,14 @@
 from src.business import business
+from src.business import boats
 from src.npc import villagers
 from src.player.player import Player
 
 
 def createEmployedPlayer(name="Marta Kell", tier=1):
     player = Player()
-    player.hasBoat = True
-    player.boatTier = tier
+    boats.addBoat(player, tier)
     player.money = 1000
-    business.hireWorker(player, name)
+    boats.hireWorker(player, name)
     return player
 
 
@@ -93,8 +93,8 @@ def test_createCrewNPC_work_dialogue_reflects_the_boat():
 def test_createCrewNPC_wage_dialogue_warns_when_payroll_is_short():
     # prepare - a crew of three with less than a day's payroll on hand
     player = createEmployedPlayer()
-    business.hireWorker(player, "Owen Brackish")
-    business.hireWorker(player, "Piety Shaw")
+    boats.hireWorker(player, "Owen Brackish")
+    boats.hireWorker(player, "Piety Shaw")
     player.money = 5
     npc = villagers.createCrewNPC(player, "Marta Kell")
 
@@ -137,7 +137,7 @@ def test_createCrewNPC_unlocks_the_crowded_question_when_full():
     for villager in villagers.availableVillagers(player)[
         : business.tierInfo(1)["maxWorkers"] - 1
     ]:
-        business.hireWorker(player, villager["name"])
+        boats.hireWorker(player, villager["name"])
     npc = villagers.createCrewNPC(player, "Marta Kell")
 
     # call
@@ -177,7 +177,7 @@ def test_createCrewNPC_unlocks_the_ambition_question_on_a_fleet():
 def test_createCrewNPC_falls_back_for_an_unnamed_legacy_hand():
     # prepare - a name that isn't on the roster, as an old save's crew would be
     player = Player()
-    player.hasBoat = True
+    boats.addBoat(player, 1)
     player.money = 100
     player.workers = 1
 
@@ -211,7 +211,7 @@ def test_createCrewNPC_crowded_response_quotes_the_berth_count():
     for villager in villagers.availableVillagers(player)[
         : business.tierInfo(1)["maxWorkers"] - 1
     ]:
-        business.hireWorker(player, villager["name"])
+        boats.hireWorker(player, villager["name"])
     npc = villagers.createCrewNPC(player, "Marta Kell")
     questions = [option["question"] for option in npc.get_dialogue_options()]
 
