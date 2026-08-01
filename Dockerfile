@@ -1,13 +1,21 @@
 FROM python:3.12-slim
 
-# No third-party deps: the game (and its web front-end) is stdlib-only —
-# pygame is only imported lazily by the pygame front-end, which this image
-# never selects, so it's deliberately not installed here. Matches the
-# gateway-dashboard/fleet-dashboard services' "no wheel supply chain to keep
-# patched" approach.
 WORKDIR /app
+
+# jsonschema is a real runtime dependency, not a test-only one: src/fishE.py
+# imports it at module scope, so the game cannot start without it. pygame is
+# deliberately absent — it is imported lazily by the pygame front-end only,
+# which this image never selects.
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY src/ ./src/
 COPY examples/ ./examples/
+# The JSON Schemas the save-file readers validate against. Their paths are
+# relative to the process cwd (see playerJsonReaderWriter.PLAYER_SCHEMA_PATH =
+# "schemas/player.json"), which is /app here — so they must be copied in, or
+# every save load/write raises FileNotFoundError.
+COPY schemas/ ./schemas/
 
 # Create the data/ directory (see saveFileManager.py's default
 # data_directory="data", resolved relative to the process cwd -> /app/data
