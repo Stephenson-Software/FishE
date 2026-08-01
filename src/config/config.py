@@ -6,7 +6,7 @@ class Config:
         self.playerSaveFile = "data/player.json"
         self.statsSaveFile = "data/stats.json"
         self.timeServiceSaveFile = "data/timeService.json"
-        
+
         # Initial player values
         self.initialMoney = 20
         self.initialEnergy = 100

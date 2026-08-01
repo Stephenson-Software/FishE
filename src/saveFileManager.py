@@ -52,7 +52,7 @@ class SaveFileManager:
         except OSError:
             # If we can't read the directory, return empty list
             return []
-        
+
         return save_files
 
     def _read_save_metadata(self, slot_path):
@@ -96,7 +96,7 @@ class SaveFileManager:
         save_files = self.list_save_files()
         if not save_files:
             return 1
-        
+
         # Find gaps in slot numbers
         existing_slots = sorted([save["slot"] for save in save_files])
         for i in range(1, 100):
@@ -113,21 +113,21 @@ class SaveFileManager:
         """Get the full path for a save file in the selected slot"""
         if self.selected_save_slot is None:
             raise ValueError("No save slot selected")
-        
+
         slot_name = f"slot_{self.selected_save_slot}"
         slot_path = os.path.join(self.data_directory, slot_name)
-        
+
         # Create slot directory if it doesn't exist
         if not os.path.exists(slot_path):
             os.makedirs(slot_path, exist_ok=True)
-        
+
         return os.path.join(slot_path, filename)
 
     def delete_save_slot(self, slot_number):
         """Delete a save slot"""
         slot_name = f"slot_{slot_number}"
         slot_path = os.path.join(self.data_directory, slot_name)
-        
+
         if os.path.exists(slot_path):
             shutil.rmtree(slot_path)
             return True
@@ -138,16 +138,16 @@ class SaveFileManager:
         old_player = os.path.join(self.data_directory, "player.json")
         old_stats = os.path.join(self.data_directory, "stats.json")
         old_time = os.path.join(self.data_directory, "timeService.json")
-        
+
         # Check if old save files exist
         if not os.path.exists(old_player):
             return False
-        
+
         # Create slot_1 directory
         slot_1_path = os.path.join(self.data_directory, "slot_1")
         if not os.path.exists(slot_1_path):
             os.makedirs(slot_1_path, exist_ok=True)
-        
+
         # Move files to slot_1
         try:
             if os.path.exists(old_player):

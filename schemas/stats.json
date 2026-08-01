@@ -107,6 +107,14 @@
         "boatsOwned": {
             "type": "integer",
             "description": "The lifetime number of boats bought."
+        },
+        "totalVoyagesCaptained": {
+            "type": "integer",
+            "description": "The lifetime number of voyages the player captained themselves."
+        },
+        "totalVoyagesFoundered": {
+            "type": "integer",
+            "description": "The lifetime number of captained voyages that foundered and were cut short."
         }
     }
 }

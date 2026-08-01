@@ -69,10 +69,22 @@ MILESTONES = [
         "description": "Have your crew catch 500 fish total",
     },
     {
+        "name": "Took the Helm",
+        "stat": "totalVoyagesCaptained",
+        "threshold": 1,
+        "description": "Captain a voyage yourself",
+    },
+    {
+        "name": "Old Hand at the Wheel",
+        "stat": "totalVoyagesCaptained",
+        "threshold": 10,
+        "description": "Captain ten voyages",
+    },
+    {
         "name": "Letter of Marque",
         "stat": "totalRaids",
         "threshold": 1,
-        "description": "Run your first piracy raid",
+        "description": "Put a boat to piracy for a day",
     },
     {
         "name": "Scourge of the Coast",

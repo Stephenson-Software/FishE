@@ -823,3 +823,204 @@ def test_dismissing_the_last_unnamed_hand_trims_the_boats():
     # check - the headcount and what's actually aboard stay in step
     assert player.workers == 1
     assert boat["hands"] == 1
+
+
+def roleFleet(role, tier=2, crew=3, money=10000):
+    """A player with one boat of the given role, crewed and solvent."""
+    player = Player()
+    player.money = money
+    boat = boats.addBoat(player, tier, role, "Test Boat")
+    for villager in villagers.VILLAGERS[:crew]:
+        boats.hireWorker(player, villager["name"])
+    return player, boat
+
+
+def test_hauling_earns_money_every_day():
+    # prepare
+    player, boat = roleFleet(boats.ROLE_HAULING)
+    startingMoney = player.money
+
+    # call
+    summary = boats.runDailyProduction(player)
+
+    # check - money in, no fish, nothing at risk
+    expected = boats.dailyIncome(boat)
+    assert expected > 0
+    assert summary["earned"] == expected
+    assert summary["fishCaught"] == 0
+    assert boat["damage"] == 0
+    assert player.money == startingMoney + expected - summary["wagesPaid"]
+
+
+def test_transport_earns_less_than_hauling_on_the_same_boat():
+    # prepare - identical hulls and crews, different roles
+    _, hauler = roleFleet(boats.ROLE_HAULING)
+    _, ferry = roleFleet(boats.ROLE_TRANSPORT)
+
+    # check - transport is the safe floor, so it pays less
+    assert boats.dailyIncome(ferry) < boats.dailyIncome(hauler)
+
+
+def test_piracy_earns_the_most_of_the_money_roles():
+    # prepare
+    _, pirate = roleFleet(boats.ROLE_PIRACY)
+    _, hauler = roleFleet(boats.ROLE_HAULING)
+
+    # check - it has to out-earn honest work, or the risk buys nothing
+    assert boats.dailyIncome(pirate) > boats.dailyIncome(hauler)
+
+
+def test_daily_income_scales_with_crew_and_hull():
+    # prepare
+    _, small = roleFleet(boats.ROLE_HAULING, tier=1, crew=1)
+    _, moreCrew = roleFleet(boats.ROLE_HAULING, tier=1, crew=4)
+    _, biggerHull = roleFleet(boats.ROLE_HAULING, tier=3, crew=1)
+
+    # check - both levers matter, which is what makes crew assignment a decision
+    assert boats.dailyIncome(moreCrew) > boats.dailyIncome(small)
+    assert boats.dailyIncome(biggerHull) > boats.dailyIncome(small)
+
+
+def test_a_boat_with_no_crew_earns_nothing():
+    # prepare
+    player = Player()
+    player.money = 1000
+    boats.addBoat(player, 3, boats.ROLE_HAULING)
+    boats.addBoat(player, 1, boats.ROLE_FISHING)
+    boats.hireWorker(player, "Marta Kell")  # lands on the hauler
+
+    # call - take her back off again
+    boats.unassignCrew(player, player.boats[0]["id"], "Marta Kell")
+    summary = boats.runDailyProduction(player)
+
+    # check - wages still owed, nothing earned
+    assert summary["earned"] == 0
+    assert summary["fishCaught"] == 0
+    assert summary["wagesPaid"] == business.WORKER_DAILY_WAGE
+
+
+def test_a_boat_at_sea_earns_nothing_while_the_captain_has_her():
+    # prepare
+    player, boat = roleFleet(boats.ROLE_HAULING)
+    boat["atSea"] = True
+
+    # call
+    summary = boats.runDailyProduction(player)
+
+    # check - that's the cost of taking the helm
+    assert boats.isAtSea(boat) is True
+    assert summary["earned"] == 0
+
+
+def test_a_quiet_day_of_piracy_pays_without_incident():
+    # prepare
+    player, boat = roleFleet(boats.ROLE_PIRACY)
+
+    # call - no trouble roll
+    with patch("src.business.boats.random.random", return_value=1.0):
+        with patch("src.business.boats.random.randint", return_value=0):
+            summary = boats.runDailyProduction(player)
+
+    # check
+    assert summary["earned"] == boats.dailyIncome(boat)
+    assert summary["damaged"] == []
+    assert summary["lostAtSea"] == []
+    assert boat["damage"] == 0
+
+
+def test_a_bad_day_of_piracy_marks_the_hull():
+    # prepare
+    player, boat = roleFleet(boats.ROLE_PIRACY)
+
+    # call - trouble, but nobody lost (the fatality roll is the stricter one)
+    rolls = iter([0.0, 0.99])
+    with patch("src.business.boats.random.random", side_effect=lambda: next(rolls)):
+        summary = boats.runDailyProduction(player)
+
+    # check
+    assert summary["damaged"]
+    assert summary["damaged"][0][0] == "Test Boat"
+    assert boat["damage"] > 0
+    assert summary["lostAtSea"] == []
+
+
+def test_piracy_can_cost_a_villager_and_always_reports_it():
+    # prepare
+    player, boat = roleFleet(boats.ROLE_PIRACY)
+    crewBefore = list(boat["crew"])
+
+    # call - trouble, and the fatality roll lands
+    with patch("src.business.boats.random.random", return_value=0.0):
+        summary = boats.runDailyProduction(player)
+
+    # check - gone from the boat and the roster, and named in the report
+    assert len(summary["lostAtSea"]) == 1
+    boatName, lost = summary["lostAtSea"][0]
+    assert lost in crewBefore
+    assert lost not in player.hiredWorkers
+    assert lost not in boat["crew"]
+    report = boats.describeDay(summary)
+    assert any(lost in line for line in report)
+
+
+def test_a_mixed_fleet_earns_from_every_role_at_once():
+    # prepare - one boat of each role, one hand each
+    player = Player()
+    player.money = 10000
+    for index, role in enumerate(boats.ROLE_ORDER):
+        boats.addBoat(player, 2, role, "Boat %d" % index)
+    roster = iter(villagers.VILLAGERS)
+    for boat in player.boats:
+        name = next(roster)["name"]
+        boats.hireWorker(player, name)
+        for other in player.boats:
+            if name in other["crew"]:
+                other["crew"].remove(name)
+        boats.assignCrew(player, boat["id"], name)
+
+    # call - keep piracy quiet so the assertion is about income, not luck
+    with patch("src.business.boats.random.random", return_value=1.0):
+        with patch("src.business.boats.random.randint", return_value=0):
+            summary = boats.runDailyProduction(player)
+
+    # check - fish from the fishing boat, money from the other three
+    assert summary["fishCaught"] == business.tierInfo(2)["fishPerDay"]
+    assert summary["earned"] == sum(
+        boats.dailyIncome(boat)
+        for boat in player.boats
+        if boat["role"] != boats.ROLE_FISHING
+    )
+
+
+def test_describeDay_is_empty_on_a_day_with_no_fleet():
+    # prepare
+    player = Player()
+
+    # check - nothing to report rather than a screen of zeroes
+    assert boats.describeDay(boats.runDailyProduction(player)) == []
+
+
+def test_describeDay_mentions_the_catch_the_takings_and_the_walkouts():
+    # prepare
+    summary = {
+        "workers": 2,
+        "fishCaught": 40,
+        "wagesPaid": 20,
+        "quit": 1,
+        "quitNames": ["Owen Brackish"],
+        "earned": 320,
+        "fishSeized": 6,
+        "damaged": [("Marauder", 12)],
+        "lostAtSea": [("Marauder", "Marta Kell")],
+    }
+
+    # call
+    report = " ".join(boats.describeDay(summary))
+
+    # check
+    assert "40 fish" in report
+    assert "$320" in report
+    assert "6 fish" in report
+    assert "Marauder took 12%" in report
+    assert "Marta Kell was lost" in report
+    assert "Owen Brackish walked off" in report

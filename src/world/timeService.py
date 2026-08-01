@@ -41,11 +41,15 @@ class TimeService:
 
         if self.time == 8:
             return self.increaseDay()
-        return {"evicted": False}
+        return {"evicted": False, "report": []}
 
     def increaseDay(self):
         """Roll the clock to a new day and run every daily-tick system.
-        Returns {"evicted": bool} - see housing.runDailyRent."""
+
+        Returns {"evicted": bool, "report": [str]}. The report is what the
+        fleet did overnight (see boats.describeDay) - now that every role
+        earns, and a pirate crew can come home a man short, the player has to
+        be told rather than left to notice their roster changed."""
         self.time = 8
         self.day += 1
         self.weather = random.choice(WEATHER_OPTIONS)
@@ -56,8 +60,8 @@ class TimeService:
         self.stats.moneyMadeFromInterest += moneyToAdd
         self.stats.totalMoneyMade += moneyToAdd
 
-        # The fishing business (if any) produces its daily catch and pays wages.
-        boats.runDailyProduction(self.player, self.stats)
+        # The fleet (if any) earns its keep and pays wages.
+        fleetSummary = boats.runDailyProduction(self.player, self.stats)
 
         # Any investment properties (if owned) pay out their daily rental income.
         investments.runDailyIncome(self.player, self.stats)
@@ -65,4 +69,7 @@ class TimeService:
         # A rented room (if any) charges its daily rent, evicting the player
         # back to Homeless if they can't cover it.
         rentSummary = housing.runDailyRent(self.player, self.stats)
-        return {"evicted": rentSummary["evicted"]}
+        return {
+            "evicted": rentSummary["evicted"],
+            "report": boats.describeDay(fleetSummary),
+        }

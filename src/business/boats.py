@@ -13,6 +13,8 @@
 # crew you have or hiring more, and since wages are owed on every hire whether
 # they're assigned or not, an idle boat is a real cost.
 
+import random
+
 from business import business
 from fish import fish
 
@@ -32,23 +34,43 @@ ROLES = {
     ROLE_HAULING: {
         "name": "Hauling",
         "summary": "runs freight, and carries more when you export",
-        "detail": "Takes paid cargo contracts, and its bigger hold raises how "
-        "many fish you can carry on an export run.",
+        "detail": "Her crew work the coastal freight trade every day, and her "
+        "bigger hold raises how many fish an export run can carry.",
     },
     ROLE_PIRACY: {
         "name": "Piracy",
         "summary": "raids shipping lanes - rich, and dangerous",
-        "detail": "Takes coin and cargo off other vessels. A raid can pay far "
-        "better than honest work, or cost you a crew member and leave the hull "
-        "in pieces.",
+        "detail": "Her crew take coin and cargo off other vessels every day. "
+        "It pays better than honest work, but a raid that goes wrong damages "
+        "the boat, and now and then somebody doesn't come back.",
     },
     ROLE_TRANSPORT: {
         "name": "Transport",
         "summary": "carries passengers for steady, safe money",
         "detail": "Passenger runs pay less than freight, but they pay every "
-        "time - no weather, no risk to the boat.",
+        "day without fail - no weather, no risk to the boat.",
     },
 }
+
+# What each role's crew brings in per head, per day, before the tier scaling
+# below. Fishing is absent because it produces fish, not money (see
+# business.BOAT_TIERS' fishPerDay).
+#
+# These are deliberately modest next to what the same boat earns on a voyage
+# the player captains themselves (see src/business/adventures.py): the fleet is
+# the background income, and taking the helm is how you make real money.
+ROLE_DAILY_PER_CREW = {
+    ROLE_HAULING: 18,
+    ROLE_TRANSPORT: 14,
+    ROLE_PIRACY: 26,
+}
+
+# A day's piracy is a day of picking fights. Most pass without incident; some
+# leave a mark, and rarely somebody doesn't come home. Unlike a voyage you
+# captain, the crew are running these themselves - so the odds are gentler.
+PASSIVE_RAID_TROUBLE_CHANCE = 0.08
+PASSIVE_RAID_TROUBLE_DAMAGE = (5, 15)
+PASSIVE_RAID_FATALITY_CHANCE = 0.02
 
 # The order roles are offered in, so the menus stay stable.
 ROLE_ORDER = [ROLE_FISHING, ROLE_HAULING, ROLE_PIRACY, ROLE_TRANSPORT]
@@ -366,20 +388,50 @@ def fishingCrewCount(player):
     return sum(crewSize(boat) for boat in boatsWithRole(player, ROLE_FISHING))
 
 
-def runDailyProduction(player, stats=None):
-    """Apply one day of the fishing business and return a summary.
+def tierFactor(boat):
+    """How much more a hand is worth on this hull than on a Rowboat. Derived
+    from the tier's own fishPerDay so one number drives every role."""
+    return business.tierInfo(boat["tier"])["fishPerDay"] / float(
+        business.WORKER_FISH_PER_DAY
+    )
 
-    Wages are owed on every hand hired, wherever they are - idle crew and
-    pirates eat the same as fishermen - but only crew aboard a *fishing* boat
-    bring anything in. If the player can't cover the full payroll, the hands
-    they can't pay quit, idle ones first (so an over-hired business shrinks
-    from the crew doing nothing, not from the boat that's earning)."""
+
+def dailyIncome(boat):
+    """What this boat's crew earn in a day, before anything goes wrong. Zero
+    for a fishing boat, which produces fish instead."""
+    perCrew = ROLE_DAILY_PER_CREW.get(boat["role"], 0)
+    return int(perCrew * crewSize(boat) * tierFactor(boat))
+
+
+def isAtSea(boat):
+    """A boat the player has taken out as captain isn't around to earn her
+    keep at home (see src/business/adventures.py)."""
+    return bool(boat.get("atSea"))
+
+
+def runDailyProduction(player, stats=None):
+    """Apply one day of the whole fleet and return a summary.
+
+    Every role earns now, not just fishing: hauling and transport bring in
+    money, piracy brings in money and seized fish, and a fishing boat lands a
+    catch as before. Wages are owed on every hand hired, wherever they are -
+    idle crew and pirates eat the same as fishermen - so an over-hired
+    business still shrinks from the crew doing nothing first.
+
+    A boat the player is away captaining earns nothing while she's gone; that
+    is the cost of taking the helm."""
     summary = {
         "workers": player.workers,
         "fishCaught": 0,
         "wagesPaid": 0,
         "quit": 0,
         "quitNames": [],
+        "earned": 0,
+        "fishSeized": 0,
+        "damaged": [],
+        "lostAtSea": [],
+        "plunder": 0,
+        "raidDays": 0,
     }
     if not player.boats or player.workers <= 0:
         return summary
@@ -402,23 +454,102 @@ def runDailyProduction(player, stats=None):
     player.spendMoney(wages)
     summary["wagesPaid"] = wages
 
-    # Each hand on a fishing boat fishes the same waters as the player, landing
-    # a rarity-rolled species. A bigger boat means a bigger catch per hand, so
-    # what a crew is worth depends on the hull they're standing on.
-    caught = 0
-    for boat in boatsWithRole(player, ROLE_FISHING):
-        fishPerHand = business.tierInfo(boat["tier"])["fishPerDay"]
-        for _ in range(crewSize(boat)):
-            player.addFish(fish.rollFishType(), fishPerHand)
-            caught += fishPerHand
-    summary["fishCaught"] = caught
+    for boat in player.boats:
+        if isAtSea(boat) or crewSize(boat) <= 0:
+            continue
+        if boat["role"] == ROLE_FISHING:
+            _runFishingDay(player, boat, summary)
+        elif boat["role"] == ROLE_PIRACY:
+            _runPiracyDay(player, boat, summary)
+        else:
+            _runHonestDay(player, boat, summary)
 
     if stats is not None:
-        stats.totalFishCaught += caught
-        stats.totalFishCaughtByCrew += caught
+        stats.totalFishCaught += summary["fishCaught"]
+        stats.totalFishCaughtByCrew += summary["fishCaught"]
         stats.totalWagesPaid += wages
+        stats.totalMoneyMade += summary["earned"]
+        stats.totalMoneyFromVoyages += summary["earned"]
         stats.daysInBusiness += 1
+        stats.crewLostToPiracy += len(summary["lostAtSea"])
+        stats.totalRaids += summary["raidDays"]
+        stats.totalPlunder += summary["plunder"]
     return summary
+
+
+def _runFishingDay(player, boat, summary):
+    """Each hand lands a rarity-rolled species, so what a crew is worth
+    depends on the hull they're standing on."""
+    fishPerHand = business.tierInfo(boat["tier"])["fishPerDay"]
+    for _ in range(crewSize(boat)):
+        player.addFish(fish.rollFishType(), fishPerHand)
+        summary["fishCaught"] += fishPerHand
+
+
+def _runHonestDay(player, boat, summary):
+    """Hauling and transport: money in, nothing at risk."""
+    earned = dailyIncome(boat)
+    player.money += earned
+    summary["earned"] += earned
+
+
+def _runPiracyDay(player, boat, summary):
+    """Piracy pays best and is the only role that can cost you something.
+
+    Most days are just money and whatever came off somebody's hold. A bad one
+    marks the hull, and rarely a hand doesn't come back - which is reported,
+    never silent, because losing a villager you hired by name should never be
+    something the player only notices later."""
+    earned = dailyIncome(boat)
+    player.money += earned
+    summary["earned"] += earned
+    summary["plunder"] += earned
+    summary["raidDays"] += 1
+
+    seized = random.randint(0, max(1, crewSize(boat)))
+    if seized:
+        player.addFish(fish.rollFishType(), seized)
+        summary["fishSeized"] += seized
+
+    if random.random() >= PASSIVE_RAID_TROUBLE_CHANCE:
+        return
+    damage = random.randint(*PASSIVE_RAID_TROUBLE_DAMAGE)
+    damageBoat(boat, damage)
+    summary["damaged"].append((boat["name"], damage))
+    if boat["crew"] and random.random() < PASSIVE_RAID_FATALITY_CHANCE:
+        lost = random.choice(boat["crew"])
+        releaseCrewMember(player, lost)
+        summary["lostAtSea"].append((boat["name"], lost))
+
+
+def describeDay(summary):
+    """The overnight report: what the fleet did while the player slept.
+
+    Returned as lines rather than printed so every front-end shows it the same
+    way. Empty when nothing worth mentioning happened."""
+    lines = []
+    if summary["fishCaught"]:
+        lines.append("Your crews landed %d fish." % summary["fishCaught"])
+    if summary["earned"]:
+        line = "The fleet took $%d." % summary["earned"]
+        if summary["fishSeized"]:
+            line += " %d fish came off somebody else's hold." % summary["fishSeized"]
+        lines.append(line)
+    elif summary["fishSeized"]:
+        lines.append("%d fish came off somebody else's hold." % summary["fishSeized"])
+    for name, damage in summary["damaged"]:
+        lines.append("%s took %d%% damage in a scrap." % (name, damage))
+    for name, lost in summary["lostAtSea"]:
+        lines.append(
+            "%s was lost off %s. Word reached the village at dawn." % (lost, name)
+        )
+    if summary["quitNames"]:
+        lines.append(
+            "%s walked off over unpaid wages." % ", ".join(summary["quitNames"])
+        )
+    elif summary["quit"]:
+        lines.append("%d hand(s) walked off over unpaid wages." % summary["quit"])
+    return lines
 
 
 def _shedCrew(player, count):
