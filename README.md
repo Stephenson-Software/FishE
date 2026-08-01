@@ -16,8 +16,24 @@ python3 examples/web_app.py
 
 The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dialogue — plays in the browser, with no extra dependencies (it uses only the Python standard library). Adding a new front-end means implementing `BaseUserInterface` and adding a `UIType` + factory branch.
 
+### One Thing at a Time
+A new game opens on the docks with a rod, a bucket, and exactly one thing to do: **fish**. Everything else in the village arrives later, one option at a time, as you earn it — and each arrival tells you why it's there:
+
+```
+ You caught 7 Minnow over 6 hours! A perfect hook!  [Milestone unlocked: First Catch!]
+ [Your basket is heavy with fish. Gilbert buys them at the shop - better go sell them.]
+
+ [1] Fish
+ [2] Go to Shop
+ [3] Quit
+```
+
+Sell that basket and you're shown where you sleep; put in a few days and the villagers start talking to you; save up and the bank, the boats and the property market open up in turn. New entries are appended to the bottom of the menu, so an option you already know keeps its number. Only ever one new thing per screen, even when you earned two at once — so there's never a wall of choices to read.
+
+Nothing is made harder by this; it's pacing, not difficulty. A save file from a player who already owns half the village opens with all of it available, exactly as before.
+
 ### Your Goal
-Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the bank). Your progress toward the goal is shown in the status header, and reaching it earns a one-time victory — after which you're free to keep fishing or retire from the Home menu.
+Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the bank). You're told about it once you've got your first $1,000 to your name, after which your progress toward the goal is shown in the status header. Reaching it earns a one-time victory — after which you're free to keep fishing or retire from the Home menu.
 
 ### Your Fleet
 Once you can afford it, buy a **boat** at the docks ("Manage Fleet") — and then another, and another. Every boat is dedicated to one of four **roles**, and you can re-dedicate her whenever you like:

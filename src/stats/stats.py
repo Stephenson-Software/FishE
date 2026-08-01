@@ -9,6 +9,10 @@ class Stats:
         self.moneyLostFromGambling = 0
         self.moneyLostWhileDrunk = 0
         self.earnedMilestones = []
+        # Ids of the features the player has been shown so far (see
+        # src/progression). Empty for a new game: everything but fishing is
+        # revealed as it is earned.
+        self.unlockedFeatures = []
         # Lifetime fishing-business totals, tracked so players can see the
         # impact of the business they've built (see src/business).
         self.totalWorkersHired = 0

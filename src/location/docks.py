@@ -14,6 +14,7 @@ from business import boats
 from business import export
 from business import adventures
 from housing import housing
+from progression import progression
 
 
 # The catch reaction window widens with the player's rod level, so a better rod
@@ -62,11 +63,7 @@ class Docks:
                 },
                 {
                     "question": "What other locations can I visit?",
-                    "response": "From the docks, you can get to anywhere in the village! "
-                    "There's your home - that's where you sleep to restore energy. "
-                    "Gilbert's shop is where you sell fish and buy better bait. "
-                    "The tavern is run by Old Tom - gambling and drinks there. "
-                    "And the bank, where Margaret will keep your money safe and even give you interest!",
+                    "response": self._locationsDialogue,
                 },
                 {
                     "question": "Tell me about energy and rest.",
@@ -100,28 +97,27 @@ class Docks:
 
     def run(self):
         # Options and actions are built as a pair - rather than dispatching on
-        # a hardcoded number - because the last two entries only appear once
-        # the player has earned them, and the menu positions below them would
-        # otherwise shift depending on game state. New conditional entries are
-        # appended at the end so the fixed ones keep their familiar numbers.
-        li = [
-            "Fish",
-            "Talk to %s" % self.npc.name,
-            "Go Home",
-            "Go to Shop",
-            "Go to Tavern",
-            "Go to Bank",
-            "Manage Fleet",
-        ]
-        actions = [
-            "fish",
-            "talk",
-            "home",
-            "shop",
-            "tavern",
-            "bank",
-            "manage",
-        ]
+        # a hardcoded number - because almost every entry only appears once the
+        # player has earned it, and the menu positions below it would otherwise
+        # shift depending on game state.
+        #
+        # Fishing is the one thing a brand new player can do, and everything
+        # else arrives in the order src/progression reveals it, appended at the
+        # bottom - so an option the player already knows keeps its number when
+        # a new one shows up. Quit stays last.
+        li = ["Fish"]
+        actions = ["fish"]
+        for feature, label, action in (
+            (progression.SHOP, "Go to Shop", "shop"),
+            (progression.HOME, "Go Home", "home"),
+            (progression.TALK, "Talk to %s" % self.npc.name, "talk"),
+            (progression.BANK, "Go to Bank", "bank"),
+            (progression.FLEET, "Manage Fleet", "manage"),
+            (progression.TAVERN, "Go to Tavern", "tavern"),
+        ):
+            if progression.isUnlocked(self.stats, feature):
+                li.append(label)
+                actions.append(action)
         if self.player.hiredWorkers:
             li.append("Talk to Your Crew")
             actions.append("talk_crew")
@@ -131,6 +127,12 @@ class Docks:
         if self.readyToSail():
             li.append("Take the Helm")
             actions.append("voyage")
+        # The docks are where the game starts and where a player with nothing
+        # unlocked yet spends their first few casts, so the way out of the game
+        # lives here as well as at home - otherwise a new player would have no
+        # way to stop before they've earned one.
+        li.append("Quit")
+        actions.append("quit")
         if self.player.hasBoat and self.player.businessName:
             descriptor = (
                 "%s is docked and ready for the day." % self.player.businessName
@@ -195,6 +197,40 @@ class Docks:
         elif action == "voyage":
             self.takeTheHelm()
             return LocationType.DOCKS
+
+        elif action == "quit":
+            return LocationType.NONE
+
+    def _locationsDialogue(self):
+        """Sam's tour of the village - only the parts of it the player has
+        found so far (see src/progression). Listing the bank to someone who
+        has never sold a fish would hand back exactly the wall of options the
+        staged reveal exists to avoid, and Sam pointing at a door that isn't
+        on the menu yet would just be confusing."""
+        places = []
+        if progression.isUnlocked(self.stats, progression.HOME):
+            places.append("there's your home, where you sleep to restore energy")
+        if progression.isUnlocked(self.stats, progression.SHOP):
+            places.append("Gilbert's shop is where you sell fish and buy better gear")
+        if progression.isUnlocked(self.stats, progression.TAVERN):
+            places.append("the tavern is run by Old Tom - gambling and drinks there")
+        if progression.isUnlocked(self.stats, progression.BANK):
+            places.append(
+                "the bank is where Margaret keeps your money safe, and even "
+                "pays you interest"
+            )
+        if not places:
+            return (
+                "Nowhere yet, far as you're concerned! Wet your line first - "
+                "the village opens up to a fisherman who's actually fishing."
+            )
+        text = "Well, %s." % villagers.joinNames(places)
+        if len(places) < 4:
+            text += (
+                " There's more to this village besides, but you'll come to it "
+                "in your own time."
+            )
+        return text
 
     def _businessDialogue(self):
         """Sam's take on the player's fishing business, staged by boat tier and

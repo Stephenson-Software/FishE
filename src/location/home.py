@@ -6,6 +6,7 @@ from stats.stats import Stats
 from ui.userInterface import UserInterface
 from achievements import achievements
 from housing import housing
+from progression import progression
 
 
 # @author Daniel McCoy Stephenson
@@ -25,32 +26,46 @@ class Home:
         self.timeService = timeService
 
     def run(self):
-        retireAvailable = (
-            achievements.GOAL_MILESTONE_NAME in self.stats.earnedMilestones
-        )
-        li = ["Sleep", "See Stats", "Manage Home", "Go to Docks"]
-        if retireAvailable:
+        # Sleeping is all home is for at first; the ledger and the housing
+        # ladder are revealed later (see src/progression), and retiring only
+        # once the wealth goal has been reached - so options and actions are
+        # built as a pair rather than dispatched on a fixed number.
+        li = ["Sleep"]
+        actions = ["sleep"]
+        if progression.isUnlocked(self.stats, progression.JOURNAL):
+            li.append("See Stats")
+            actions.append("stats")
+        if progression.isUnlocked(self.stats, progression.HOUSING):
+            li.append("Manage Home")
+            actions.append("housing")
+        li.append("Go to Docks")
+        actions.append("docks")
+        if achievements.GOAL_MILESTONE_NAME in self.stats.earnedMilestones:
             li.append("Retire")
+            actions.append("retire")
         li.append("Quit")
-        self.input = self.userInterface.showOptions(self._homeDescriptor(), li)
+        actions.append("quit")
 
-        if self.input == "1":
+        self.input = self.userInterface.showOptions(self._homeDescriptor(), li)
+        action = actions[int(self.input) - 1]
+
+        if action == "sleep":
             self.sleep()
             return LocationType.HOME
-        elif self.input == "2":
+        elif action == "stats":
             self.displayStats()
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.HOME
-        elif self.input == "3":
+        elif action == "housing":
             self.manageHome()
             return LocationType.HOME
-        elif self.input == "4":
+        elif action == "docks":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
-        elif retireAvailable and self.input == "5":
+        elif action == "retire":
             self.retire()
             return LocationType.NONE
-        elif self.input == str(len(li)):
+        elif action == "quit":
             return LocationType.NONE
 
     def _homeDescriptor(self):

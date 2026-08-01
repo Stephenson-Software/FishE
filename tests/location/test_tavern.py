@@ -7,13 +7,19 @@ from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.business import business
 from src.business import boats
+from src.progression import progression
 from unittest.mock import MagicMock, patch
 
 
-def createTavern():
+def createTavern(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
     player = Player()
     stats = Stats()
+    if unlocked:
+        # These tests are about what the tavern does, not about what a brand
+        # new player can see of it (see src/progression); the staged reveal has
+        # its own tests below.
+        progression.unlockAll(stats)
     timeService = TimeService(player, stats)
     userInterface = UserInterface(currentPrompt, timeService, player)
     # getDrunk() opens with a three-second pause on the real front-end; stub it
@@ -631,3 +637,30 @@ def test_old_tom_crew_dialogue_warns_about_unpaid_wages():
     # check - Old Tom passes on what the crew are saying at the bar
     assert "payday" in response
     assert "$%d a day" % (2 * business.WORKER_DAILY_WAGE) in response
+
+
+def test_run_hides_old_tom_until_conversation_is_unlocked():
+    # prepare - the tavern can open up before the player is on talking terms
+    # with the village (see src/progression)
+    tavernInstance = createTavern(unlocked=False)
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    nextLocation = tavernInstance.run()
+
+    # check
+    options = tavernInstance.userInterface.showOptions.call_args[0][1]
+    assert options == ["Get drunk ( $10 )", "Gamble", "Go to Docks"]
+    assert nextLocation == LocationType.DOCKS
+
+    # prepare - conversation unlocks
+    tavernInstance.stats.unlockedFeatures.append(progression.TALK)
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="3")
+    tavernInstance.talkToNPC = MagicMock()
+
+    # call
+    nextLocation = tavernInstance.run()
+
+    # check
+    assert nextLocation == LocationType.TAVERN
+    tavernInstance.talkToNPC.assert_called_once()

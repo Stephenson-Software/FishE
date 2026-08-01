@@ -16,6 +16,7 @@ from saveFileManager import SaveFileManager
 from achievements import achievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
 from housing import housing
+from progression import progression
 from config.config import Config
 
 # Which front-end the game runs. Swap to UIType.PYGAME (or a future web type)
@@ -115,7 +116,18 @@ class FishE:
             ),
         }
 
-        self.currentLocation = LocationType.HOME
+        # A loaded save may predate the progression module entirely, or may
+        # have earned unlocks between the last save and now; grant those
+        # quietly so the village is never re-locked around an established
+        # player (see progression.catchUp).
+        progression.catchUp(self.player, self.stats)
+
+        # The game opens on the docks, with fishing as the only thing on the
+        # menu. Everywhere else in the village is revealed as it is earned -
+        # see src/progression.
+        self.currentLocation = LocationType.DOCKS
+        if progression.isFreshStart(self.stats):
+            self.prompt.text = progression.OPENING_PROMPT
 
     def _selectSaveFile(self):
         """Display the save-file menu through the UI and let the player choose.
@@ -195,10 +207,16 @@ class FishE:
         while self.running:
             # show the current location and goal progress in the UI header
             self.userInterface.currentLocationName = self.currentLocation.capitalize()
-            self.userInterface.goalProgress = "$%d / $%d" % (
-                self.getTotalWealth(),
-                GOAL_AMOUNT,
-            )
+            # The fortune the run is ultimately about is itself a late reveal:
+            # a player on their first cast is working toward filling a bucket,
+            # not toward $10,000, and an empty string hides the line.
+            if progression.isUnlocked(self.stats, progression.GOAL):
+                self.userInterface.goalProgress = "$%d / $%d" % (
+                    self.getTotalWealth(),
+                    GOAL_AMOUNT,
+                )
+            else:
+                self.userInterface.goalProgress = ""
 
             # change location
             nextLocation = self.locations[self.currentLocation].run()
@@ -213,6 +231,14 @@ class FishE:
             newlyEarned = achievements.getNewlyEarned(self.stats)
             for milestone in newlyEarned:
                 self.prompt.text += "  [Milestone unlocked: %s!]" % milestone["name"]
+
+            # announce the one thing the player has just opened up, with the
+            # reason they opened it, so the newly-appeared menu entry is
+            # explained on the same screen it first shows up on (appended for
+            # the same reason as milestones above)
+            unlock = progression.getNextUnlock(self.player, self.stats)
+            if unlock is not None:
+                self.prompt.text += "  [%s]" % unlock["announcement"]
 
             # announce reaching the wealth goal once (the run continues)
             self.announceGoalIfReached()

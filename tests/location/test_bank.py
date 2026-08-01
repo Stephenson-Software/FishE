@@ -6,13 +6,19 @@ from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
+from src.progression import progression
 from unittest.mock import MagicMock
 
 
-def createBank():
+def createBank(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
     player = Player()
     stats = Stats()
+    if unlocked:
+        # These tests are about what the bank does, not about what a brand
+        # new player can see of it (see src/progression); the staged reveal has
+        # its own tests below.
+        progression.unlockAll(stats)
     timeService = TimeService(player, stats)
     userInterface = UserInterface(currentPrompt, timeService, player)
     return bank.Bank(userInterface, currentPrompt, player, stats, timeService)
@@ -390,3 +396,57 @@ def test_manageInvestments_status_reflects_no_holdings():
 
     # check
     assert "don't own any yet" in bankInstance._investmentsStatus()
+
+
+def test_run_shows_only_saving_to_a_player_who_just_found_the_bank():
+    # prepare - the property business behind the counter is revealed later
+    # (see src/progression)
+    bankInstance = createBank(unlocked=False)
+    bankInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    nextLocation = bankInstance.run()
+
+    # check
+    options = bankInstance.userInterface.showOptions.call_args[0][1]
+    assert options == ["Make a Deposit", "Make a Withdrawal", "Go to docks"]
+    assert nextLocation == LocationType.DOCKS
+
+
+def test_run_reveals_investments_and_the_teller_as_they_are_unlocked():
+    # prepare
+    bankInstance = createBank(unlocked=False)
+    bankInstance.userInterface.showOptions = MagicMock(return_value="1")
+    bankInstance.deposit = MagicMock()
+
+    for feature, label in (
+        (progression.TALK, "Talk to Margaret the Teller"),
+        (progression.INVESTMENTS, "Manage Investment Properties"),
+    ):
+        # call - before the unlock
+        bankInstance.run()
+
+        # check
+        assert label not in bankInstance.userInterface.showOptions.call_args[0][1]
+
+        # prepare/call - and after it
+        bankInstance.stats.unlockedFeatures.append(feature)
+        bankInstance.run()
+
+        # check
+        assert label in bankInstance.userInterface.showOptions.call_args[0][1]
+
+
+def test_run_withdrawal_fires_from_its_position_with_a_short_menu():
+    # prepare
+    bankInstance = createBank(unlocked=False)
+    bankInstance.player.moneyInBank = 50
+    bankInstance.userInterface.showOptions = MagicMock(return_value="2")
+    bankInstance.withdraw = MagicMock()
+
+    # call
+    nextLocation = bankInstance.run()
+
+    # check
+    assert nextLocation == LocationType.BANK
+    bankInstance.withdraw.assert_called_once()

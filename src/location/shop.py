@@ -9,6 +9,7 @@ from npc import villagers
 from fish import fish
 from business import business
 from business import export
+from progression import progression
 
 
 # Upper bound on fishMultiplier so bait upgrades stop being an infinite power
@@ -161,31 +162,42 @@ class Shop:
         )
 
     def run(self):
-        li = [
-            "Sell Fish",
-            "Buy Better Bait ( $%.2f )" % self.player.priceForBait,
-            "Buy Better Rod ( $%.2f )" % rodUpgradeCost(self.player.rodLevel),
-            "Talk to %s" % self.npc.name,
-            "Go to Docks",
-        ]
+        # Selling is the whole reason a new player walks up the hill; the gear
+        # on the walls is revealed later (see src/progression), so options and
+        # actions are built as a pair rather than dispatched on a fixed number.
+        li = ["Sell Fish"]
+        actions = ["sell"]
+        if progression.isUnlocked(self.stats, progression.BAIT):
+            li.append("Buy Better Bait ( $%.2f )" % self.player.priceForBait)
+            actions.append("bait")
+        if progression.isUnlocked(self.stats, progression.ROD):
+            li.append("Buy Better Rod ( $%.2f )" % rodUpgradeCost(self.player.rodLevel))
+            actions.append("rod")
+        if progression.isUnlocked(self.stats, progression.TALK):
+            li.append("Talk to %s" % self.npc.name)
+            actions.append("talk")
+        li.append("Go to Docks")
+        actions.append("docks")
+
         input = self.userInterface.showOptions(
             "The shopkeeper winks at you as you behold his collection of fishing poles.",
             li,
         )
+        action = actions[int(input) - 1]
 
-        if input == "1":
+        if action == "sell":
             self.sellFish()
             return LocationType.SHOP
-        elif input == "2":
+        elif action == "bait":
             self.buyBetterBait()
             return LocationType.SHOP
-        elif input == "3":
+        elif action == "rod":
             self.buyBetterRod()
             return LocationType.SHOP
-        elif input == "4":
+        elif action == "talk":
             self.talkToNPC()
             return LocationType.SHOP
-        elif input == "5":
+        elif action == "docks":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
 

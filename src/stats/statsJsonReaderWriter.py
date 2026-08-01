@@ -16,6 +16,7 @@ class StatsJsonReaderWriter:
             "moneyLostFromGambling": stats.moneyLostFromGambling,
             "moneyLostWhileDrunk": stats.moneyLostWhileDrunk,
             "earnedMilestones": stats.earnedMilestones,
+            "unlockedFeatures": stats.unlockedFeatures,
             "totalWorkersHired": stats.totalWorkersHired,
             "totalFishCaughtByCrew": stats.totalFishCaughtByCrew,
             "totalWagesPaid": stats.totalWagesPaid,
@@ -62,6 +63,9 @@ class StatsJsonReaderWriter:
         )
         stats.earnedMilestones = statsJson.get(
             "earnedMilestones", stats.earnedMilestones
+        )
+        stats.unlockedFeatures = statsJson.get(
+            "unlockedFeatures", stats.unlockedFeatures
         )
         stats.totalWorkersHired = statsJson.get(
             "totalWorkersHired", stats.totalWorkersHired

@@ -342,3 +342,35 @@ def test_save_without_exportStats_loads_with_zeroes():
     assert loaded.totalFishExported == 0
     assert loaded.totalMoneyFromExports == 0
     assert loaded.totalShippingPaid == 0
+
+
+def test_unlockedFeatures_round_trips():
+    # prepare
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    stats = createStats()
+    stats.unlockedFeatures = ["shop", "home"]
+
+    # call - serialize then deserialize
+    statsJson = statsJsonReaderWriter.createJsonFromStats(stats)
+    restored = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check - which parts of the village have been revealed has to survive a
+    # save, or a returning player would be shown the whole menu again
+    assert statsJson["unlockedFeatures"] == ["shop", "home"]
+    assert restored.unlockedFeatures == ["shop", "home"]
+
+
+def test_createStatsFromJson_missingUnlockedFeatures_defaultsToEmpty():
+    # prepare - a save written before progression existed
+    statsJsonReaderWriter = createStatsJsonReaderWriter()
+    statsJson = {
+        "totalFishCaught": 1,
+        "totalMoneyMade": 1,
+    }
+
+    # call
+    stats = statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+    # check - backward compatible default; FishE.__init__ then grants whatever
+    # the player has already earned (see progression.catchUp)
+    assert stats.unlockedFeatures == []
