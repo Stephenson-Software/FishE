@@ -153,6 +153,31 @@ def test_busy_screen_is_rendered_by_the_client():
     assert 'screen.type === "busy"' in webUserInterface.HTML_PAGE
 
 
+def test_page_declares_a_mobile_viewport():
+    # Without this, phone browsers lay the page out at ~980px wide and scale it
+    # down, which renders every control too small to read or tap.
+    assert (
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        in webUserInterface.HTML_PAGE
+    )
+
+
+def test_page_has_narrow_screen_styles():
+    # Narrow-screen adjustments live in their own media query so the desktop
+    # layout is untouched; the action buttons go full-width for easier tapping.
+    page = webUserInterface.HTML_PAGE
+    assert "@media (max-width: 600px)" in page
+    narrow = page.split("@media (max-width: 600px)", 1)[1].split("</style>", 1)[0]
+    assert "button.action { width: 100%" in narrow
+
+
+def test_input_font_size_stays_at_least_16px():
+    # iOS Safari zooms the page in when focusing an input smaller than 16px;
+    # 1rem is 16px at the default root size, so it must not shrink.
+    rule = webUserInterface.HTML_PAGE.split("\n  input {", 1)[1].split("}", 1)[0]
+    assert "font-size: 1rem" in rule
+
+
 def test_http_server_serves_and_accepts_input():
     # Integration smoke test against a real ephemeral-port server.
     ui = makeWebUI(start_server=True, port=0)
