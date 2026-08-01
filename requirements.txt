@@ -1,0 +1,6 @@
+# Runtime dependencies for the game itself (console and web front-ends).
+#
+# pygame is deliberately NOT listed: it is imported lazily by the pygame
+# front-end only, so the console/web front-ends run without it. Install it
+# separately if you want UIType.PYGAME.
+jsonschema>=4.0,<5.0
