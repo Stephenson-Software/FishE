@@ -219,7 +219,7 @@ class Docks:
             options.append("Back")
             choice = int(
                 self.userInterface.showOptions(
-                    "Your crew are working the boat. Who would you like to " "talk to?",
+                    "Your crew are working the boat. Who do you want a word with?",
                     options,
                 )
             )

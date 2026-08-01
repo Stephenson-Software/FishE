@@ -151,8 +151,10 @@ def createCrewNPC(player, name):
             "name": name,
             "blurb": "an unnamed deckhand",
             "specialty": "whatever needs doing",
-            "backstory": "Not much of a talker, this one. Signed on before "
-            "you started keeping names.",
+            # First person, like every roster backstory - it's read back as
+            # "<name>: <backstory>" when the player asks about them.
+            "backstory": "Not much to tell. I signed on before you started "
+            "keeping names, and I've pulled my weight every day since.",
         }
 
     def workDialogue():

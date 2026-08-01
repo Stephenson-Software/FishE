@@ -125,12 +125,11 @@ class Shop:
         """Gilbert's shopkeeper's-eye view of the villagers on the player's
         payroll - he sees them across the counter, not on the water."""
         crew = self.player.hiredWorkers
-        first = crew[0]
         if len(crew) == 1:
             return (
                 "%s does, aye - in here every few days for tackle. A hand "
                 "with wages in their pocket is a customer, and I've you to "
-                "thank for that." % first
+                "thank for that." % crew[0]
             )
         return (
             "They do! %s are all through that door regular now. Whole crews "
