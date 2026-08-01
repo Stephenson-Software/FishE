@@ -1311,10 +1311,15 @@ def createSailingDocks(role=None, tier=3, crew=2, damage=0, money=5000):
     return docksInstance, boat
 
 
-def voyageChooser(*wanted):
-    """Drive the voyage menus by label prefix, then Back. Same idea as
-    fleetChooser - the screens grow, the tests shouldn't care."""
+def voyageChooser(*wanted, **kwargs):
+    """Drive the voyage menus by label prefix. Same idea as fleetChooser.
+
+    `then` says what to do once the named choices run out: "back" picks the
+    last entry (Back on the setup menus) and "first" picks the first. The leg
+    menus need "first", because their last entry is now "Break off and run for
+    home" - falling through to it would abort every voyage on leg one."""
     remaining = list(wanted)
+    then = kwargs.get("then", "back")
 
     def choose(descriptor, options):
         if remaining:
@@ -1322,7 +1327,7 @@ def voyageChooser(*wanted):
             for index, option in enumerate(options, start=1):
                 if option.startswith(prefix):
                     return str(index)
-        return str(len(options))
+        return "1" if then == "first" else str(len(options))
 
     return choose
 
@@ -1416,7 +1421,9 @@ def test_a_voyage_sails_every_leg_costs_days_and_comes_home():
     docksInstance, boat = createSailingDocks()
     plan = adventures.VOYAGE_PLANS[0]
     docksInstance.userInterface.showOptions = MagicMock(
-        side_effect=voyageChooser("Marauder", "A short run", "Full stores")
+        side_effect=voyageChooser(
+            "Marauder", "A short run", "Full stores", then="first"
+        )
     )
     docksInstance.userInterface.showDialogue = MagicMock()
     startingDay = docksInstance.timeService.day
@@ -1444,7 +1451,9 @@ def test_a_voyage_that_founders_ends_early():
     boats.damageBoat(boat, boats.UNSEAWORTHY_DAMAGE - 1)
     plan = adventures.VOYAGE_PLANS[2]
     docksInstance.userInterface.showOptions = MagicMock(
-        side_effect=voyageChooser("Marauder", "The far water", "Full stores")
+        side_effect=voyageChooser(
+            "Marauder", "The far water", "Full stores", then="first"
+        )
     )
     docksInstance.userInterface.showDialogue = MagicMock()
     startingDay = docksInstance.timeService.day
@@ -1467,7 +1476,9 @@ def test_a_voyage_pays_out_what_it_brought_home():
     # payout is then the legs' own earnings
     docksInstance, boat = createSailingDocks(role=boats.ROLE_PIRACY)
     docksInstance.userInterface.showOptions = MagicMock(
-        side_effect=voyageChooser("Marauder", "A short run", "Full stores")
+        side_effect=voyageChooser(
+            "Marauder", "A short run", "Full stores", then="first"
+        )
     )
     docksInstance.userInterface.showDialogue = MagicMock()
 
@@ -1557,3 +1568,242 @@ def test_exportCapacity_prefers_a_hauling_boat():
 
     # check - the cargo fit-out is the passive half of dedicating her to hauling
     assert export.exportCapacity(docksInstance.player) > asFishing
+
+
+def test_fleetStatus_leads_with_income_against_payroll():
+    # prepare - a fleet that earns and a crew that costs
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 2, boats.ROLE_HAULING, "Mule")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+
+    # call
+    status = docksInstance._fleetStatus()
+
+    # check - the player can see whether the fleet pays for itself without
+    # doing the arithmetic themselves
+    income = boats.fleetDailyIncome(docksInstance.player)
+    payroll = boats.dailyPayroll(docksInstance.player)
+    assert "Earning $%d" % income in status
+    assert "Payroll $%d a day" % payroll in status
+    assert "Net $%d" % (income - payroll) in status
+
+
+def test_fleetStatus_names_the_crew_who_are_costing_without_earning():
+    # prepare - a hand hired and then taken off the boat
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 2, boats.ROLE_HAULING)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.unassignCrew(docksInstance.player, boat["id"], "Marta Kell")
+
+    # call
+    status = docksInstance._fleetStatus()
+
+    # check
+    assert "Ashore on full wages, earning nothing: Marta Kell" in status
+
+
+def test_takeTheHelm_shows_what_each_boat_gives_up():
+    # prepare - a crewed earner
+    docksInstance, boat = createSailingDocks(role=boats.ROLE_HAULING)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=voyageChooser())
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check - the opportunity cost of taking her out is on the line the player
+    # is choosing from, not left for them to work out
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert "gives up $%d/day" % boats.dailyIncome(boat) in options[0]
+
+
+def test_plan_menu_shows_money_not_a_multiplier():
+    # prepare
+    docksInstance, boat = createSailingDocks(role=boats.ROLE_PIRACY)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=voyageChooser("Marauder")
+    )
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check - each plan quotes what it's worth, so the player can weigh it
+    # against what they're giving up without doing the arithmetic
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    for plan, option in zip(adventures.VOYAGE_PLANS, options):
+        money, _ = adventures.estimateVoyage(boat, plan)
+        assert "about $%d if it goes well" % money in option
+        assert "x%.1f" % plan["rewardMultiplier"] not in option
+
+
+def test_the_prompt_speaks_to_the_captain_while_at_sea():
+    # prepare
+    docksInstance, boat = createSailingDocks()
+    prompts = []
+
+    def capture(descriptor, options):
+        prompts.append(docksInstance.currentPrompt.text)
+        return "1"
+
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=capture)
+    docksInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    with patch("src.business.adventures.random.randint", return_value=0):
+        with patch("src.business.adventures.random.random", return_value=0.99):
+            docksInstance.takeTheHelm()
+
+    # check - the village's standing prompt doesn't follow you out to sea
+    assert "Your call, captain." in prompts
+
+
+def test_provisioning_says_when_each_option_runs_out():
+    # prepare - the longest voyage, where short rations are certain starvation
+    docksInstance, boat = createSailingDocks(crew=3)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=voyageChooser("Marauder", "The far water")
+    )
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check - an option that starves the crew says so, instead of sitting
+    # neutrally next to the ones that don't
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert any("lasts the voyage" in option for option in options)
+    assert any("runs out on day" in option for option in options)
+
+
+def test_provisioning_warns_before_sailing_a_damaged_hull():
+    # prepare - a boat that can legally sail but shouldn't go far
+    docksInstance, boat = createSailingDocks(damage=boats.UNSEAWORTHY_DAMAGE - 1)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=voyageChooser("Marauder", "The far water")
+    )
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check - the risk is flagged before departure, with the cost of avoiding it
+    descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert "already %d%% damaged" % boat["damage"] in descriptor
+    assert "$%d would put her right" % boats.repairCost(boat) in descriptor
+
+
+def test_a_sound_hull_gets_no_scare_message():
+    # prepare
+    docksInstance, boat = createSailingDocks()
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=voyageChooser("Marauder", "A short run")
+    )
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check - warnings that fire when nothing is wrong stop being read
+    assert "damaged" not in docksInstance.userInterface.showOptions.call_args[0][0]
+
+
+def test_repair_refusal_points_at_a_way_out():
+    # prepare
+    docksInstance, boat = createSailingDocks(money=1)
+    boats.damageBoat(boat, 40)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=voyageChooser("Marauder")
+    )
+
+    # call
+    docksInstance._repairBoat()
+
+    # check - says what it costs, what they have, and how to close the gap
+    text = docksInstance.currentPrompt.text
+    assert "$%d" % boats.repairCost(boat) in text
+    assert "shop" in text
+
+
+def test_the_hold_is_on_screen_during_the_voyage():
+    # prepare
+    docksInstance, boat = createSailingDocks()
+    _, _, voyage = None, None, None
+    descriptors = []
+
+    def capture(descriptor, options):
+        descriptors.append(descriptor)
+        return "1"
+
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=capture)
+    docksInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    with patch("src.business.adventures.random.randint", return_value=0):
+        with patch("src.business.adventures.random.random", return_value=0.99):
+            docksInstance.takeTheHelm()
+
+    # check - what the voyage has earned is visible, not just what's left of it
+    legScreens = [d for d in descriptors if d.startswith("LEG ")]
+    assert legScreens
+    assert all("Hold $" in screen for screen in legScreens)
+    # and it climbs as the legs are sailed
+    assert legScreens[0] != legScreens[-1]
+
+
+def test_breaking_off_ends_the_voyage_early_and_keeps_what_was_taken():
+    # prepare - sail one leg, then break off (always the last option)
+    docksInstance, boat = createSailingDocks()
+    startingDay = docksInstance.timeService.day
+    calls = {"n": 0}
+
+    def choose(descriptor, options):
+        calls["n"] += 1
+        if calls["n"] <= 3:  # boat, plan, stores
+            return "1"
+        return str(len(options))  # break off
+
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=choose)
+    docksInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check - home early, boat intact, and not counted as a founder
+    assert boats.isAtSea(boat) is False
+    assert (
+        docksInstance.timeService.day < startingDay + adventures.VOYAGE_PLANS[0]["legs"]
+    )
+    assert docksInstance.stats.totalVoyagesFoundered == 0
+    assert docksInstance.stats.totalVoyagesCaptained == 1
+
+
+def test_the_docks_screen_flags_a_fleet_that_needs_attention():
+    # prepare - an idle boat and a hand ashore
+    docksInstance = createDocks()
+    crewed = boats.addBoat(docksInstance.player, 2, boats.ROLE_HAULING, "Mule")
+    boats.addBoat(docksInstance.player, 2, boats.ROLE_HAULING, "Spare")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.hireWorker(docksInstance.player, "Owen Brackish")
+    boats.unassignCrew(docksInstance.player, crewed["id"], "Owen Brackish")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    docksInstance.run()
+
+    # check - the player finds out here, rather than only by opening the fleet
+    # screen and reading every line
+    descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert "Needs attention:" in descriptor
+    assert "Spare sitting idle" in descriptor
+
+
+def test_the_docks_screen_stays_quiet_when_nothing_is_wrong():
+    # prepare
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 2, boats.ROLE_HAULING)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    docksInstance.run()
+
+    # check
+    assert (
+        "Needs attention" not in docksInstance.userInterface.showOptions.call_args[0][0]
+    )

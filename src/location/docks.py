@@ -138,6 +138,12 @@ class Docks:
         else:
             descriptor = "You breathe in the fresh air. Salty."
         descriptor += " " + self._weatherDescriptor()
+        # Anything wrong with the fleet is said here, on the screen the player
+        # is already on. Before this it could only be found by opening Manage
+        # Fleet and reading every line - a boat could sit idle for days.
+        notices = boats.needsAttention(self.player)
+        if notices:
+            descriptor += "\n\nNeeds attention: " + "; ".join(notices) + "."
         input = self.userInterface.showOptions(descriptor, li)
 
         choice = int(input)
@@ -285,7 +291,12 @@ class Docks:
             earning += " and %d fish" % catch
         lines = [
             "%s - %d boat%s, %d crew"
-            % (name, len(self.player.boats), "s" if len(self.player.boats) != 1 else "", self.player.workers),
+            % (
+                name,
+                len(self.player.boats),
+                "s" if len(self.player.boats) != 1 else "",
+                self.player.workers,
+            ),
             "Earning %s a day. Payroll $%d a day. Net $%d%s."
             % (
                 earning,
@@ -300,10 +311,11 @@ class Docks:
         idle = boats.unassignedNames(self.player)
         idleHands = boats.unassignedHands(self.player)
         if idle or idleHands:
-            spare = list(idle) + (["%d unnamed hand(s)" % idleHands] if idleHands else [])
+            spare = list(idle) + (
+                ["%d unnamed hand(s)" % idleHands] if idleHands else []
+            )
             lines.append(
-                "Ashore on full wages, earning nothing: %s"
-                % villagers.joinNames(spare)
+                "Ashore on full wages, earning nothing: %s" % villagers.joinNames(spare)
             )
         return "\n".join(lines)
 
@@ -503,8 +515,9 @@ class Docks:
         paid = boats.repairBoat(self.player, boat["id"])
         if paid is None:
             self.currentPrompt.text = (
-                "Patching %s up costs $%d and you're carrying $%.2f. Earn it "
-                "first - she'll keep." % (boat["name"], cost, self.player.money)
+                "Patching %s up costs $%d and you're carrying $%.2f. Sell fish "
+                "at the shop, or send another boat out, and come back to her - "
+                "she'll keep." % (boat["name"], cost, self.player.money)
             )
             return
         self.currentPrompt.text = "%s is sound again. The yard took $%d." % (
@@ -637,16 +650,26 @@ class Docks:
         Pick a boat, decide how far out to go, provision her, and then take
         her leg by leg."""
         ready = self.readyToSail()
-        options = [
-            "%s (%s) - %d crew, hull %d%%"
-            % (
-                boat["name"],
-                boats.ROLES[boat["role"]]["name"],
-                boats.crewSize(boat),
-                boats.MAX_DAMAGE - boat["damage"],
+        # Each line says what she currently brings in, because taking her out
+        # is giving that up - an opportunity cost the player was being asked
+        # to weigh without being shown.
+        options = []
+        for boat in ready:
+            earning = (
+                "%d fish/day" % boats.dailyCatch(boat)
+                if boat["role"] == boats.ROLE_FISHING
+                else "$%d/day" % boats.dailyIncome(boat)
             )
-            for boat in ready
-        ]
+            options.append(
+                "%s (%s) - %d crew, hull %d%%, gives up %s"
+                % (
+                    boat["name"],
+                    boats.ROLES[boat["role"]]["name"],
+                    boats.crewSize(boat),
+                    boats.MAX_DAMAGE - boat["damage"],
+                    earning,
+                )
+            )
         options.append("Back")
 
         descriptor = (
@@ -679,16 +702,14 @@ class Docks:
     def _planVoyage(self, boat):
         """How far out to sail. Further is worth more and is less forgiving,
         which is the whole decision before you leave the harbour."""
-        options = [
-            "%s - %s (%d days, x%.1f the pickings)"
-            % (
-                plan["name"],
-                plan["description"],
-                plan["legs"],
-                plan["rewardMultiplier"],
+        options = []
+        for plan in adventures.VOYAGE_PLANS:
+            money, catch = adventures.estimateVoyage(boat, plan)
+            expected = "about $%d" % money if money else "about %d fish" % catch
+            options.append(
+                "%s - %d days, %s if it goes well (%s)"
+                % (plan["name"], plan["legs"], expected, plan["description"])
             )
-            for plan in adventures.VOYAGE_PLANS
-        ]
         options.append("Back")
         choice = int(
             self.userInterface.showOptions(
@@ -717,25 +738,45 @@ class Docks:
             ("Half rations", int(recommended * 0.5)),
         ):
             cost = adventures.supplyCost(units)
-            options.append("%s - %d supplies, $%d" % (label, units, cost))
+            lasts = adventures.legsSupplied(boat, units)
+            # Say when it runs out. Half rations on a long voyage is starvation
+            # and crew deaths with certainty, and it read as a neutral option
+            # sitting next to the others.
+            if lasts >= plan["legs"]:
+                note = "lasts the voyage"
+            else:
+                note = "runs out on day %d of %d" % (lasts + 1, plan["legs"])
+            options.append("%s - %d supplies, $%d, %s" % (label, units, cost, note))
             amounts.append(units)
         options.append("Back")
 
-        choice = int(
-            self.userInterface.showOptions(
-                "%d hands aboard for %d days. Full stores is %d supplies at $%d "
-                "each - enough for the legs and no more, and events at sea can "
-                "eat into it. You're carrying $%.2f."
-                % (
-                    boats.crewSize(boat),
-                    plan["legs"],
-                    recommended,
-                    adventures.SUPPLY_COST,
-                    self.player.money,
-                ),
-                options,
+        descriptor = (
+            "%d hands aboard for %d days. Full stores is %d supplies at $%d "
+            "each - enough for the legs and no more, and events at sea can "
+            "eat into it. You're carrying $%.2f."
+            % (
+                boats.crewSize(boat),
+                plan["legs"],
+                recommended,
+                adventures.SUPPLY_COST,
+                self.player.money,
             )
         )
+        # Sailing a damaged hull on a long voyage is how a whole hold gets
+        # lost; flag it before departure rather than at the bottom of the sea.
+        if boat["damage"] >= boats.UNSEAWORTHY_DAMAGE / 2:
+            descriptor += (
+                "\n\nShe's already %d%% damaged. That's %d%% of hull between "
+                "you and losing everything aboard - $%d would put her right "
+                "before you go."
+                % (
+                    boat["damage"],
+                    boats.MAX_DAMAGE - boat["damage"],
+                    boats.repairCost(boat),
+                )
+            )
+
+        choice = int(self.userInterface.showOptions(descriptor, options))
         if choice == len(options):
             return
 
@@ -751,21 +792,37 @@ class Docks:
         self._sailVoyage(adventures.startVoyage(boat, plan, units))
 
     def _voyageStatus(self, voyage):
-        """The line at the top of every leg: where you are and what's left."""
-        return "LEG %d of %d   Hull %d%%   Supplies %d   Crew %d" % (
+        """The line at the top of every leg: where you are and what's left.
+
+        The hold is on it because the voyage is about the hold. Without it the
+        only numbers moving on screen were the player's money and fish at
+        home - which climb from the rest of the fleet's day and have nothing
+        to do with the voyage, so they read as progress when they weren't."""
+        hold = "$%d" % voyage["money"]
+        if voyage["fish"]:
+            hold += " + %d fish" % voyage["fish"]
+        return "LEG %d of %d   Hull %d%%   Supplies %d   Crew %d   Hold %s" % (
             voyage["leg"] + 1,
             voyage["legs"],
             voyage["hull"],
             voyage["supplies"],
             adventures.crewAboard(voyage),
+            hold,
         )
 
     def _sailVoyage(self, voyage):
         """One leg at a time until she's home or she isn't."""
         while not adventures.isOver(voyage):
+            # The standing prompt is "What would you like to do?", which is
+            # meaningless once you're at sea and belongs to the village screens.
+            self.currentPrompt.text = "Your call, captain."
             event = adventures.rollEvent(voyage)
             choices = adventures.offeredChoices(voyage, event)
-            options = [choice["text"] for choice in choices]
+            # Always offered, because being unable to break off turned a bad
+            # hull into a slow walk to the bottom rather than a decision.
+            options = [choice["text"] for choice in choices] + [
+                "Break off and run for home (keep the hold)"
+            ]
 
             picked = int(
                 self.userInterface.showOptions(
@@ -773,6 +830,9 @@ class Docks:
                     options,
                 )
             )
+            if picked == len(options):
+                adventures.turnBack(voyage)
+                break
             outcome = adventures.resolveChoice(voyage, choices[picked - 1])
             notes = adventures.advanceLeg(voyage)
 
@@ -801,7 +861,11 @@ class Docks:
             ]
         else:
             lines = [
-                "%s comes home." % summary["boat"],
+                "%s comes home%s."
+                % (
+                    summary["boat"],
+                    " early - you broke off" if summary.get("turnedBack") else "",
+                ),
                 "",
                 "  Earned   $%d" % summary["money"],
             ]

@@ -729,7 +729,7 @@ def test_describeBoat_flags_an_idle_boat():
     boat = boats.addBoat(player, 1)
 
     # check
-    assert "idle, no crew" in boats.describeBoat(boat)
+    assert "idle - no crew, earning nothing" in boats.describeBoat(boat)
 
 
 def test_unnamed_legacy_hands_can_be_moved_between_boats():
@@ -1024,3 +1024,157 @@ def test_describeDay_mentions_the_catch_the_takings_and_the_walkouts():
     assert "Marauder took 12%" in report
     assert "Marta Kell was lost" in report
     assert "Owen Brackish walked off" in report
+
+
+def test_describeBoat_leads_with_the_role_and_labels_the_hull():
+    # prepare - the case that read as a stutter: a Fishing Fleet hull that is
+    # also a fishing boat
+    player = Player()
+    boat = boats.addBoat(player, 3, boats.ROLE_FISHING, "The Guppy")
+    boats.hireWorker(player, "Marta Kell")
+
+    # call
+    line = boats.describeBoat(boat)
+
+    # check - the role is what the player is deciding about, so it comes
+    # first, and the hull is labelled rather than sitting bare beside it
+    assert line.startswith("The Guppy | Fishing | Fishing Fleet hull")
+
+
+def test_describeBoat_shows_what_she_earns():
+    # prepare - one boat of each kind of earner
+    player = Player()
+    fisher = boats.addBoat(player, 2, boats.ROLE_FISHING, "Netter")
+    pirate = boats.addBoat(player, 2, boats.ROLE_PIRACY, "Marauder")
+    boats.hireWorker(player, "Marta Kell")
+    boats.hireWorker(player, "Owen Brackish")
+    boats.unassignCrew(player, fisher["id"], "Owen Brackish")
+    boats.assignCrew(player, pirate["id"], "Owen Brackish")
+
+    # check - a player can tell a boat that pays her wages from one that doesn't
+    assert "%d fish/day" % boats.dailyCatch(fisher) in boats.describeBoat(fisher)
+    assert "$%d/day" % boats.dailyIncome(pirate) in boats.describeBoat(pirate)
+
+
+def test_describeBoat_says_when_she_is_away():
+    # prepare
+    player = Player()
+    boat = boats.addBoat(player, 2, boats.ROLE_PIRACY, "Marauder")
+    boats.hireWorker(player, "Marta Kell")
+    boat["atSea"] = True
+
+    # check
+    assert "AT SEA" in boats.describeBoat(boat)
+
+
+def test_fleet_totals_ignore_boats_that_are_away():
+    # prepare - two earners, one of them out with the captain
+    player = Player()
+    home = boats.addBoat(player, 2, boats.ROLE_HAULING, "Mule")
+    away = boats.addBoat(player, 2, boats.ROLE_HAULING, "Gone")
+    boats.hireWorker(player, "Marta Kell")
+    boats.hireWorker(player, "Owen Brackish")
+    boats.unassignCrew(player, home["id"], "Owen Brackish")
+    boats.assignCrew(player, away["id"], "Owen Brackish")
+    away["atSea"] = True
+
+    # check - the headline figure matches what will actually arrive tomorrow
+    assert boats.fleetDailyIncome(player) == boats.dailyIncome(home)
+    assert boats.dailyPayroll(player) == 2 * business.WORKER_DAILY_WAGE
+
+
+def test_needsAttention_is_quiet_when_the_fleet_is_fine():
+    # prepare - a crewed, sound boat with nobody spare
+    player = Player()
+    boats.addBoat(player, 2, boats.ROLE_HAULING)
+    boats.hireWorker(player, "Marta Kell")
+
+    # check - a notice that fires when nothing is wrong stops being read
+    assert boats.needsAttention(player) == []
+
+
+def test_needsAttention_reports_a_boat_that_cannot_sail():
+    # prepare
+    player = Player()
+    boat = boats.addBoat(player, 2, boats.ROLE_PIRACY, "Kipper")
+    boats.hireWorker(player, "Marta Kell")
+    boats.damageBoat(boat, boats.UNSEAWORTHY_DAMAGE)
+
+    # check
+    assert any(
+        "Kipper too damaged" in notice for notice in boats.needsAttention(player)
+    )
+
+
+def test_needsAttention_reports_idle_boats_and_idle_hands():
+    # prepare - a boat with nobody on her, and a hand ashore
+    player = Player()
+    crewed = boats.addBoat(player, 2, boats.ROLE_HAULING, "Mule")
+    boats.addBoat(player, 2, boats.ROLE_HAULING, "Spare")
+    boats.hireWorker(player, "Marta Kell")
+    boats.hireWorker(player, "Owen Brackish")
+    boats.unassignCrew(player, crewed["id"], "Owen Brackish")
+
+    # call
+    notices = " ".join(boats.needsAttention(player))
+
+    # check - both kinds of waste are named
+    assert "Spare sitting idle" in notices
+    assert "1 hand ashore on full wages" in notices
+
+
+def test_needsAttention_ignores_a_boat_the_captain_has_taken_out():
+    # prepare - a boat away with the player is neither idle nor stuck. Her
+    # crew list stays intact while she's out (startVoyage takes a copy), so
+    # they aren't ashore either.
+    player = Player()
+    boat = boats.addBoat(player, 2, boats.ROLE_PIRACY)
+    boats.hireWorker(player, "Marta Kell")
+    boat["atSea"] = True
+    boats.damageBoat(boat, boats.UNSEAWORTHY_DAMAGE)
+
+    # check
+    assert boats.needsAttention(player) == []
+
+
+def test_describeDay_puts_the_wages_next_to_the_takings():
+    # prepare
+    summary = {
+        "workers": 3,
+        "fishCaught": 30,
+        "wagesPaid": 30,
+        "quit": 0,
+        "quitNames": [],
+        "earned": 129,
+        "fishSeized": 0,
+        "damaged": [],
+        "lostAtSea": [],
+        "plunder": 129,
+        "raidDays": 1,
+    }
+
+    # call
+    report = " ".join(boats.describeDay(summary))
+
+    # check - one line the player can read as a day's profit or loss
+    assert "brought in $129 and 30 fish, and paid $30 in wages" in report
+
+
+def test_describeDay_says_where_to_repair_a_damaged_boat():
+    # prepare
+    summary = {
+        "workers": 1,
+        "fishCaught": 0,
+        "wagesPaid": 10,
+        "quit": 0,
+        "quitNames": [],
+        "earned": 40,
+        "fishSeized": 0,
+        "damaged": [("Kipper", 11)],
+        "lostAtSea": [],
+        "plunder": 40,
+        "raidDays": 1,
+    }
+
+    # check - the report says what to do about it, not just what happened
+    assert "Manage Fleet to repair her" in " ".join(boats.describeDay(summary))

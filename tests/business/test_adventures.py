@@ -365,3 +365,93 @@ def test_loseCrew_with_nobody_left_returns_nothing():
 def test_planFor_reads_the_table():
     assert adventures.planFor(0) is adventures.VOYAGE_PLANS[0]
     assert adventures.supplyCost(5) == 5 * adventures.SUPPLY_COST
+
+
+def test_estimateVoyage_turns_the_multiplier_into_money():
+    # prepare - the same boat against every plan
+    _, boat, _ = createVoyage(role=boats.ROLE_PIRACY, tier=3)
+    boat["atSea"] = False
+
+    # call
+    estimates = [
+        adventures.estimateVoyage(boat, plan)[0] for plan in adventures.VOYAGE_PLANS
+    ]
+
+    # check - a longer voyage is worth more in coin, not just in multiplier,
+    # which is what the plan menu shows the player
+    assert estimates == sorted(estimates)
+    assert estimates[0] > 0
+
+
+def test_estimateVoyage_answers_in_fish_for_a_fishing_boat():
+    # prepare
+    _, boat, _ = createVoyage(role=boats.ROLE_FISHING, tier=2)
+
+    # call
+    money, catch = adventures.estimateVoyage(boat, adventures.VOYAGE_PLANS[1])
+
+    # check
+    assert money == 0
+    assert catch > 0
+
+
+def test_estimateVoyage_is_the_floor_not_a_promise():
+    # prepare - a voyage sailed with every event choice taken
+    player, boat, voyage = createVoyage(role=boats.ROLE_PIRACY, tier=3, plan=1)
+    estimated, _ = adventures.estimateVoyage(boat, voyage["plan"])
+
+    # call - sail it with no event income at all
+    for _ in range(voyage["legs"]):
+        adventures.advanceLeg(voyage)
+
+    # check - the legs alone make the estimate; events only ever add to it
+    assert voyage["money"] == estimated
+
+
+def test_legsSupplied_counts_whole_days_of_food():
+    # prepare - three hands eat three a day
+    _, boat, _ = createVoyage(crew=["Marta Kell", "Owen Brackish", "Piety Shaw"])
+
+    # check
+    assert adventures.legsSupplied(boat, 9) == 3
+    assert adventures.legsSupplied(boat, 10) == 3
+    assert adventures.legsSupplied(boat, 0) == 0
+
+
+def test_legsSupplied_with_nobody_aboard():
+    # prepare - an empty boat eats nothing, and mustn't divide by zero
+    player = Player()
+    boat = boats.addBoat(player, 1, boats.ROLE_HAULING)
+
+    # check
+    assert adventures.legsSupplied(boat, 10) == 0
+
+
+def test_turning_back_ends_the_voyage_and_keeps_the_hold():
+    # prepare - a voyage with something already aboard
+    player, boat, voyage = createVoyage()
+    adventures.gain(voyage, money=800, fishCount=20)
+
+    # call
+    adventures.turnBack(voyage)
+    summary = adventures.finishVoyage(player, voyage)
+
+    # check - cutting your losses keeps them; only foundering forfeits the hold
+    assert adventures.isOver(voyage) is True
+    assert summary["turnedBack"] is True
+    assert summary["foundered"] is False
+    assert summary["money"] == 800
+    assert summary["fish"] == 20
+
+
+def test_a_voyage_that_ran_its_course_is_not_marked_as_broken_off():
+    # prepare
+    player, boat, voyage = createVoyage(plan=0)
+
+    # call
+    for _ in range(voyage["legs"]):
+        adventures.advanceLeg(voyage)
+    summary = adventures.finishVoyage(player, voyage)
+
+    # check
+    assert summary["turnedBack"] is False

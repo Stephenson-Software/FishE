@@ -46,7 +46,7 @@ Before you go: pick **how far out** — a short run, the middle grounds, or the 
 Then you sail her a leg at a time. Each leg is a day at sea and puts a situation in front of you:
 
 ```
-LEG 3 of 7   Hull 74%   Supplies 12   Crew 4
+LEG 3 of 7   Hull 74%   Supplies 12   Crew 4   Hold $980
 
 A squall builds to the north and the light goes the colour of a bruise.
 
@@ -54,11 +54,14 @@ A squall builds to the north and the light goes the colour of a bruise.
  [2] Hug the coast and lose a day
  [3] Iris Dunmore reads the sky for a gap
  [4] Ride it out at anchor
+ [5] Break off and run for home (keep the hold)
 ```
 
 **Who you brought decides what you can do.** That third option only exists because Iris Dunmore is aboard and reads the weather. Cormac Ide can find the seam in a leaking hull; Junia Marsh will go over the side after whatever sank; Bastian Roe can nurse a sick crew through the night; Sena Vale can work out where a merchantman will anchor so you take her asleep. Crewing a boat stops being a headcount and becomes casting.
 
-Three things can only get worse unless you spend a decision on them — **hull**, **supplies** and **crew** — and the hold is only yours if you get home. If the hull gives out or the crew starve, the voyage is cut short: you lose everything aboard and limp back needing an expensive repair, but the boat is still yours and the game goes on.
+Three things can only get worse unless you spend a decision on them — **hull**, **supplies** and **crew** — and the hold is only yours if you get home. You can **break off and run for home** at any point and keep everything you've taken, which is how you cut your losses when the hull is getting thin. If you press on and the hull gives out or the crew starve, the voyage is cut short instead: you lose everything aboard and limp back needing an expensive repair, but the boat is still yours and the game goes on.
+
+The screens try to do the arithmetic for you rather than making you do it: each boat's line says what she earns a day, the fleet header says whether it clears its own payroll, the plan menu quotes what a voyage is worth in money rather than a multiplier, the provisioning menu says which day each option runs out on, and the docks screen tells you when a boat is sitting idle or too damaged to sail.
 
 ### Exporting to Other Villages
 Gilbert's shop only has so much money each day, so once your crew is landing more fish than the village can absorb, the surplus just piles up. A **Trawler or better** can carry a hold out to neighbouring villages (and a boat dedicated to **hauling** carries half again as much), which have no daily limit at all — choose **Export Fish to Other Villages** at the docks. Three markets are reachable: **Saltmarsh** down the coast (cheap freight, modest prices), **Kestrel Cove** (a real harbour town that pays well for a proper haul), and **Thornhaven**, the far city market, which only a **Fishing Fleet** can reach and which pays double the village rate.

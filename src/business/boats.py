@@ -528,17 +528,26 @@ def describeDay(summary):
     Returned as lines rather than printed so every front-end shows it the same
     way. Empty when nothing worth mentioning happened."""
     lines = []
-    if summary["fishCaught"]:
-        lines.append("Your crews landed %d fish." % summary["fishCaught"])
-    if summary["earned"]:
-        line = "The fleet took $%d." % summary["earned"]
+    # One line for the day's economics, with the wages in it - the takings on
+    # their own didn't say whether the fleet had actually paid for itself.
+    if summary["fishCaught"] or summary["earned"] or summary["wagesPaid"]:
+        took = []
+        if summary["earned"]:
+            took.append("$%d" % summary["earned"])
+        if summary["fishCaught"]:
+            took.append("%d fish" % summary["fishCaught"])
         if summary["fishSeized"]:
-            line += " %d fish came off somebody else's hold." % summary["fishSeized"]
-        lines.append(line)
-    elif summary["fishSeized"]:
-        lines.append("%d fish came off somebody else's hold." % summary["fishSeized"])
+            took.append("%d fish off somebody else's hold" % summary["fishSeized"])
+        earned = " and ".join(took) if took else "nothing"
+        lines.append(
+            "Overnight the fleet brought in %s, and paid $%d in wages."
+            % (earned, summary["wagesPaid"])
+        )
     for name, damage in summary["damaged"]:
-        lines.append("%s took %d%% damage in a scrap." % (name, damage))
+        lines.append(
+            "%s took %d%% damage in a scrap - see Manage Fleet to repair her."
+            % (name, damage)
+        )
     for name, lost in summary["lostAtSea"]:
         lines.append(
             "%s was lost off %s. Word reached the village at dawn." % (lost, name)
@@ -630,9 +639,7 @@ def describeBoat(boat):
 
 
 def fleetDailyIncome(player):
-    return sum(
-        dailyIncome(boat) for boat in player.boats if not isAtSea(boat)
-    )
+    return sum(dailyIncome(boat) for boat in player.boats if not isAtSea(boat))
 
 
 def fleetDailyCatch(player):
@@ -641,3 +648,33 @@ def fleetDailyCatch(player):
 
 def dailyPayroll(player):
     return player.workers * business.WORKER_DAILY_WAGE
+
+
+def needsAttention(player):
+    """Things about the fleet the player would otherwise only find by opening
+    the fleet screen and reading it - a boat sitting idle, a hull that can't
+    sail, hands drawing wages for nothing.
+
+    Returned shortest-first as plain phrases so a caller can put them on the
+    screen the player is already looking at."""
+    notices = []
+    stuck = [
+        boat["name"]
+        for boat in player.boats
+        if not isSeaworthy(boat) and not isAtSea(boat)
+    ]
+    if stuck:
+        notices.append("%s too damaged to sail" % ", ".join(stuck))
+    idleBoats = [
+        boat["name"]
+        for boat in player.boats
+        if crewSize(boat) == 0 and not isAtSea(boat)
+    ]
+    if idleBoats:
+        notices.append("%s sitting idle with no crew" % ", ".join(idleBoats))
+    spare = len(unassignedNames(player)) + unassignedHands(player)
+    if spare:
+        notices.append(
+            "%d hand%s ashore on full wages" % (spare, "s" if spare != 1 else "")
+        )
+    return notices

@@ -75,6 +75,22 @@ def planFor(index):
     return VOYAGE_PLANS[index]
 
 
+def estimateVoyage(boat, plan):
+    """Roughly what a voyage brings home if it goes to plan, as
+    (money, fish).
+
+    Shown on the plan menu because "x1.6 the pickings" is a number the player
+    would otherwise have to turn into money themselves, against a per-leg
+    value they can't see. Events add to this - it's the floor, not a promise."""
+    legs = plan["legs"]
+    scale = plan["rewardMultiplier"] * boats.tierFactor(boat)
+    aboard = boats.crewSize(boat)
+    if boat["role"] == boats.ROLE_FISHING:
+        return 0, int(FISHING_LEG_CATCH * aboard * scale) * legs
+    perLeg = ROLE_LEG_VALUE.get(boat["role"], 0)
+    return int(perLeg * aboard * scale / 4.0) * legs, 0
+
+
 def recommendedSupplies(boat, plan):
     """Enough to feed everyone aboard for the whole voyage, which is what the
     provisioning screen suggests. Taking less is a real gamble, not a slip."""
@@ -83,6 +99,16 @@ def recommendedSupplies(boat, plan):
 
 def supplyCost(units):
     return units * SUPPLY_COST
+
+
+def legsSupplied(boat, units):
+    """How many legs a given load actually feeds. The provisioning menu shows
+    this rather than a bare number, because "10 supplies" means nothing until
+    you know it runs out halfway."""
+    aboard = boats.crewSize(boat) * SUPPLIES_PER_CREW_PER_LEG
+    if aboard <= 0:
+        return 0
+    return units // aboard
 
 
 def startVoyage(boat, plan, supplies):
@@ -105,6 +131,7 @@ def startVoyage(boat, plan, supplies):
         "fish": 0,
         "log": [],
         "status": "sailing",
+        "turnedBack": False,
     }
 
 
@@ -114,6 +141,16 @@ def crewAboard(voyage):
 
 def isOver(voyage):
     return voyage["status"] != "sailing"
+
+
+def turnBack(voyage):
+    """Break off and run for home, keeping whatever is in the hold.
+
+    Being committed to every leg once you'd left made a low hull a slow walk
+    to a foundering rather than a decision. Cutting your losses is the
+    decision."""
+    voyage["status"] = "home"
+    voyage["turnedBack"] = True
 
 
 def specialistAboard(voyage, specialty):
@@ -257,7 +294,7 @@ def _sickCook(voyage, name):
 
 def _becalmedWait(voyage):
     useSupplies(voyage, crewAboard(voyage))
-    return "Two days of glass-flat water. The stores go down and nothing else happens."
+    return "A day of glass-flat water. The stores go down and nothing else happens."
 
 
 def _becalmedRow(voyage):
@@ -598,6 +635,7 @@ def finishVoyage(player, voyage, stats=None):
     summary = {
         "boat": boat["name"],
         "foundered": foundered,
+        "turnedBack": voyage.get("turnedBack", False),
         "legsSailed": voyage["leg"],
         "legs": voyage["legs"],
         "money": 0,
