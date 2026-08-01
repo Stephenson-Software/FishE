@@ -6,15 +6,27 @@ This game allows you to explore a fishing village and perform actions in it.
 
 ## Features
 
-### Play in your browser (web interface)
-FishE runs behind a single user-interface contract, so it supports multiple front-ends: the default text/console interface, a pygame window, and a browser-based **web interface**. To play in the browser, run the example web app and open the printed URL:
+### Play in your browser
+FishE runs behind a single user-interface contract, so it supports multiple front-ends: the default text/console interface, a pygame window, and two browser-based ones. The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dialogue — plays in the browser either way, and both render from the same client (`web/client.js`), so they look and behave identically. Adding a new front-end means implementing `BaseUserInterface` and adding a `UIType` + factory branch.
+
+**In your own browser (`UIType.PYODIDE`)** — the game itself runs in your tab, under [Pyodide](https://pyodide.org). Nothing is sent to a server, every tab is its own game, and your **save files live in your browser's IndexedDB**, so they survive a reload and stay on your machine. This is how the game is deployed:
+
+```bash
+python3 web/build_zip.py    # bundle the game for the browser (once, and after any src/ change)
+python3 web/serve.py
+# then open http://127.0.0.1:8080
+```
+
+`web/serve.py` only serves files — it never runs the game. It does have to send the `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers it sets, though: without them the page is not cross-origin isolated, `SharedArrayBuffer` is unavailable, and the browser cannot deliver your input to the game. Any proxy placed in front of it must preserve those headers.
+
+**On a server (`UIType.WEB`)** — the game runs in the Python process and the browser is a terminal for it, with save files on the server's disk under `data/`. Handy for playing over a terminal-less machine on your own network, but everyone who opens the page shares one game and one set of saves:
 
 ```bash
 python3 examples/web_app.py
 # then open http://127.0.0.1:8000
 ```
 
-The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dialogue — plays in the browser, with no extra dependencies (it uses only the Python standard library). Adding a new front-end means implementing `BaseUserInterface` and adding a `UIType` + factory branch.
+Both use only the Python standard library; the Pyodide front-end loads its one runtime dependency (`jsonschema`) in the browser.
 
 ### One Thing at a Time
 A new game opens on the docks with a rod, a bucket, and exactly one thing to do: **fish**. Everything else in the village arrives later, one option at a time, as you earn it — and each arrival tells you why it's there:
@@ -107,7 +119,9 @@ FishE supports multiple save files, allowing you to maintain different game prog
 - **Delete Save**: Remove unwanted save files
 - **Load**: Pick any existing save slot to continue your adventure
 
-Each save file is stored in its own slot (slot_1, slot_2, etc.) in the `data/` directory, ensuring your saves never conflict with each other.
+Each save file is stored in its own slot (slot_1, slot_2, etc.) in the `data/` directory, ensuring your saves never conflict with each other. Set `FISHE_SAVE_DIR` to keep them somewhere else.
+
+When you play in your own browser (the Pyodide front-end above), those same slots are written to your browser's IndexedDB instead of to disk — creating, saving and deleting a slot all take effect there, so your progress is waiting for you when you come back to the tab. They belong to that browser on that machine: clearing the site's data clears them, and they don't follow you to another browser or another device.
 
 ## Contributing
 

@@ -1,7 +1,15 @@
-"""Example: run FishE with the browser-based web front-end.
+"""Example: run FishE with the server-backed web front-end.
 
 This shows how to drive the existing game through the WebUserInterface — no game
-logic changes, just a different UIType. Run it and open the printed URL:
+logic changes, just a different UIType. The game runs here, in this process, and
+the browser is a terminal for it: one game and one set of save files under
+data/, shared by everyone who opens the page.
+
+To give each player their own game and their own saves, run the browser-native
+front-end instead (`python3 web/serve.py`), which hands the game to Pyodide in
+the player's own tab and keeps the save slots in that browser's IndexedDB.
+
+Run it and open the printed URL:
 
     python3 examples/web_app.py
 

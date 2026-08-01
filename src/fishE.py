@@ -13,6 +13,7 @@ from stats.stats import Stats
 from ui.userInterfaceFactory import UserInterfaceFactory
 from ui.enum.uiType import UIType
 from saveFileManager import SaveFileManager
+from browserSaveSync import syncBrowserSaves
 from achievements import achievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
 from housing import housing
@@ -300,6 +301,12 @@ class FishE:
         except (IOError, OSError) as e:
             print(f"\n Warning: Failed to save game: {e}")
             # Game continues even if save fails
+            return
+
+        # Under the Pyodide front-end the writes above landed in the Worker's
+        # in-memory filesystem; this is what actually gets them into the
+        # browser's IndexedDB. A no-op for every other front-end.
+        syncBrowserSaves()
 
     def loadPlayer(self):
         try:
