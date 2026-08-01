@@ -13,6 +13,7 @@ from src.world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
 from src.saveFileManager import SaveFileManager
 from src.location.enum.locationType import LocationType
 from src.housing import housing
+from src.progression import progression
 
 # Imported the same way fishE.py imports it (bare, not "src."-prefixed) so
 # isinstance checks against fishE.FishE's real self.config compare the same
@@ -22,8 +23,12 @@ from config.config import Config
 
 
 def createFishE():
-    fishE.Player = MagicMock()
-    fishE.Stats = MagicMock()
+    # Player and Stats hand back real objects: __init__ runs the progression
+    # catch-up over them (see src/progression), and its unlock conditions
+    # compare real numbers. These are still mocks, so the call-count assertions
+    # below hold either way.
+    fishE.Player = MagicMock(return_value=Player())
+    fishE.Stats = MagicMock(return_value=Stats())
     fishE.TimeService = MagicMock()
     fishE.Prompt = MagicMock()
     fishE.UserInterfaceFactory = MagicMock()
@@ -36,6 +41,11 @@ def createFishE():
     fishE.TimeServiceJsonReaderWriter = MagicMock()
     fishE.StatsJsonReaderWriter = MagicMock()
     fishE.SaveFileManager = MagicMock()
+    # Same reason as Player/Stats above: whether __init__ takes the load path
+    # depends on whether a save file happens to exist, and the progression
+    # catch-up runs over whatever it ends up holding.
+    fishE.PlayerJsonReaderWriter.return_value.readPlayerFromFile.return_value = Player()
+    fishE.StatsJsonReaderWriter.return_value.readStatsFromFile.return_value = Stats()
     fishE.loadPlayer = MagicMock()
     fishE.loadStats = MagicMock()
     fishE.loadTimeService = MagicMock()
@@ -425,9 +435,7 @@ def test_save_creates_missing_data_directory():
         game.save()
 
         # check - save() created the directory tree itself
-        assert os.path.exists(
-            os.path.join(data_directory, "slot_1", "player.json")
-        )
+        assert os.path.exists(os.path.join(data_directory, "slot_1", "player.json"))
 
 
 def test_save_handles_write_failure_without_raising():
@@ -661,6 +669,119 @@ def test_play_updates_ui_header_before_running_location():
     # call
     game.play()
 
-    # check - header fields are set from the location/wealth before run() is called
+    # check - header fields are set from the location/wealth before run() is
+    # called; the goal line stays hidden until the player has been shown it
     assert game.userInterface.currentLocationName == LocationType.HOME.capitalize()
+    assert game.userInterface.goalProgress == ""
+
+
+def test_play_shows_the_goal_line_once_it_is_unlocked():
+    # prepare - a player who has already been shown the goal
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.player.money = 10
+    game.player.moneyInBank = 5
+    progression.unlockAll(game.stats)
+
+    # call
+    game.play()
+
+    # check
     assert game.userInterface.goalProgress == "$15 / $%d" % fishE.GOAL_AMOUNT
+
+
+def test_play_announces_a_newly_unlocked_feature_with_its_reason():
+    # prepare - the player lands their first catch this iteration
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.stats.totalFishCaught = 1
+
+    # call
+    game.play()
+
+    # check - the newly-appeared menu entry is explained on the same screen it
+    # first shows up on
+    shop = next(u for u in progression.UNLOCKS if u["id"] == progression.SHOP)
+    assert shop["announcement"] in game.prompt.text
+    assert progression.isUnlocked(game.stats, progression.SHOP)
+
+
+def test_play_does_not_repeat_an_unlock_announcement():
+    # prepare
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.stats.totalFishCaught = 1
+    progression.catchUp(game.player, game.stats)
+
+    # call
+    game.play()
+
+    # check
+    shop = next(u for u in progression.UNLOCKS if u["id"] == progression.SHOP)
+    assert shop["announcement"] not in game.prompt.text
+
+
+def test_init_starts_a_new_game_on_the_docks_with_nothing_unlocked():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - an empty slot, i.e. a brand new game
+        game = createGameThroughInit(data_directory, {})
+
+        # check - the player opens on the docks, where fishing is the only
+        # thing on the menu, and is greeted with something better than the
+        # standing "What would you like to do?"
+        assert game.currentLocation == LocationType.DOCKS
+        assert game.stats.unlockedFeatures == []
+        assert game.prompt.text == progression.OPENING_PROMPT
+
+
+def test_init_catches_up_a_save_written_before_progression_existed():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - an established player whose stats.json has no
+        # unlockedFeatures at all
+        player = Player()
+        player.money = 8000
+        player.fishMultiplier = 4
+        stats = Stats()
+        stats.totalFishCaught = 900
+        stats.totalMoneyMade = 12000
+        stats.hoursSpentFishing = 400
+        statsJson = StatsJsonReaderWriter().createJsonFromStats(stats)
+        del statsJson["unlockedFeatures"]
+
+        # call
+        game = createGameThroughInit(
+            data_directory,
+            {
+                "player.json": PlayerJsonReaderWriter().createJsonFromPlayer(player),
+                "stats.json": statsJson,
+            },
+        )
+
+        # check - the village they already built is not re-locked around them,
+        # and none of it is announced as news
+        assert sorted(game.stats.unlockedFeatures) == sorted(
+            progression.ALL_FEATURE_IDS
+        )
+        assert game.prompt.text != progression.OPENING_PROMPT
+
+
+def test_play_announces_one_unlock_per_screen():
+    # prepare - a first catch that also emptied the energy bar, so two unlocks
+    # are earned on the same action
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.stats.totalFishCaught = 1
+    game.player.energy = 0
+
+    # call - one iteration of the game loop
+    game.play()
+
+    # check - the player is handed one new button with its reason, not two;
+    # the other is still earned and arrives on the next screen
+    announcements = [
+        unlock["announcement"]
+        for unlock in progression.UNLOCKS
+        if unlock["announcement"] in game.prompt.text
+    ]
+    assert len(announcements) == 1
+    assert game.stats.unlockedFeatures == [progression.SHOP]

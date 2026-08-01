@@ -7,13 +7,19 @@ from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.achievements import achievements
 from src.housing import housing
+from src.progression import progression
 from unittest.mock import MagicMock
 
 
-def createHome():
+def createHome(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
     player = Player()
     stats = Stats()
+    if unlocked:
+        # These tests are about what the home menu does, not about what a brand
+        # new player can see of it (see src/progression); the staged reveal has
+        # its own tests below.
+        progression.unlockAll(stats)
     timeService = TimeService(player, stats)
     userInterface = UserInterface(currentPrompt, timeService, player)
     return home.Home(userInterface, currentPrompt, player, stats, timeService)
@@ -430,3 +436,56 @@ def test_manageHome_at_top_tier_has_no_move_up_option():
     optionsShown = homeInstance.userInterface.showOptions.call_args[0][1]
     assert not any("move to" in option.lower() for option in optionsShown)
     assert any("down" in option.lower() for option in optionsShown)
+
+
+def test_run_shows_only_sleeping_to_a_player_who_just_found_home():
+    # prepare - the ledger and the housing ladder are revealed later (see
+    # src/progression)
+    homeInstance = createHome(unlocked=False)
+    homeInstance.userInterface.showOptions = MagicMock(return_value="1")
+    homeInstance.sleep = MagicMock()
+
+    # call
+    nextLocation = homeInstance.run()
+
+    # check
+    options = homeInstance.userInterface.showOptions.call_args[0][1]
+    assert options == ["Sleep", "Go to Docks", "Quit"]
+    assert nextLocation == LocationType.HOME
+    homeInstance.sleep.assert_called_once()
+
+
+def test_run_quit_still_works_on_the_short_menu():
+    # prepare
+    homeInstance = createHome(unlocked=False)
+    homeInstance.userInterface.showOptions = MagicMock(return_value="3")
+
+    # call
+    nextLocation = homeInstance.run()
+
+    # check
+    assert nextLocation == LocationType.NONE
+
+
+def test_run_reveals_the_ledger_and_the_housing_ladder_as_they_unlock():
+    # prepare
+    homeInstance = createHome(unlocked=False)
+    homeInstance.userInterface.showOptions = MagicMock(return_value="1")
+    homeInstance.sleep = MagicMock()
+
+    for feature, label in (
+        (progression.JOURNAL, "See Stats"),
+        (progression.HOUSING, "Manage Home"),
+    ):
+        # call - before the unlock
+        homeInstance.run()
+
+        # check
+        assert label not in homeInstance.userInterface.showOptions.call_args[0][1]
+
+        # prepare/call - and after it
+        homeInstance.stats.unlockedFeatures.append(feature)
+        homeInstance.run()
+
+        # check
+        assert label in homeInstance.userInterface.showOptions.call_args[0][1]

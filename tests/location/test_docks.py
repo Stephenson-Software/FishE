@@ -11,19 +11,40 @@ from src.business import boats
 from src.business import export
 from src.housing import housing
 from src.npc import villagers
+from src.progression import progression
 from unittest.mock import MagicMock, patch
 
 
-def createDocks():
+def createDocks(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
     player = Player()
     stats = Stats()
+    if unlocked:
+        # Most of these tests are about what the docks do, not about what a
+        # brand new player can see, so start with the whole menu revealed (see
+        # src/progression). The staged reveal has its own tests below.
+        progression.unlockAll(stats)
     timeService = TimeService(player, stats)
     userInterface = UserInterface(currentPrompt, timeService, player)
     # fish() opens with a one-second "Fishing..." pause on the real front-end;
     # stub it so the tests neither print to the console nor wait it out.
     userInterface.showBusy = MagicMock()
     return docks.Docks(userInterface, currentPrompt, player, stats, timeService)
+
+
+def dockChooser(label):
+    """Pick the docks menu entry with this label, rather than a fixed number.
+
+    Which options are on the menu (and so what each one is numbered) depends on
+    how much of the game the player has unlocked, so tests say what they mean."""
+
+    def chooser(descriptor, optionList):
+        for index, option in enumerate(optionList, start=1):
+            if option == label or option.startswith(label):
+                return str(index)
+        raise AssertionError("no %r option in %r" % (label, optionList))
+
+    return chooser
 
 
 def test_initialization():
@@ -57,7 +78,9 @@ def test_run_fish_action():
 def test_run_go_home_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
 
     # call
     nextLocation = docksInstance.run()
@@ -69,7 +92,9 @@ def test_run_go_home_action():
 def test_run_talk_to_npc_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Talk to Sam")
+    )
     docksInstance.talkToNPC = MagicMock()
 
     # call
@@ -163,7 +188,9 @@ def test_npc_dialogue_response_reflects_business_via_callable():
 def test_run_go_to_shop_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="4")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go to Shop")
+    )
 
     # call
     nextLocation = docksInstance.run()
@@ -175,7 +202,9 @@ def test_run_go_to_shop_action():
 def test_run_go_to_tavern_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="5")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go to Tavern")
+    )
 
     # call
     nextLocation = docksInstance.run()
@@ -187,7 +216,9 @@ def test_run_go_to_tavern_action():
 def test_run_go_to_bank_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="6")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go to Bank")
+    )
 
     # call
     nextLocation = docksInstance.run()
@@ -437,7 +468,9 @@ def test_run_descriptor_mentions_current_weather():
     # prepare
     docksInstance = createDocks()
     docksInstance.timeService.weather = "stormy"
-    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
 
     # call
     docksInstance.run()
@@ -502,7 +535,9 @@ def test_fish_higher_rod_widens_reaction_window():
 def test_run_manage_fleet_action():
     # prepare
     docksInstance = createDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="7")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Manage Fleet")
+    )
     docksInstance.manageFleet = MagicMock()
 
     # call
@@ -881,7 +916,9 @@ def test_run_talk_to_crew_action():
     docksInstance = createDocks()
     boats.addBoat(docksInstance.player, 1)
     boats.hireWorker(docksInstance.player, "Marta Kell")
-    docksInstance.userInterface.showOptions = MagicMock(return_value="8")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Talk to Your Crew")
+    )
     docksInstance.talkToCrew = MagicMock()
 
     # call
@@ -1062,7 +1099,9 @@ def createExportingDocks(tier=2, money=1000, fishCount=100):
 def test_run_export_option_appears_only_with_a_big_enough_boat():
     # prepare - a Rowboat, which can't make the crossing
     docksInstance = createExportingDocks(tier=1)
-    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
 
     # call
     docksInstance.run()
@@ -1083,9 +1122,11 @@ def test_run_export_option_appears_only_with_a_big_enough_boat():
 
 
 def test_run_export_action():
-    # prepare - the export entry is last, after Manage Boat & Crew
+    # prepare
     docksInstance = createExportingDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="8")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Export Fish to Other Villages")
+    )
     docksInstance.exportFish = MagicMock()
 
     # call
@@ -1101,7 +1142,9 @@ def test_run_menu_positions_hold_when_both_extras_are_present():
     # conditional entries are on the menu at once
     docksInstance = createExportingDocks()
     boats.hireWorker(docksInstance.player, "Marta Kell")
-    docksInstance.userInterface.showOptions = MagicMock(return_value="9")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Export Fish to Other Villages")
+    )
     docksInstance.exportFish = MagicMock()
     docksInstance.talkToCrew = MagicMock()
 
@@ -1111,8 +1154,10 @@ def test_run_menu_positions_hold_when_both_extras_are_present():
     # check - export sits after the crew entry, and each action still lines up
     # with its own option rather than the one beside it
     options = docksInstance.userInterface.showOptions.call_args[0][1]
-    assert options[7] == "Talk to Your Crew"
-    assert options[8] == "Export Fish to Other Villages"
+    assert (
+        options.index("Export Fish to Other Villages")
+        == options.index("Talk to Your Crew") + 1
+    )
     docksInstance.exportFish.assert_called_once()
     docksInstance.talkToCrew.assert_not_called()
 
@@ -1122,7 +1167,9 @@ def test_run_crew_action_still_fires_without_the_export_entry():
     docksInstance = createDocks()
     boats.addBoat(docksInstance.player, 1)
     boats.hireWorker(docksInstance.player, "Marta Kell")
-    docksInstance.userInterface.showOptions = MagicMock(return_value="8")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Talk to Your Crew")
+    )
     docksInstance.talkToCrew = MagicMock()
 
     # call
@@ -1336,7 +1383,9 @@ def test_run_take_the_helm_appears_only_with_a_boat_that_can_sail():
     # prepare - a boat with nobody aboard can't be taken out
     docksInstance = createDocks()
     boats.addBoat(docksInstance.player, 2, boats.ROLE_PIRACY)
-    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
     docksInstance.run()
 
     # check
@@ -1355,13 +1404,8 @@ def test_run_take_the_helm_appears_only_with_a_boat_that_can_sail():
 def test_run_take_the_helm_action():
     # prepare - find the entry by label, since crew/export entries also appear
     docksInstance, _ = createSailingDocks()
-    docksInstance.userInterface.showOptions = MagicMock(return_value="1")
-    docksInstance.fish = MagicMock()
-    docksInstance.run()
-    menu = docksInstance.userInterface.showOptions.call_args[0][1]
-
     docksInstance.userInterface.showOptions = MagicMock(
-        return_value=str(menu.index("Take the Helm") + 1)
+        side_effect=dockChooser("Take the Helm")
     )
     docksInstance.takeTheHelm = MagicMock()
 
@@ -1781,7 +1825,9 @@ def test_the_docks_screen_flags_a_fleet_that_needs_attention():
     boats.hireWorker(docksInstance.player, "Marta Kell")
     boats.hireWorker(docksInstance.player, "Owen Brackish")
     boats.unassignCrew(docksInstance.player, crewed["id"], "Owen Brackish")
-    docksInstance.userInterface.showOptions = MagicMock(return_value="3")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
 
     # call
     docksInstance.run()
@@ -1807,3 +1853,112 @@ def test_the_docks_screen_stays_quiet_when_nothing_is_wrong():
     assert (
         "Needs attention" not in docksInstance.userInterface.showOptions.call_args[0][0]
     )
+
+
+def test_run_shows_only_fishing_to_a_brand_new_player():
+    # prepare - nothing unlocked yet (see src/progression)
+    docksInstance = createDocks(unlocked=False)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=dockChooser("Fish"))
+    docksInstance.fish = MagicMock()
+
+    # call
+    docksInstance.run()
+
+    # check - one thing to do, plus a way out of the game
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert options == ["Fish", "Quit"]
+
+
+def test_run_reveals_each_docks_entry_as_it_is_unlocked():
+    # prepare
+    docksInstance = createDocks(unlocked=False)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=dockChooser("Fish"))
+    docksInstance.fish = MagicMock()
+
+    for feature, label in (
+        (progression.SHOP, "Go to Shop"),
+        (progression.HOME, "Go Home"),
+        (progression.TALK, "Talk to Sam the Dock Worker"),
+        (progression.BANK, "Go to Bank"),
+        (progression.FLEET, "Manage Fleet"),
+        (progression.TAVERN, "Go to Tavern"),
+    ):
+        # call - before the unlock
+        docksInstance.run()
+
+        # check
+        assert label not in docksInstance.userInterface.showOptions.call_args[0][1]
+
+        # prepare/call - and after it
+        docksInstance.stats.unlockedFeatures.append(feature)
+        docksInstance.run()
+
+        # check
+        assert label in docksInstance.userInterface.showOptions.call_args[0][1]
+
+
+def test_run_new_entries_are_appended_below_the_familiar_ones():
+    # prepare - the menu grows downward, so an option the player already knows
+    # keeps its number when a new one shows up
+    docksInstance = createDocks(unlocked=False)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=dockChooser("Fish"))
+    docksInstance.fish = MagicMock()
+    docksInstance.stats.unlockedFeatures.append(progression.SHOP)
+    docksInstance.run()
+    before = docksInstance.userInterface.showOptions.call_args[0][1]
+
+    # call
+    docksInstance.stats.unlockedFeatures.append(progression.HOME)
+    docksInstance.run()
+
+    # check
+    after = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert after[: len(before) - 1] == before[:-1]  # everything above Quit holds
+    assert after.index("Go Home") == len(before) - 1
+
+
+def test_run_quit_action_ends_the_run():
+    # prepare - the docks are where a new player starts, so quitting has to be
+    # possible before the home menu has been unlocked
+    docksInstance = createDocks(unlocked=False)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=dockChooser("Quit"))
+
+    # call
+    nextLocation = docksInstance.run()
+
+    # check
+    assert nextLocation == LocationType.NONE
+
+
+def test_locations_dialogue_only_describes_places_the_player_has_found():
+    # prepare
+    docksInstance = createDocks(unlocked=False)
+
+    # check - Sam has nothing to point at before the player has done anything
+    text = docksInstance._locationsDialogue()
+    assert "bank" not in text
+    assert "Wet your line" in text
+
+    # prepare - the shop opens up
+    docksInstance.stats.unlockedFeatures.append(progression.SHOP)
+
+    # check
+    text = docksInstance._locationsDialogue()
+    assert "Gilbert's shop" in text
+    assert "Old Tom" not in text
+    assert "in your own time" in text
+
+
+def test_locations_dialogue_covers_the_whole_village_once_it_is_open():
+    # prepare
+    docksInstance = createDocks()
+
+    # call
+    text = docksInstance._locationsDialogue()
+
+    # check
+    assert "your home" in text
+    assert "Gilbert's shop" in text
+    assert "Old Tom" in text
+    assert "the bank" in text
+    assert "in your own time" not in text

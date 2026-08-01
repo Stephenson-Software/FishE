@@ -7,13 +7,19 @@ from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.business import boats
 from src.business import export
+from src.progression import progression
 from unittest.mock import MagicMock
 
 
-def createShop():
+def createShop(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
     player = Player()
     stats = Stats()
+    if unlocked:
+        # These tests are about what the shop does, not about what a brand new
+        # player can see of it (see src/progression); the staged reveal has its
+        # own tests below.
+        progression.unlockAll(stats)
     timeService = TimeService(player, stats)
     userInterface = UserInterface(currentPrompt, timeService, player)
     return shop.Shop(userInterface, currentPrompt, player, stats, timeService)
@@ -420,3 +426,74 @@ def test_sellFish_leftover_advice_without_an_export_boat():
     assert shopInstance.player.fishCount > 0
     assert "Come back tomorrow for the rest." in shopInstance.currentPrompt.text
     assert "docks" not in shopInstance.currentPrompt.text
+
+
+def test_run_shows_only_selling_to_a_player_who_just_found_the_shop():
+    # prepare - the shop opens up the moment there are fish to sell, and
+    # nothing on the walls has been revealed yet (see src/progression)
+    shopInstance = createShop(unlocked=False)
+    shopInstance.userInterface.showOptions = MagicMock(return_value="1")
+    shopInstance.sellFish = MagicMock()
+
+    # call
+    nextLocation = shopInstance.run()
+
+    # check
+    options = shopInstance.userInterface.showOptions.call_args[0][1]
+    assert options == ["Sell Fish", "Go to Docks"]
+    assert nextLocation == LocationType.SHOP
+    shopInstance.sellFish.assert_called_once()
+
+
+def test_run_go_to_docks_is_always_the_last_entry():
+    # prepare - the way back can't depend on what has been unlocked
+    shopInstance = createShop(unlocked=False)
+    shopInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call
+    nextLocation = shopInstance.run()
+
+    # check
+    assert nextLocation == LocationType.DOCKS
+
+
+def test_run_reveals_the_gear_as_it_is_unlocked():
+    # prepare
+    shopInstance = createShop(unlocked=False)
+    shopInstance.userInterface.showOptions = MagicMock(return_value="1")
+    shopInstance.sellFish = MagicMock()
+
+    for feature, label in (
+        (progression.BAIT, "Buy Better Bait"),
+        (progression.ROD, "Buy Better Rod"),
+        (progression.TALK, "Talk to Gilbert the Shopkeeper"),
+    ):
+        # call - before the unlock
+        shopInstance.run()
+
+        # check
+        options = shopInstance.userInterface.showOptions.call_args[0][1]
+        assert not any(option.startswith(label) for option in options)
+
+        # prepare/call - and after it
+        shopInstance.stats.unlockedFeatures.append(feature)
+        shopInstance.run()
+
+        # check
+        options = shopInstance.userInterface.showOptions.call_args[0][1]
+        assert any(option.startswith(label) for option in options)
+
+
+def test_run_buying_bait_fires_from_its_actual_position():
+    # prepare - bait unlocked but the rod not, so "Buy Better Bait" is entry 2
+    shopInstance = createShop(unlocked=False)
+    shopInstance.stats.unlockedFeatures.append(progression.BAIT)
+    shopInstance.userInterface.showOptions = MagicMock(return_value="2")
+    shopInstance.buyBetterBait = MagicMock()
+
+    # call
+    nextLocation = shopInstance.run()
+
+    # check
+    assert nextLocation == LocationType.SHOP
+    shopInstance.buyBetterBait.assert_called_once()

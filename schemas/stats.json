@@ -36,6 +36,13 @@
             },
             "description": "Names of milestones the player has already been awarded."
         },
+        "unlockedFeatures": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Ids of the features that have been revealed to the player so far."
+        },
         "totalWorkersHired": {
             "type": "integer",
             "description": "The lifetime number of workers hired for the fishing business."

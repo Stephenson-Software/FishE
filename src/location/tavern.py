@@ -11,6 +11,7 @@ from npc.npc import NPC
 from npc import villagers
 from business import business
 from housing import housing
+from progression import progression
 
 
 # Dice has 6 equally likely faces, so a correct guess pays 5x the bet to make
@@ -141,17 +142,23 @@ class Tavern:
         )
 
     def run(self):
-        li = [
-            "Get drunk ( $10 )",
-            "Gamble",
-            "Talk to %s" % self.npc.name,
-            "Go to Docks",
-        ]
+        # Options and actions are built as a pair rather than dispatched on a
+        # fixed number, because talking to Old Tom is revealed separately from
+        # the tavern itself (see src/progression).
+        li = ["Get drunk ( $10 )", "Gamble"]
+        actions = ["drink", "gamble"]
+        if progression.isUnlocked(self.stats, progression.TALK):
+            li.append("Talk to %s" % self.npc.name)
+            actions.append("talk")
+        li.append("Go to Docks")
+        actions.append("docks")
+
         input = self.userInterface.showOptions(
             "You sit at the bar, watching the barkeep clean a mug with a dirty rag.", li
         )
+        action = actions[int(input) - 1]
 
-        if input == "1":
+        if action == "drink":
             if self.player.canAfford(10):
                 self.getDrunk()
                 return LocationType.HOME
@@ -159,18 +166,18 @@ class Tavern:
                 self.currentPrompt.text = "You don't have enough money."
                 return LocationType.TAVERN
 
-        elif input == "2":
+        elif action == "gamble":
             self.currentPrompt.text = (
                 "What will the dice land on? Current Bet: $%d" % self.currentBet
             )
             self.gamble()
             return LocationType.TAVERN
 
-        elif input == "3":
+        elif action == "talk":
             self.talkToNPC()
             return LocationType.TAVERN
 
-        elif input == "4":
+        elif action == "docks":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
 

@@ -7,6 +7,7 @@ from ui.userInterface import UserInterface
 from npc.npc import NPC
 from business import business
 from investments import investments
+from progression import progression
 
 
 # @author Daniel McCoy Stephenson
@@ -103,19 +104,28 @@ class Bank:
         )
 
     def run(self):
-        li = [
-            "Make a Deposit",
-            "Make a Withdrawal",
-            "Talk to %s" % self.npc.name,
-            "Manage Investment Properties",
-            "Go to docks",
-        ]
+        # Saving is what the bank is for on the day it opens up; the property
+        # business behind the counter is revealed later (see src/progression),
+        # so options and actions are built as a pair rather than dispatched on
+        # a fixed number.
+        li = ["Make a Deposit", "Make a Withdrawal"]
+        actions = ["deposit", "withdraw"]
+        if progression.isUnlocked(self.stats, progression.TALK):
+            li.append("Talk to %s" % self.npc.name)
+            actions.append("talk")
+        if progression.isUnlocked(self.stats, progression.INVESTMENTS):
+            li.append("Manage Investment Properties")
+            actions.append("investments")
+        li.append("Go to docks")
+        actions.append("docks")
+
         input = self.userInterface.showOptions(
             "You're at the front of the line and the teller asks you what you want to do.",
             li,
         )
+        action = actions[int(input) - 1]
 
-        if input == "1":
+        if action == "deposit":
             if self.player.operatorMode or self.player.money > 0:
                 self.currentPrompt.text = (
                     "How much would you like to deposit? Money: $%.2f"
@@ -126,7 +136,7 @@ class Bank:
                 self.currentPrompt.text = "You don't have any money on you!"
             return LocationType.BANK
 
-        elif input == "2":
+        elif action == "withdraw":
             if self.player.moneyInBank > 0:
                 self.currentPrompt.text = (
                     "How much would you like to withdraw? Money In Bank: $%.2f"
@@ -137,15 +147,15 @@ class Bank:
                 self.currentPrompt.text = "You don't have any money in the bank!"
             return LocationType.BANK
 
-        elif input == "3":
+        elif action == "talk":
             self.talkToNPC()
             return LocationType.BANK
 
-        elif input == "4":
+        elif action == "investments":
             self.manageInvestments()
             return LocationType.BANK
 
-        elif input == "5":
+        elif action == "docks":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.DOCKS
 
