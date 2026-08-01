@@ -149,6 +149,36 @@ class ConditionalNPC:
         return "Hello"
 
 
+class NoOptionsNPC:
+    """An NPC with zero available dialogue options - e.g. every option's
+    condition is currently false. showInteractiveDialogue falls back to a
+    plain introduction instead of showing an empty question menu."""
+
+    name = "Tester"
+
+    def get_dialogue_options(self):
+        return []
+
+    def get_dialogue_response(self, index):
+        return ""
+
+    def introduce(self):
+        return "Tester: Not much to say."
+
+
+def test_inherited_interactive_dialogue_falls_back_to_introduction_when_no_options():
+    # prepare - no choices are consumed since showOptions is never reached
+    prompt, timeService, player = makeArgs()
+    ui = RecordingUserInterface(prompt, timeService, player, choices=[])
+
+    # call
+    ui.showInteractiveDialogue(NoOptionsNPC())
+
+    # check - the introduction was shown via showDialogue, not a question menu
+    assert ui.shownDialogues == ["Tester: Not much to say."]
+    assert ui.currentPrompt.text == "What would you like to do?"
+
+
 def test_inherited_interactive_dialogue_reflects_unlocked_options():
     # prepare - the flow every front-end without an override inherits (pygame
     # and web both use it), so conditional options have to work here
