@@ -52,6 +52,18 @@
             "type": "integer",
             "description": "The number of days the fishing business has produced a catch."
         },
+        "totalFishExported": {
+            "type": "integer",
+            "description": "The lifetime number of fish shipped to other villages."
+        },
+        "totalMoneyFromExports": {
+            "type": "number",
+            "description": "The lifetime gross earned from exporting fish, before shipping costs."
+        },
+        "totalShippingPaid": {
+            "type": "number",
+            "description": "The lifetime total of shipping costs paid on export runs."
+        },
         "totalRentalIncome": {
             "type": "number",
             "description": "The lifetime total of passive rental income earned from investment properties."

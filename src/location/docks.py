@@ -10,6 +10,7 @@ from npc.npc import NPC
 from npc import villagers
 from fish import fish
 from business import business
+from business import export
 from housing import housing
 
 
@@ -96,6 +97,11 @@ class Docks:
         )
 
     def run(self):
+        # Options and actions are built as a pair - rather than dispatching on
+        # a hardcoded number - because the last two entries only appear once
+        # the player has earned them, and the menu positions below them would
+        # otherwise shift depending on game state. New conditional entries are
+        # appended at the end so the fixed ones keep their familiar numbers.
         li = [
             "Fish",
             "Talk to %s" % self.npc.name,
@@ -105,11 +111,21 @@ class Docks:
             "Go to Bank",
             "Manage Boat & Crew",
         ]
-        # Appended (rather than slotted in next to the other "Talk to" option)
-        # so the numbering of everything above stays put whether or not the
-        # player has anyone to talk to.
+        actions = [
+            "fish",
+            "talk",
+            "home",
+            "shop",
+            "tavern",
+            "bank",
+            "manage",
+        ]
         if self.player.hiredWorkers:
             li.append("Talk to Your Crew")
+            actions.append("talk_crew")
+        if export.canExport(self.player):
+            li.append("Export Fish to Other Villages")
+            actions.append("export")
         if self.player.hasBoat and self.player.businessName:
             descriptor = (
                 "%s is docked and ready for the day." % self.player.businessName
@@ -119,7 +135,10 @@ class Docks:
         descriptor += " " + self._weatherDescriptor()
         input = self.userInterface.showOptions(descriptor, li)
 
-        if input == "1":
+        choice = int(input)
+        action = actions[choice - 1]
+
+        if action == "fish":
             if self.player.hasEnergy(10):
                 self.fish()
                 return LocationType.DOCKS
@@ -127,35 +146,39 @@ class Docks:
                 self.currentPrompt.text = "You're too tired to fish! Go home and sleep."
                 return LocationType.DOCKS
 
-        elif input == "2":
+        elif action == "talk":
             self.talkToNPC()
             return LocationType.DOCKS
 
-        elif input == "3":
+        elif action == "home":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.HOME
 
-        elif input == "4":
+        elif action == "shop":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.SHOP
 
-        elif input == "5":
+        elif action == "tavern":
             self.currentPrompt.text = "What would you like to do?"
             return LocationType.TAVERN
 
-        elif input == "6":
+        elif action == "bank":
             self.currentPrompt.text = (
                 "What would you like to do? Money in Bank: $%.2f"
                 % self.player.moneyInBank
             )
             return LocationType.BANK
 
-        elif input == "7":
+        elif action == "manage":
             self.manageBusiness()
             return LocationType.DOCKS
 
-        elif input == "8" and self.player.hiredWorkers:
+        elif action == "talk_crew":
             self.talkToCrew()
+            return LocationType.DOCKS
+
+        elif action == "export":
+            self.exportFish()
             return LocationType.DOCKS
 
     def _businessDialogue(self):
@@ -390,6 +413,117 @@ class Docks:
         else:
             business.dismissWorker(self.player)
             self.currentPrompt.text = "You let an unnamed deckhand go."
+
+    def _exportStatus(self):
+        """What the next export run would look like, shown above the market
+        list so the player can see the load and the day it costs before
+        picking where to sail."""
+        info = business.tierInfo(business.currentTier(self.player))
+        capacity = export.exportCapacity(self.player)
+        cargo = export.buildCargo(self.player)
+        if not cargo:
+            return (
+                "The %s can carry %d fish to another village, but your hold "
+                "is empty. Land a catch first - the crossing costs you a day "
+                "either way." % (info["name"], capacity)
+            )
+        leftBehind = self.player.fishCount - len(cargo)
+        status = (
+            "The %s can carry %d fish per run. You'd load %d of your %d, "
+            "best first"
+            % (
+                info["name"],
+                capacity,
+                len(cargo),
+                self.player.fishCount,
+            )
+        )
+        if leftBehind > 0:
+            status += ", leaving %d for the next run" % leftBehind
+        status += (
+            ".\nFreight is charged before you sail, and the round trip " "takes a day."
+        )
+        return status
+
+    def _marketOption(self, market, cargo):
+        """One line in the market list: what the village is, what the freight
+        costs, and what this particular load is worth there."""
+        estimate = export.estimateEarnings(cargo, market)
+        if estimate >= 0:
+            outcome = "about $%.2f clear" % estimate
+        else:
+            outcome = "a $%.2f loss on this load" % abs(estimate)
+        return "%s - %s (freight $%d, %s)" % (
+            market["name"],
+            market["description"],
+            market["shippingCost"],
+            outcome,
+        )
+
+    def exportFish(self):
+        """Pick a village to ship the hold to. Unlike the shop, the export
+        markets have no daily budget - the limits are the hold's capacity, the
+        freight, and the day the round trip costs."""
+        while True:
+            markets = export.availableMarkets(self.player)
+            cargo = export.buildCargo(self.player)
+            options = [self._marketOption(market, cargo) for market in markets]
+            options.append("Back")
+
+            choice = int(self.userInterface.showOptions(self._exportStatus(), options))
+            if choice == len(options):
+                self.currentPrompt.text = "What would you like to do?"
+                return
+
+            if self._runExport(markets[choice - 1]):
+                return
+
+    def _runExport(self, market):
+        """Ship to one market. Returns True if the run actually sailed, so the
+        caller knows to leave the menu rather than offer another run on a hold
+        that's now empty and a day that's already gone."""
+        summary = export.runExport(self.player, market, self.stats)
+        if not summary["shipped"]:
+            self.currentPrompt.text = self._exportRefusal(summary, market)
+            return False
+
+        self.currentPrompt.text = (
+            "You sailed to %s and sold %d fish for $%.2f. After the $%d "
+            "freight, that's $%.2f clear."
+            % (
+                market["name"],
+                summary["fishExported"],
+                summary["gross"],
+                summary["shippingCost"],
+                summary["earned"],
+            )
+        )
+        if self.player.fishCount > 0:
+            self.currentPrompt.text += (
+                " %d fish are still in the hold." % self.player.fishCount
+            )
+
+        # The round trip is what stops exporting from being a free repeatable
+        # action, so the day passes here (and everything a new day brings -
+        # the crew's catch, wages, rent - happens while you're away).
+        if self.timeService.increaseDay()["evicted"]:
+            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
+        return True
+
+    def _exportRefusal(self, summary, market):
+        """Say why a run didn't sail and what the player can do about it."""
+        if summary["reason"] == "empty_hold":
+            return "You have no fish to ship. Land a catch first."
+        if summary["reason"] == "cannot_afford_freight":
+            return (
+                "Freight to %s costs $%d up front and you're carrying $%.2f. "
+                "Sell a few fish at the shop to cover it, or ship somewhere "
+                "nearer." % (market["name"], market["shippingCost"], self.player.money)
+            )
+        return "Your boat can't make the crossing to %s. You'd need a %s." % (
+            market["name"],
+            business.tierInfo(market["minBoatTier"])["name"],
+        )
 
     def _weatherDescriptor(self):
         """Flavour text for the current day's weather, shown alongside the

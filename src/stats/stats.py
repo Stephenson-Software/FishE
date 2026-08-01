@@ -15,6 +15,12 @@ class Stats:
         self.totalFishCaughtByCrew = 0
         self.totalWagesPaid = 0
         self.daysInBusiness = 0
+        # Lifetime export totals (see src/business/export.py).
+        # totalMoneyFromExports is gross, before the freight in
+        # totalShippingPaid - the same way totalMoneyMade counts gross sales.
+        self.totalFishExported = 0
+        self.totalMoneyFromExports = 0
+        self.totalShippingPaid = 0
         # Lifetime home-ownership totals (see src/housing). highestHomeTier
         # starts at 0 (Homeless) since that's every player's starting rung.
         self.highestHomeTier = 0

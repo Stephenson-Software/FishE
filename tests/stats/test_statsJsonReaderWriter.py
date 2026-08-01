@@ -307,3 +307,38 @@ def test_createStatsFromJson_wrongType_raisesValidationError():
     # call/check
     with pytest.raises(ValidationError):
         statsJsonReaderWriter.createStatsFromJson(statsJson)
+
+
+def test_exportStats_round_trip():
+    # prepare
+    readerWriter = createStatsJsonReaderWriter()
+    stats = Stats()
+    stats.totalFishExported = 420
+    stats.totalMoneyFromExports = 3125.50
+    stats.totalShippingPaid = 675
+
+    # call
+    statsJson = readerWriter.createJsonFromStats(stats)
+    loaded = readerWriter.createStatsFromJson(statsJson)
+
+    # check
+    assert statsJson["totalFishExported"] == 420
+    assert loaded.totalFishExported == 420
+    assert loaded.totalMoneyFromExports == 3125.50
+    assert loaded.totalShippingPaid == 675
+
+
+def test_save_without_exportStats_loads_with_zeroes():
+    # prepare - a save written before exporting existed
+    readerWriter = createStatsJsonReaderWriter()
+    legacyJson = readerWriter.createJsonFromStats(Stats())
+    for field in ("totalFishExported", "totalMoneyFromExports", "totalShippingPaid"):
+        del legacyJson[field]
+
+    # call
+    loaded = readerWriter.createStatsFromJson(legacyJson)
+
+    # check
+    assert loaded.totalFishExported == 0
+    assert loaded.totalMoneyFromExports == 0
+    assert loaded.totalShippingPaid == 0

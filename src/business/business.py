@@ -17,6 +17,10 @@ WORKER_FISH_PER_DAY = 5
 # Boat upgrades: a bigger boat holds more crew and each worker lands more fish
 # per day. Tier 1 is exactly the original flat boat/crew numbers above, so
 # existing saves and behavior are unchanged until a player chooses to upgrade.
+#
+# exportCapacity is how many fish the boat can carry to another village in one
+# run (see src/business/export.py); a Rowboat can't make the crossing at all,
+# so tier 1 is 0 and exporting is a genuine reason to upgrade.
 BOAT_TIERS = [
     {
         "name": "Rowboat",
@@ -24,6 +28,7 @@ BOAT_TIERS = [
         "resaleValue": int(BOAT_PRICE * 0.7),
         "maxWorkers": MAX_WORKERS,
         "fishPerDay": WORKER_FISH_PER_DAY,
+        "exportCapacity": 0,
     },
     {
         "name": "Trawler",
@@ -31,6 +36,7 @@ BOAT_TIERS = [
         "resaleValue": 1400,
         "maxWorkers": 8,
         "fishPerDay": 7,
+        "exportCapacity": 250,
     },
     {
         "name": "Fishing Fleet",
@@ -38,6 +44,7 @@ BOAT_TIERS = [
         "resaleValue": 4200,
         "maxWorkers": 12,
         "fishPerDay": 10,
+        "exportCapacity": 600,
     },
 ]
 

@@ -73,6 +73,18 @@ class Player:
         self.fishByType[fishTypeName] = self.fishByType.get(fishTypeName, 0) + amount
         self.fishCount += amount
 
+    def removeFish(self, fishTypeName, amount=1):
+        """Take fish out of the hold, keeping fishByType and fishCount in sync.
+
+        A None species is a legacy save's untyped fish - it only exists in the
+        aggregate count, so there's no breakdown entry to decrement."""
+        self.fishCount -= amount
+        if fishTypeName is None:
+            return
+        self.fishByType[fishTypeName] -= amount
+        if self.fishByType[fishTypeName] <= 0:
+            del self.fishByType[fishTypeName]
+
     def clearFish(self):
         self.fishByType = {}
         self.fishCount = 0

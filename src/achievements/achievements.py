@@ -69,6 +69,18 @@ MILESTONES = [
         "description": "Have your crew catch 500 fish total",
     },
     {
+        "name": "First Export",
+        "stat": "totalFishExported",
+        "threshold": 1,
+        "description": "Ship your first fish to another village",
+    },
+    {
+        "name": "Coastal Trader",
+        "stat": "totalFishExported",
+        "threshold": 1000,
+        "description": "Ship 1,000 fish to other villages",
+    },
+    {
         "name": "Roof Over Your Head",
         "stat": "highestHomeTier",
         "threshold": 1,
