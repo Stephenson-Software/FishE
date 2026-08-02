@@ -1,5 +1,6 @@
 from src.location.enum.locationType import LocationType
 from src.location import shop
+from src.location import docks
 from src.player.player import Player
 from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
@@ -497,3 +498,64 @@ def test_run_buying_bait_fires_from_its_actual_position():
     # check
     assert nextLocation == LocationType.SHOP
     shopInstance.buyBetterBait.assert_called_once()
+
+
+def test_gilbert_sell_pitch_quotes_the_actual_catalogue_range():
+    # prepare
+    shopInstance = createShop()
+    cheapest, priciest = shop._cheapestAndPriciestFish()
+
+    # call
+    response = shopInstance._sellPitchDialogue()
+
+    # check - the old flat $3-5 range is gone, replaced by the real bounds
+    assert "$3 to $5" not in response
+    assert "$%d" % cheapest["minValue"] in response
+    assert cheapest["name"] in response
+    assert "$%d" % priciest["maxValue"] in response
+    assert priciest["name"] in response
+    assert cheapest["name"] == "Minnow"
+    assert priciest["name"] == "Golden Koi"
+
+
+def test_gilbert_selling_tips_quotes_the_actual_catalogue_range():
+    # prepare
+    shopInstance = createShop()
+    cheapest, priciest = shop._cheapestAndPriciestFish()
+
+    # call
+    response = shopInstance._sellingTipsDialogue()
+
+    # check
+    assert "between $3 and $5" not in response
+    assert "$%d" % cheapest["minValue"] in response
+    assert "$%d" % priciest["maxValue"] in response
+
+
+def test_gilbert_fishing_explanation_quotes_the_base_reaction_window():
+    # prepare - rod level 1 is the base window
+    shopInstance = createShop()
+    assert shopInstance.player.rodLevel == 1
+
+    # call
+    response = shopInstance._howFishingWorksDialogue()
+
+    # check
+    assert "within 2 seconds" not in response
+    assert "%.1f seconds" % docks.REACTION_BASE_WINDOW in response
+
+
+def test_gilbert_fishing_explanation_widens_with_rod_level():
+    # prepare - a maxed-out rod widens the window well past the base 2.0s
+    shopInstance = createShop()
+    shopInstance.player.rodLevel = shop.MAX_ROD_LEVEL
+    expectedWindow = docks.REACTION_BASE_WINDOW + (
+        shop.MAX_ROD_LEVEL - 1
+    ) * docks.ROD_WINDOW_STEP
+
+    # call
+    response = shopInstance._howFishingWorksDialogue()
+
+    # check
+    assert "%.1f seconds" % expectedWindow in response
+    assert "%.1f seconds" % docks.REACTION_BASE_WINDOW not in response

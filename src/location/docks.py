@@ -55,11 +55,7 @@ class Docks:
                 },
                 {
                     "question": "How do I fish at the docks?",
-                    "response": "Fishing is what this village is all about! You need at least 10 energy to fish. "
-                    "When you cast your line, you'll spend several random hours (1-10) fishing. "
-                    "Each hour uses 10 energy. When a fish bites, press Enter fast - within 2 seconds! "
-                    "Your reaction time matters. The more successful catches, the more fish you'll get. "
-                    "Don't worry if you miss a few - you'll still catch at least one fish if you tried!",
+                    "response": self._howToFishDialogue,
                 },
                 {
                     "question": "What other locations can I visit?",
@@ -200,6 +196,22 @@ class Docks:
 
         elif action == "quit":
             return LocationType.NONE
+
+    def _howToFishDialogue(self):
+        """Sam's explanation of the catch timing minigame, quoting the
+        player's actual reaction window - it widens with rod level, bought
+        at the shop (#145)."""
+        window = REACTION_BASE_WINDOW + (self.player.rodLevel - 1) * ROD_WINDOW_STEP
+        return (
+            "Fishing is what this village is all about! You need at least 10 energy to fish. "
+            "When you cast your line, you'll spend several random hours (1-10) fishing. "
+            "Each hour uses 10 energy. When a fish bites, press Enter fast - you've got "
+            "about %.1f seconds right now, and a better rod widens that window. "
+            "React slower and you'll still catch something, just less of it. "
+            "The more successful catches, the more fish you'll get. "
+            "Don't worry if you miss a few - you'll still catch at least one fish if you tried!"
+            % window
+        )
 
     def _locationsDialogue(self):
         """Sam's tour of the village - only the parts of it the player has

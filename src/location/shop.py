@@ -1,4 +1,5 @@
 from location.enum.locationType import LocationType
+from location import docks
 from player.player import Player
 from prompt.prompt import Prompt
 from world.timeService import TimeService
@@ -34,6 +35,14 @@ def rodUpgradeCost(rodLevel):
     return ROD_BASE_PRICE * rodLevel
 
 
+def _cheapestAndPriciestFish():
+    """The catalogue's cheapest and priciest species, by sale bounds - used to
+    quote a true price range in dialogue instead of a hardcoded one (#144)."""
+    cheapest = min(fish.FISH_TYPES, key=lambda fishType: fishType["minValue"])
+    priciest = max(fish.FISH_TYPES, key=lambda fishType: fishType["maxValue"])
+    return cheapest, priciest
+
+
 # @author Daniel McCoy Stephenson
 class Shop:
     def __init__(
@@ -63,18 +72,11 @@ class Shop:
                 },
                 {
                     "question": "What do you sell here?",
-                    "response": "I deal in all things fishing! I'll buy any fish you catch - the price varies, "
-                    "but you can expect $3 to $5 per fish. I also sell better bait that'll help you catch more fish. "
-                    "The price goes up each time you upgrade, but trust me, it's worth it! "
-                    "Better bait means more fish, and more fish means more money!",
+                    "response": self._sellPitchDialogue,
                 },
                 {
                     "question": "How does fishing work?",
-                    "response": "Ah, fishing! Head down to the docks when you've got some energy. "
-                    "You'll spend a few hours out there, and each hour costs 10 energy. "
-                    "When a fish bites, you need to press Enter quickly - within 2 seconds! "
-                    "Your success rate determines how many fish you catch. "
-                    "Better bait from my shop will multiply your catch!",
+                    "response": self._howFishingWorksDialogue,
                 },
                 {
                     "question": "Tell me about the bait upgrades.",
@@ -86,10 +88,7 @@ class Shop:
                 },
                 {
                     "question": "Any tips for selling fish?",
-                    "response": "Well, the price per fish is random between $3 and $5, so sometimes you get lucky! "
-                    "I'd say don't hoard your fish too long - sell regularly to keep money flowing. "
-                    "Use that money to buy better bait, which helps you catch more, which means more money! "
-                    "It's a beautiful cycle, really. And don't forget to save some money at the bank!",
+                    "response": self._sellingTipsDialogue,
                 },
                 {
                     "question": "Have you noticed my crew hauling in fish?",
@@ -113,6 +112,47 @@ class Shop:
         # Daily budget for buying fish; refills when a new day begins.
         self.money = SHOP_DAILY_BUDGET
         self.lastRefillDay = self.timeService.day
+
+    def _sellPitchDialogue(self):
+        """Gilbert's pitch on fish prices, quoting the catalogue's actual
+        cheapest and priciest species so it can't drift from it (#144)."""
+        cheapest, priciest = _cheapestAndPriciestFish()
+        return (
+            "I deal in all things fishing! I'll buy any fish you catch - the price "
+            "varies by species, anywhere from $%d for a %s up to $%d for a %s. "
+            "I also sell better bait that'll help you catch more fish. "
+            "The price goes up each time you upgrade, but trust me, it's worth it! "
+            "Better bait means more fish, and more fish means more money!"
+            % (cheapest["minValue"], cheapest["name"], priciest["maxValue"], priciest["name"])
+        )
+
+    def _sellingTipsDialogue(self):
+        """Gilbert's selling tips, quoting the same catalogue-derived range as
+        _sellPitchDialogue so what you catch is framed as mattering."""
+        cheapest, priciest = _cheapestAndPriciestFish()
+        return (
+            "Well, the price per fish depends on what you land - anywhere from $%d "
+            "for a %s up to $%d for a %s, so what you catch matters as much as how much! "
+            "I'd say don't hoard your fish too long - sell regularly to keep money flowing. "
+            "Use that money to buy better bait, which helps you catch more, which means more money! "
+            "It's a beautiful cycle, really. And don't forget to save some money at the bank!"
+            % (cheapest["minValue"], cheapest["name"], priciest["maxValue"], priciest["name"])
+        )
+
+    def _howFishingWorksDialogue(self):
+        """Gilbert's explanation of the catch timing minigame, quoting the
+        player's actual reaction window - it widens with rod level (#145)."""
+        window = docks.REACTION_BASE_WINDOW + (
+            self.player.rodLevel - 1
+        ) * docks.ROD_WINDOW_STEP
+        return (
+            "Ah, fishing! Head down to the docks when you've got some energy. "
+            "You'll spend a few hours out there, and each hour costs 10 energy. "
+            "When a fish bites, you need to press Enter quickly - you've got about "
+            "%.1f seconds right now, and a better rod from me widens that window. "
+            "React slower and you'll still land something, just less of it. "
+            "Better bait from my shop will multiply your catch!" % window
+        )
 
     def _crewDialogue(self):
         """Gilbert's take on the player's fishing business, staged by whether
