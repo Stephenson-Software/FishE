@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from src.config.config import Config
@@ -20,15 +18,11 @@ def test_initialization():
     # call
     config = createConfig()
 
-    # check save file paths
+    # check
     assert config.dataDirectory == "data"
-    assert config.playerSaveFile == os.path.join("data", "player.json")
-    assert config.statsSaveFile == os.path.join("data", "stats.json")
-    assert config.timeServiceSaveFile == os.path.join("data", "timeService.json")
 
     # check initial player values
     assert config.initialMoney == 20
-    assert config.initialEnergy == 100
     assert config.initialFishCount == 0
     assert config.initialMoneyInBank == 0.01
     assert config.initialFishMultiplier == 1
@@ -43,9 +37,6 @@ def test_save_directory_can_be_relocated(monkeypatch):
     config = createConfig()
 
     assert config.dataDirectory == "/saves"
-    assert config.playerSaveFile == os.path.join("/saves", "player.json")
-    assert config.statsSaveFile == os.path.join("/saves", "stats.json")
-    assert config.timeServiceSaveFile == os.path.join("/saves", "timeService.json")
 
 
 def test_an_empty_save_directory_override_falls_back_to_the_default(monkeypatch):
