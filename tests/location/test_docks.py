@@ -1962,3 +1962,30 @@ def test_locations_dialogue_covers_the_whole_village_once_it_is_open():
     assert "Old Tom" in text
     assert "the bank" in text
     assert "in your own time" not in text
+
+
+def test_sam_fishing_explanation_quotes_the_base_reaction_window():
+    # prepare - rod level 1 is the base window
+    docksInstance = createDocks()
+    assert docksInstance.player.rodLevel == 1
+
+    # call
+    response = docksInstance._howToFishDialogue()
+
+    # check
+    assert "within 2 seconds" not in response
+    assert "%.1f seconds" % docks.REACTION_BASE_WINDOW in response
+
+
+def test_sam_fishing_explanation_widens_with_rod_level():
+    # prepare - a maxed-out rod widens the window well past the base 2.0s
+    docksInstance = createDocks()
+    docksInstance.player.rodLevel = 10
+    expectedWindow = docks.REACTION_BASE_WINDOW + 9 * docks.ROD_WINDOW_STEP
+
+    # call
+    response = docksInstance._howToFishDialogue()
+
+    # check
+    assert "%.1f seconds" % expectedWindow in response
+    assert "%.1f seconds" % docks.REACTION_BASE_WINDOW not in response
