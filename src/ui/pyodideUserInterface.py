@@ -21,9 +21,9 @@ main thread can hand input to a blocked game.
 """
 
 import json
-import sys
 import time
 
+from browserSaveSync import getJsModule
 from ui.webUserInterface import WebUserInterface
 
 
@@ -46,7 +46,7 @@ class SharedArrayBufferBridge:
 
     def __init__(self, js=None):
         if js is None:
-            js = sys.modules.get("js")
+            js = getJsModule()
         if js is None:
             raise RuntimeError(
                 "The Pyodide front-end can only run inside a browser: the 'js' "

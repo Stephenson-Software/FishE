@@ -18,6 +18,28 @@ does not exist, so this is a no-op and the on-disk files are the real saves.
 import sys
 
 
+def getJsModule():
+    """Return Pyodide's `js` module, or None when not running in a browser.
+
+    `js` is importable under Pyodide but is NOT already in sys.modules — it
+    only lands there once something imports it. So this has to actually
+    attempt the import: looking in sys.modules alone reports "not a browser"
+    while running in one, which silently turned saving into a no-op and made
+    the Pyodide front-end refuse to start.
+
+    sys.modules is still consulted first, and `import` would consult it anyway,
+    so a test can inject a stand-in under that name.
+    """
+    js = sys.modules.get("js")
+    if js is not None:
+        return js
+    try:
+        import js  # noqa: F811 — only importable inside Pyodide
+    except ImportError:
+        return None
+    return js
+
+
 def syncBrowserSaves():
     """Persist the save directory to browser storage, if running in a browser.
 
@@ -25,10 +47,7 @@ def syncBrowserSaves():
     to (i.e. this is not a browser build). Never raises: a browser that refuses
     to store data must not take the game down with it.
     """
-    # Imported via sys.modules rather than `import js` so that a plain CPython
-    # run doesn't depend on a module that only exists inside Pyodide, and so a
-    # test can install a fake one.
-    js = sys.modules.get("js")
+    js = getJsModule()
     if js is None:
         return False
 

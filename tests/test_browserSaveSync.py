@@ -1,6 +1,8 @@
+import os
 import sys
+import textwrap
 
-from src.browserSaveSync import syncBrowserSaves
+from src.browserSaveSync import getJsModule, syncBrowserSaves
 
 
 class FakeJs:
@@ -25,6 +27,36 @@ def restoreJs(previous):
         sys.modules.pop("js", None)
     else:
         sys.modules["js"] = previous
+
+
+def test_finds_js_when_it_is_importable_but_not_yet_imported(tmp_path, monkeypatch):
+    """Regression: this is exactly the state Pyodide starts the game in.
+
+    `js` is importable under Pyodide but is not in sys.modules until something
+    imports it. Looking only in sys.modules therefore reported "not a browser"
+    while running in one — which stopped the Pyodide front-end from starting
+    at all, and would have turned every save into a silent no-op.
+    """
+    jsModule = tmp_path / "js.py"
+    jsModule.write_text(
+        textwrap.dedent(
+            """
+        calls = []
+
+        def syncSaves():
+            calls.append(1)
+    """
+        )
+    )
+    monkeypatch.syspath_prepend(os.fspath(tmp_path))
+    monkeypatch.delitem(sys.modules, "js", raising=False)
+
+    try:
+        assert getJsModule() is not None
+        assert syncBrowserSaves() is True
+        assert sys.modules["js"].calls == [1]
+    finally:
+        sys.modules.pop("js", None)
 
 
 def test_no_op_outside_a_browser():
