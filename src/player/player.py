@@ -12,10 +12,10 @@ class Player:
         self.fishMultiplier = 1 if config is None else config.initialFishMultiplier
         self.priceForBait = 50 if config is None else config.initialPriceForBait
         # Starts at the Homeless tier's energy cap (see src/housing) - a
-        # fresh player hasn't found anywhere to stay yet. Deliberately not
-        # sourced from Config.initialEnergy: the housing ladder is the
-        # source of truth for energy caps (see src/housing/housing.py), and
-        # a flat configured starting energy could exceed the Homeless cap.
+        # fresh player hasn't found anywhere to stay yet. Deliberately not a
+        # configured value: the housing ladder is the source of truth for
+        # energy caps (see src/housing/housing.py), and a flat configured
+        # starting energy could exceed the Homeless cap.
         self.energy = housing.HOUSING_TIERS[0]["maxEnergy"]
         self.rodLevel = 1
         # Per-species breakdown of the fish currently held. fishCount remains the

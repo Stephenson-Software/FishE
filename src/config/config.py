@@ -10,13 +10,10 @@ class Config:
         # Worker-side directory that the Pyodide front-end mirrors to the
         # browser's IndexedDB (see browserSaveSync and web/game-worker.js).
         self.dataDirectory = os.environ.get("FISHE_SAVE_DIR") or "data"
-        self.playerSaveFile = os.path.join(self.dataDirectory, "player.json")
-        self.statsSaveFile = os.path.join(self.dataDirectory, "stats.json")
-        self.timeServiceSaveFile = os.path.join(self.dataDirectory, "timeService.json")
 
-        # Initial player values
+        # Initial player values. Starting energy isn't configured here - see
+        # player.py, which sources it from the housing ladder instead.
         self.initialMoney = 20
-        self.initialEnergy = 100
         self.initialFishCount = 0
         self.initialMoneyInBank = 0.01
         self.initialFishMultiplier = 1
