@@ -20,29 +20,35 @@ printVersion() {
     echo ""
 }
 
-# checkDependencies() {
-#     # check that dependencies are installed
-#     echo "Checking dependencies"
-#     if ! command -v python &> /dev/null
-#     then
-#         echo "Python could not be found. Download it from https://www.python.org/downloads/"
-#         exit
-#     fi
-#     if ! command -v pip &> /dev/null
-#     then
-#         echo "Pip could not be found. Download it from https://pip.pypa.io/en/stable/installation/ or run 'python -m ensurepip' in a terminal"
-#         exit
-#     fi
-#     pip install pygame --pre --quiet
-#     pip install -r requirements.txt --quiet
-#     echo ""
-# }
+checkDependencies() {
+    # check that dependencies are installed
+    echo "Checking dependencies"
+    if ! command -v python3 &> /dev/null
+    then
+        echo "Python could not be found. Download it from https://www.python.org/downloads/"
+        exit 1
+    fi
+    if ! command -v pip &> /dev/null
+    then
+        echo "Pip could not be found. Download it from https://pip.pypa.io/en/stable/installation/ or run 'python -m ensurepip' in a terminal"
+        exit 1
+    fi
+    pip install pygame --pre --quiet
+    pip install pytest --quiet
+    pip install -r requirements.txt --quiet
+    echo ""
+}
 
 runTests() {
     # run tests
     echo "Running tests"
     python3 -m pytest
+    testExitCode=$?
     echo ""
+    if [ $testExitCode -ne 0 ]; then
+        echo "Tests failed. Aborting."
+        exit $testExitCode
+    fi
 }
 
 startProgram() {
@@ -55,6 +61,6 @@ startProgram() {
 getLatest
 printBranchStatus
 printVersion
-# checkDependencies
+checkDependencies
 runTests
 startProgram

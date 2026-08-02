@@ -4,6 +4,14 @@
 
 This game allows you to explore a fishing village and perform actions in it.
 
+## Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+The game itself depends on `jsonschema` (it validates save files on every load and save), so this step is required before running any front-end from a local Python interpreter — console or the server-backed web front-end (`python3 examples/web_app.py`). `run.sh` runs this for you. The pygame front-end (`UIType.PYGAME`) additionally needs `pip install pygame`, kept out of `requirements.txt` since it's only imported lazily when that front-end is selected.
+
 ## Features
 
 ### Play in your browser
@@ -26,7 +34,7 @@ python3 examples/web_app.py
 # then open http://127.0.0.1:8000
 ```
 
-Both use only the Python standard library; the Pyodide front-end loads its one runtime dependency (`jsonschema`) in the browser.
+Both need `jsonschema` (see Setup above) — the Pyodide front-end loads it into the browser sandbox automatically when the page opens, while the server-backed front-end runs on your local Python and needs it installed first.
 
 ### One Thing at a Time
 A new game opens on the docks with a rod, a bucket, and exactly one thing to do: **fish**. Everything else in the village arrives later, one option at a time, as you earn it — and each arrival tells you why it's there:
