@@ -120,18 +120,10 @@ poll();
 
 
 def __getattr__(name):
-    """Keep HTML_PAGE / CLIENT_CSS / CLIENT_JS readable as module attributes.
-
-    They are the names this module has always exposed, so tests and any other
-    reader still reach them the same way — they are just no longer computed
-    unless something actually asks (PEP 562).
-    """
+    """Keep HTML_PAGE readable as a module attribute; the page is built lazily
+    so a missing web/ directory doesn't break import."""
     if name == "HTML_PAGE":
         return htmlPage()
-    if name == "CLIENT_CSS":
-        return _clientAsset("client.css")
-    if name == "CLIENT_JS":
-        return _clientAsset("client.js")
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

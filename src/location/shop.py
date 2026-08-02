@@ -8,6 +8,7 @@ from ui.userInterface import UserInterface
 from npc.npc import NPC
 from npc import villagers
 from fish import fish
+from business import boats
 from business import business
 from business import export
 from progression import progression
@@ -163,8 +164,7 @@ class Shop:
                 "docks - Sam will set you up. Then you'll really see the fish "
                 "pile in."
             )
-        fishPerDay = business.tierInfo(business.currentTier(self.player))["fishPerDay"]
-        dailyCatch = fishPerDay * self.player.workers
+        dailyCatch = boats.fleetDailyCatch(self.player)
         return (
             "That I have! Word is your crew hauls in about %d fish a day. "
             "Keep that up and I might need a bigger vault!" % dailyCatch

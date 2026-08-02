@@ -8,6 +8,7 @@ def createEmployedPlayer(name="Marta Kell", tier=1):
     player = Player()
     boats.addBoat(player, tier)
     player.money = 1000
+    # hireWorker auto-berths on the first boat with room.
     boats.hireWorker(player, name)
     return player
 
@@ -88,6 +89,38 @@ def test_createCrewNPC_work_dialogue_reflects_the_boat():
         "fishPerDay"
     ] in fleetAnswer.get_dialogue_response(1)
     assert "mending nets" in rowboatAnswer.get_dialogue_response(1)
+
+
+def test_createCrewNPC_work_dialogue_is_honest_off_a_fishing_boat():
+    # prepare - the only boat is a piracy boat, so hiring berths her there
+    player = Player()
+    boats.addBoat(player, 2, role=boats.ROLE_PIRACY)
+    player.money = 1000
+    boats.hireWorker(player, "Marta Kell")
+
+    # call - question 2 is "How's the work going?"
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+    response = npc.get_dialogue_response(1)
+
+    # check - no fish figure is quoted; the role's own summary is
+    assert "fish a day" not in response
+    assert boats.ROLES[boats.ROLE_PIRACY]["summary"] in response
+
+
+def test_createCrewNPC_work_dialogue_handles_an_unassigned_hand():
+    # prepare - hired, then pulled off her boat with nowhere else to work
+    player = Player()
+    boat = boats.addBoat(player, 1)
+    player.money = 1000
+    boats.hireWorker(player, "Marta Kell")
+    boats.unassignCrew(player, boat["id"], "Marta Kell")
+
+    # call
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+    response = npc.get_dialogue_response(1)
+
+    # check
+    assert "Not assigned to a boat" in response
 
 
 def test_createCrewNPC_wage_dialogue_warns_when_payroll_is_short():

@@ -145,14 +145,27 @@ def test_npc_crew_dialogue_reports_daily_catch():
     from src.business import business
 
     shopInstance = createShop()
-    boats.addBoat(shopInstance.player, 2)
+    boat = boats.addBoat(shopInstance.player, 2)
+    boat["hands"] = 3
     shopInstance.player.workers = 3
 
-    # check - the reported total matches tier fishPerDay * worker count
+    # check - the reported total matches the fleet's actual daily catch
     expected = business.tierInfo(2)["fishPerDay"] * 3
     response = shopInstance._crewDialogue()
     assert str(expected) in response
     assert "That I have" in response
+
+
+def test_npc_crew_dialogue_ignores_non_fishing_boats():
+    # prepare - crew are aboard, but on a piracy boat, so they land no fish
+    shopInstance = createShop()
+    boat = boats.addBoat(shopInstance.player, 2, role=boats.ROLE_PIRACY)
+    boat["hands"] = 3
+    shopInstance.player.workers = 3
+
+    # check - Gilbert reports the true (zero) catch, not the best hull's rate
+    response = shopInstance._crewDialogue()
+    assert "0 fish a day" in response
 
 
 def test_sellFish():

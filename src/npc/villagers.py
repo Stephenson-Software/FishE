@@ -9,6 +9,7 @@
 # capacity (see business.BOAT_TIERS) so a player can always fill every slot
 # with a named villager.
 
+from business import boats
 from business import business
 from npc.npc import NPC
 
@@ -158,11 +159,23 @@ def createCrewNPC(player, name):
         }
 
     def workDialogue():
-        info = business.tierInfo(business.currentTier(player))
+        boat = boats.boatFor(player, name)
+        if boat is None:
+            return (
+                "Not assigned to a boat right now - just say the word and "
+                "I'll get to work."
+            )
+        info = business.tierInfo(boat["tier"])
+        if boat["role"] == boats.ROLE_FISHING:
+            return (
+                "Busy, and that's how I like it. I'm on %s most days, and "
+                "I'm landing about %d fish a day for you off the %s."
+                % (villager["specialty"], boats.dailyCatch(boat), info["name"])
+            )
         return (
-            "Busy, and that's how I like it. I'm on %s most days, and I'm "
-            "landing about %d fish a day for you off the %s."
-            % (villager["specialty"], info["fishPerDay"], info["name"])
+            "Busy, and that's how I like it. I'm on %s most days, aboard "
+            "the %s - she %s."
+            % (villager["specialty"], info["name"], boats.ROLES[boat["role"]]["summary"])
         )
 
     def boatDialogue():

@@ -184,6 +184,15 @@ def assignedNames(player):
     return names
 
 
+def boatFor(player, name):
+    """The boat a named crew member is assigned to, or None if they haven't
+    been put to work on one yet."""
+    for boat in player.boats:
+        if name in boat["crew"]:
+            return boat
+    return None
+
+
 def unassignedNames(player):
     """Hired villagers who aren't on any boat. They still draw wages - which is
     the pressure to either give them a berth or let them go."""
@@ -380,12 +389,6 @@ def _trimAssignedHands(player):
         taken = min(surplus, boat["hands"])
         boat["hands"] -= taken
         surplus -= taken
-
-
-def fishingCrewCount(player):
-    """How many hands are actually out catching fish - crew on fishing boats
-    only. An unassigned worker, or one on a pirate boat, brings in no catch."""
-    return sum(crewSize(boat) for boat in boatsWithRole(player, ROLE_FISHING))
 
 
 def tierFactor(boat):
