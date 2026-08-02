@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 import threading
 import time
@@ -11,79 +12,84 @@ from world.timeService import TimeService
 from housing import housing
 
 
-# The single-page client. It polls /state and renders whatever screen the game
-# is currently waiting on, posting the player's response to /input. Served as-is
-# (no templating); it talks to the server via relative URLs.
-HTML_PAGE = """<!DOCTYPE html>
+# The browser client (renderer + styles) is shared verbatim with the Pyodide
+# front-end, which serves the same two files from web/. Keeping one copy is what
+# stops a screen type from being handled in one web front-end but not the other.
+# They are inlined into the page below rather than served as separate routes so
+# the server stays a two-route affair and the page needs a single request.
+WEB_ASSET_DIRECTORY = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web")
+)
+
+
+def _readWebAsset(name):
+    """Read a shared browser-client file from web/, or explain why it could not."""
+    path = os.path.join(WEB_ASSET_DIRECTORY, name)
+    try:
+        with open(path, "r", encoding="utf-8") as assetFile:
+            return assetFile.read()
+    except OSError as e:
+        raise RuntimeError(
+            f"FishE's web front-end could not read its browser client "
+            f"'{name}' (looked in {path}): {e}. That file ships in the "
+            f"repository's web/ directory, alongside src/. Run the game from a "
+            f"complete checkout, or — if this is a container image — make sure "
+            f"the image copies web/ in as well as src/."
+        ) from e
+
+
+# Read on first use rather than at import, and cached after. This module is
+# imported by the Pyodide front-end too (PyodideUserInterface subclasses the
+# class below), and there these files are NOT on the filesystem: the browser
+# fetches them over HTTP, so only the server-backed front-end has any reason to
+# read them. Reading them at import time made merely importing this module fail
+# inside the Worker.
+_clientAssetCache = {}
+_pageCache = {}
+
+
+def _clientAsset(name):
+    if name not in _clientAssetCache:
+        _clientAssetCache[name] = _readWebAsset(name)
+    return _clientAssetCache[name]
+
+
+def htmlPage():
+    """The single-page client, built on first use.
+
+    It polls /state and renders whatever screen the game is currently waiting
+    on, posting the player's response to /input. Served as-is (no templating);
+    it talks to the server via relative URLs.
+    """
+    if "page" in _pageCache:
+        return _pageCache["page"]
+    page = (
+        """<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FishE</title>
 <style>
-  /* text-size-adjust keeps Safari from inflating text of its own accord once
-     the viewport is device-width (most visible in landscape). */
-  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  body { font-family: monospace; background: #0b1d2a; color: #e0f0ff;
-         max-width: 680px; margin: 2rem auto; padding: 0 1rem;
-         /* The game can emit long unbroken strings; break them rather than
-            letting them scroll the page sideways. Inherited by the screens. */
-         overflow-wrap: break-word; }
-  .header { color: #7fb0d0; border-bottom: 1px solid #2a4a5a;
-            padding-bottom: .5rem; margin-bottom: 1rem;
-            display: flex; flex-wrap: wrap; gap: .15rem 1.1rem; }
-  .descriptor { margin: 1rem 0; font-size: 1.1rem; }
-  .prompt { color: #9fd0ff; margin: 1rem 0; }
-  .dialogue { white-space: pre-wrap; overflow-wrap: break-word;
-              margin: 1rem 0; line-height: 1.5; }
-  button { display: block; width: 100%; text-align: left; margin: .3rem 0;
-           padding: .6rem; background: #163345; color: #e0f0ff;
-           border: 1px solid #2a4a5a; border-radius: 4px; cursor: pointer;
-           font-family: monospace; font-size: 1rem;
-           overflow-wrap: break-word;
-           touch-action: manipulation; }  /* no double-tap-to-zoom delay */
-  button:hover { background: #1f4a63; }
-  button.danger { background: #4a1620; border-color: #7a2a35; }
-  button.danger:hover { background: #63202c; }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  button:disabled:hover { background: #163345; }
-  button.action { width: auto; text-align: center; padding: .6rem 1.4rem;
-                  background: #1d5a7a; border-color: #2f7ba0; }
-  button.action:hover { background: #246a90; }
-  input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
-          background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
-          border-radius: 4px; }
-  .tagline { font-size: .8rem; font-weight: normal; color: #7fb0d0; }
-  .controls { font-size: .8rem; color: #6a8aa0; border-top: 1px solid #2a4a5a;
-              margin-top: 1.5rem; padding-top: .5rem; }
-  .low { color: #ff8a8a; font-weight: bold; }
-  .operator { color: #ffcf8f; font-weight: bold; }
-  .notice { color: #9fd0ff; margin-top: 1rem; }
-  .notice.warning { color: #ffcf8f; border-left: 3px solid #c77b2a; padding-left: .6rem; }
-  /* Phone-sized screens only: the desktop layout above is left as-is. Note that
-     font sizes are deliberately not reduced here — 1rem inputs (16px) are what
-     keeps iOS Safari from zooming the page in when a field is focused. */
-  @media (max-width: 600px) {
-    /* 2rem of vertical margin is a lot of a short screen to spend on nothing. */
-    body { margin: 1rem auto; padding: 0 .75rem; }
-    /* A wrapped header was stacking its rows almost on top of each other. */
-    .header { gap: .35rem 1rem; }
-    /* .6rem padding puts a button at ~40px tall, under the ~44px that is
-       comfortable to tap; .75rem clears it. Wider gaps between them, too. */
-    button { padding: .75rem .6rem; margin: .45rem 0; }
-    /* Continue/Submit/React! are the only thing to press on their screens —
-       give them the full width instead of a small target off to one side. */
-    button.action { width: 100%; padding: .75rem .6rem; }
-  }
-</style>
+"""
+        + _clientAsset("client.css")
+        + """</style>
 </head>
 <body>
 <h2>FishE <span class="tagline">— fish a seaside village and build a fortune of $10,000</span></h2>
 <div id="app">Connecting&hellip;</div>
 <p class="controls">Tip: click an option or press its number key (1-9). Enter or Space continues.</p>
 <script>
+"""
+        + _clientAsset("client.js")
+        + """
+// Transport: this front-end runs the game on a server, so responses are POSTed
+// and new screens are discovered by polling. (The Pyodide front-end swaps this
+// block for a Worker/SharedArrayBuffer transport and shares everything above.)
+FisheClient.init(function (value) {
+  fetch("/input", { method: "POST", body: JSON.stringify({ value: value }) });
+});
 let version = -1;
-let currentScreen = null;
 let failures = 0;
 async function poll() {
   try {
@@ -92,128 +98,41 @@ async function poll() {
     const recovered = failures >= 5;
     failures = 0;
     if (recovered) version = -1;  // force a re-render to clear the disconnect banner
-    if (state.version !== version) { version = state.version; render(state.screen); }
+    if (state.version !== version) { version = state.version; FisheClient.render(state.screen); }
   } catch (e) {
     failures++;
     // Don't clobber the intentional "game ended" screen with a scary banner.
-    if (failures === 5 && !(currentScreen && currentScreen.type === "ended")) {
-      renderDisconnected();
+    const screen = FisheClient.getCurrentScreen();
+    if (failures === 5 && !(screen && screen.type === "ended")) {
+      FisheClient.renderDisconnected();
     }
   }
   setTimeout(poll, 300);
 }
-function renderNotice(text, className) {
-  const app = document.getElementById("app");
-  app.innerHTML = "";
-  app.append(el("div", { className: className || "notice", textContent: text }));
-}
-function renderDisconnected() {
-  currentScreen = null;
-  renderNotice("Lost connection to the game — is it still running? Retrying…", "notice warning");
-}
-async function send(value) {
-  currentScreen = null;  // ignore stray keypresses until the next screen arrives
-  document.getElementById("app").innerHTML = "&hellip;";
-  await fetch("/input", { method: "POST", body: JSON.stringify({ value: value }) });
-}
-function el(tag, props, ...kids) {
-  const e = document.createElement(tag);
-  Object.assign(e, props || {});
-  for (const k of kids) e.append(k);
-  return e;
-}
-function render(screen) {
-  const app = document.getElementById("app");
-  app.innerHTML = "";
-  currentScreen = screen;  // let keyboard shortcuts act on what's on screen
-  if (!screen || screen.type === "loading") { renderNotice("Waiting for the game…"); return; }
-  if (screen.type === "ended") { renderNotice("The game has ended. You can close this tab."); return; }
-  if (screen.header) {
-    const h = screen.header;
-    const header = el("div", { className: "header" });
-    // Each stat is its own chip; the flex-wrap row spaces them with whitespace
-    // and wraps cleanly on narrow screens instead of running off one long line.
-    const addPart = (content) => {
-      header.append(content instanceof Node ? content : el("span", { textContent: content }));
-    };
-    addPart(`Day ${h.day}`);
-    addPart(h.time);
-    addPart(`$${h.money.toFixed(2)}`);
-    addPart(`Fish: ${h.fish}`);
-    // Below the fishing threshold (10) the player is too tired to fish — flag it.
-    const energy = el("span", { textContent: `Energy: ${h.energy}/${h.maxEnergy}` });
-    if (h.energy < 10) energy.className = "low";
-    addPart(energy);
-    if (h.location) addPart(h.location);
-    if (h.goal) addPart(`Goal: ${h.goal}`);
-    if (h.operator) addPart(el("span", { textContent: "OPERATOR MODE", className: "operator" }));
-    app.append(header);
-    document.title = `FishE — Day ${h.day}, $${h.money.toFixed(2)}`;
-  }
-  if (screen.descriptor) app.append(el("div", { className: "descriptor", textContent: screen.descriptor }));
-  if (screen.prompt) app.append(el("div", { className: "prompt", textContent: screen.prompt }));
-  if (screen.type === "options") {
-    screen.options.forEach((opt, i) => {
-      const b = el("button", {
-        textContent: `[${i + 1}] ${opt}`,
-        className: /delete/i.test(opt) ? "danger" : "",
-      });
-      b.onclick = () => send(String(i + 1));
-      app.append(b);
-    });
-  } else if (screen.type === "dialogue") {
-    app.append(el("div", { className: "dialogue", textContent: screen.text }));
-    const b = el("button", { textContent: "Continue", className: "action" });
-    b.onclick = () => send("");
-    app.append(b);
-  } else if (screen.type === "prompt") {
-    app.append(el("div", { className: "descriptor", textContent: screen.text }));
-    const inp = el("input", { type: "text" });
-    const b = el("button", { textContent: "Submit", className: "action" });
-    const valid = () => !screen.numeric ||
-      (inp.value.trim() !== "" && !isNaN(Number(inp.value)));
-    const submit = () => { if (valid()) send(inp.value); };
-    if (screen.numeric) {
-      inp.inputMode = "decimal";
-      inp.placeholder = "Enter a number";
-      inp.oninput = () => { b.disabled = !valid(); };
-      b.disabled = true;  // nothing valid typed yet
-    }
-    inp.onkeydown = (e) => { if (e.key === "Enter") submit(); };
-    b.onclick = submit;
-    app.append(inp); app.append(b); inp.focus();
-  } else if (screen.type === "busy") {
-    // A pause the game takes on its own — shown, but with nothing to click;
-    // the next screen replaces it when the pause is over.
-    app.append(el("div", { className: "descriptor", textContent: screen.message }));
-  } else if (screen.type === "timed") {
-    app.append(el("div", { className: "descriptor", textContent: screen.message }));
-    const b = el("button", { textContent: "React!", className: "action" });
-    b.onclick = () => send("");
-    app.append(b);
-  }
-}
-// Keyboard control, matching the console/pygame front-ends: number keys pick an
-// option; Enter or Space advances a dialogue or the timed prompt. Typing in the
-// text field is left to the field itself.
-document.addEventListener("keydown", (e) => {
-  const s = currentScreen;
-  if (!s) return;
-  if (e.target && e.target.tagName === "INPUT") return;
-  if (s.type === "options") {
-    if (e.key >= "1" && e.key <= "9") {
-      const n = parseInt(e.key, 10);
-      if (n <= s.options.length) { e.preventDefault(); send(String(n)); }
-    }
-  } else if (s.type === "dialogue" || s.type === "timed") {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); send(""); }
-  }
-});
 poll();
 </script>
 </body>
 </html>
 """
+    )
+    _pageCache["page"] = page
+    return page
+
+
+def __getattr__(name):
+    """Keep HTML_PAGE / CLIENT_CSS / CLIENT_JS readable as module attributes.
+
+    They are the names this module has always exposed, so tests and any other
+    reader still reach them the same way — they are just no longer computed
+    unless something actually asks (PEP 562).
+    """
+    if name == "HTML_PAGE":
+        return htmlPage()
+    if name == "CLIENT_CSS":
+        return _clientAsset("client.css")
+    if name == "CLIENT_JS":
+        return _clientAsset("client.js")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _makeRequestHandler(ui):
@@ -222,7 +141,7 @@ def _makeRequestHandler(ui):
     class _Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path in ("/", "/index.html"):
-                self._send(200, "text/html; charset=utf-8", HTML_PAGE.encode("utf-8"))
+                self._send(200, "text/html; charset=utf-8", htmlPage().encode("utf-8"))
             elif self.path.startswith("/state"):
                 body = json.dumps(ui.get_state()).encode("utf-8")
                 self._send(200, "application/json", body)
@@ -300,10 +219,19 @@ class WebUserInterface(BaseUserInterface):
         """Deliver the player's browser response to the waiting game thread."""
         self._inputQueue.put(value)
 
+    # --- transport seams ---------------------------------------------------
+    # Every screen below is built once and shared by both web front-ends; only
+    # how a screen reaches the browser (_present) and how the response comes
+    # back (_awaitInput) differ. PyodideUserInterface overrides just these two,
+    # so a new screen type never has to be written twice.
     def _present(self, screen):
         with self._lock:
             self._screen = screen
             self._version += 1
+
+    def _awaitInput(self):
+        """Block until the browser submits a response, and return it."""
+        return self._inputQueue.get()
 
     def _header(self):
         return {
@@ -338,26 +266,26 @@ class WebUserInterface(BaseUserInterface):
         )
         valid = {str(i + 1) for i in range(len(optionList))}
         while True:
-            choice = str(self._inputQueue.get())
+            choice = str(self._awaitInput())
             if choice in valid:
                 return choice
             # ignore anything that isn't a listed option and keep waiting
 
     def showDialogue(self, text):
         self._present({"type": "dialogue", "text": text})
-        self._inputQueue.get()
+        self._awaitInput()
         self.currentPrompt.text = "What would you like to do?"
 
     def promptForText(self, promptText):
         self._present({"type": "prompt", "text": promptText})
-        return str(self._inputQueue.get())
+        return str(self._awaitInput())
 
     def promptForNumber(self, promptText):
         # Flag the prompt as numeric so the browser can offer a numeric keyboard
         # and block submission of non-numbers (the base default can't say so).
         self._present({"type": "prompt", "text": promptText, "numeric": True})
         try:
-            return float(self._inputQueue.get())
+            return float(self._awaitInput())
         except (ValueError, TypeError):
             return None
 
@@ -371,7 +299,7 @@ class WebUserInterface(BaseUserInterface):
     def timedKeyPress(self, message):
         self._present({"type": "timed", "message": message})
         startTime = time.time()
-        self._inputQueue.get()
+        self._awaitInput()
         return time.time() - startTime
 
     def cleanup(self):

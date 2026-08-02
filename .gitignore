@@ -3,3 +3,6 @@ __pycache__/
 data/
 .coverage
 cov.xml
+
+# Built at image-build time by web/build_zip.py; not checked in.
+web/game.zip

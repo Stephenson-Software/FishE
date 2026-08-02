@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FishE</title>
+<!-- The renderer and styles are the same files the server-backed web front-end
+     inlines into its page (src/ui/webUserInterface.py), so both look and behave
+     identically. Only the transport below differs: here the game is running in
+     this tab, not on a server. -->
+<link rel="stylesheet" href="/web/client.css">
+<style>
+  /* Boot progress, shown until the first screen arrives. The game itself is
+     rendered entirely by client.js into #app. */
+  .status { color: #7fb0d0; margin: 1rem 0; }
+  .status.error { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<h2>FishE <span class="tagline">— fish a seaside village and build a fortune of $10,000</span></h2>
+<div id="status" class="status">Starting&hellip;</div>
+<div id="app"></div>
+<p class="controls">Tip: click an option or press its number key (1-9). Enter or Space continues. Your saved games live in this browser.</p>
+<script src="/web/client.js"></script>
+<script>
+(function () {
+  const statusEl = document.getElementById("status");
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.style.display = msg ? "" : "none";
+    statusEl.classList.toggle("error", !!isError);
+  }
+
+  // ── Input transport: SharedArrayBuffer ring buffer ────────────────────────
+  //
+  // FishE's game loop is synchronous, so the Worker is blocked whenever the
+  // game is waiting for the player — and a blocked Worker can never run an
+  // onmessage handler. Shared memory needs no event loop, so it is how input
+  // reaches a blocked game. sabMeta holds [writeIndex, readIndex]; this side
+  // only ever advances writeIndex, Python only ever advances readIndex.
+  //
+  // SharedArrayBuffer requires the page to be cross-origin isolated, which is
+  // what web/serve.py's COOP/COEP headers are for.
+  const RING_SIZE = 8192;
+
+  if (typeof SharedArrayBuffer === "undefined") {
+    setStatus(
+      "This browser can't run FishE here: SharedArrayBuffer is unavailable, " +
+      "which usually means the page wasn't served with the " +
+      "Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers " +
+      "web/serve.py sets. Open the game over https (or http://localhost) from " +
+      "that server rather than from a file:// path or a plain static host.",
+      true
+    );
+    return;
+  }
+
+  const sab     = new SharedArrayBuffer(8 + RING_SIZE);
+  const sabMeta = new Int32Array(sab, 0, 2);
+  const sabData = new Uint8Array(sab, 8, RING_SIZE);
+
+  function writeToRing(text) {
+    const bytes = new TextEncoder().encode(text + "\n");
+    const writeIndex = Atomics.load(sabMeta, 0);
+    const readIndex  = Atomics.load(sabMeta, 1);
+    if (bytes.length > RING_SIZE - (writeIndex - readIndex)) {
+      // Only reachable if the game stopped draining input; overwriting would
+      // corrupt the message it is mid-way through reading.
+      console.warn("[fishe] input dropped: the ring buffer is full");
+      return;
+    }
+    for (let i = 0; i < bytes.length; i++) {
+      sabData[(writeIndex + i) % RING_SIZE] = bytes[i];
+    }
+    Atomics.store(sabMeta, 0, writeIndex + bytes.length);
+  }
+
+  // JSON-encoded so that whatever the player typed — a business name with a
+  // newline pasted into it, say — can't be read as two messages.
+  FisheClient.init(function (value) {
+    writeToRing(JSON.stringify({ type: "input", value: value }));
+  });
+
+  // ── Save persistence: IndexedDB writes happen here, not in the Worker ─────
+  // The Worker is blocked by Python whenever the game runs, so it can't drive
+  // IDB callbacks; it posts the save files over and this event loop stores
+  // them. See the comment at the top of game-worker.js.
+  const IDB_NAME    = "fishe-saves";
+  const IDB_STORE   = "files";
+  const IDB_VERSION = 1;
+
+  function idbOpen() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = (ev) => {
+        const db = ev.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = (ev) => resolve(ev.target.result);
+      req.onerror   = (ev) => reject(ev.target.error);
+    });
+  }
+
+  // The file map is the whole save directory, so the store is cleared first —
+  // that is what makes deleting a save slot in-game actually stick.
+  function idbWrite(files) {
+    idbOpen().then((db) => {
+      let tx;
+      try { tx = db.transaction(IDB_STORE, "readwrite"); }
+      catch (e) { console.warn("[fishe] could not save to IndexedDB:", e); db.close(); return; }
+      try { tx.objectStore(IDB_STORE).clear(); } catch {}
+      for (const [path, content] of Object.entries(files)) {
+        try { tx.objectStore(IDB_STORE).put(content, path); } catch (e) {
+          console.warn("[fishe] could not save", path, e);
+        }
+      }
+      tx.oncomplete = () => db.close();
+      tx.onerror    = () => { console.warn("[fishe] save failed:", tx.error); db.close(); };
+    }).catch((err) => console.warn("[fishe] could not open save storage:", err));
+  }
+
+  // ── Worker ────────────────────────────────────────────────────────────────
+  const worker = new Worker("/web/game-worker.js");
+  worker.onmessage = (e) => {
+    const message = e.data;
+    if (typeof message === "string") {
+      let frame;
+      try { frame = JSON.parse(message); }
+      catch (err) { console.warn("[fishe] unreadable frame:", err); return; }
+      if (frame.type === "screen") {
+        setStatus("");           // the game is up; stop showing boot progress
+        FisheClient.render(frame.screen);
+      }
+      return;
+    }
+    if (message.type === "status") { setStatus(message.msg); return; }
+    if (message.type === "ready")  { return; }
+    if (message.type === "save")   { idbWrite(message.files); return; }
+    if (message.type === "error")  {
+      setStatus("The game stopped: " + message.msg + " — reload the page to start again. " +
+                "Your saved games are stored in this browser and are not affected.", true);
+    }
+  };
+  worker.onerror = (e) => {
+    setStatus("The game could not be started: " + (e.message || "unknown error") +
+              " — reload the page to try again.", true);
+  };
+  worker.postMessage({ type: "init", sab: sab, ringSize: RING_SIZE });
+})();
+</script>
+</body>
+</html>

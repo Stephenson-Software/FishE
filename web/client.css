@@ -1,0 +1,54 @@
+  /* text-size-adjust keeps Safari from inflating text of its own accord once
+     the viewport is device-width (most visible in landscape). */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { font-family: monospace; background: #0b1d2a; color: #e0f0ff;
+         max-width: 680px; margin: 2rem auto; padding: 0 1rem;
+         /* The game can emit long unbroken strings; break them rather than
+            letting them scroll the page sideways. Inherited by the screens. */
+         overflow-wrap: break-word; }
+  .header { color: #7fb0d0; border-bottom: 1px solid #2a4a5a;
+            padding-bottom: .5rem; margin-bottom: 1rem;
+            display: flex; flex-wrap: wrap; gap: .15rem 1.1rem; }
+  .descriptor { margin: 1rem 0; font-size: 1.1rem; }
+  .prompt { color: #9fd0ff; margin: 1rem 0; }
+  .dialogue { white-space: pre-wrap; overflow-wrap: break-word;
+              margin: 1rem 0; line-height: 1.5; }
+  button { display: block; width: 100%; text-align: left; margin: .3rem 0;
+           padding: .6rem; background: #163345; color: #e0f0ff;
+           border: 1px solid #2a4a5a; border-radius: 4px; cursor: pointer;
+           font-family: monospace; font-size: 1rem;
+           overflow-wrap: break-word;
+           touch-action: manipulation; }  /* no double-tap-to-zoom delay */
+  button:hover { background: #1f4a63; }
+  button.danger { background: #4a1620; border-color: #7a2a35; }
+  button.danger:hover { background: #63202c; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:disabled:hover { background: #163345; }
+  button.action { width: auto; text-align: center; padding: .6rem 1.4rem;
+                  background: #1d5a7a; border-color: #2f7ba0; }
+  button.action:hover { background: #246a90; }
+  input { width: 100%; padding: .6rem; font-family: monospace; font-size: 1rem;
+          background: #163345; color: #e0f0ff; border: 1px solid #2a4a5a;
+          border-radius: 4px; }
+  .tagline { font-size: .8rem; font-weight: normal; color: #7fb0d0; }
+  .controls { font-size: .8rem; color: #6a8aa0; border-top: 1px solid #2a4a5a;
+              margin-top: 1.5rem; padding-top: .5rem; }
+  .low { color: #ff8a8a; font-weight: bold; }
+  .operator { color: #ffcf8f; font-weight: bold; }
+  .notice { color: #9fd0ff; margin-top: 1rem; }
+  .notice.warning { color: #ffcf8f; border-left: 3px solid #c77b2a; padding-left: .6rem; }
+  /* Phone-sized screens only: the desktop layout above is left as-is. Note that
+     font sizes are deliberately not reduced here — 1rem inputs (16px) are what
+     keeps iOS Safari from zooming the page in when a field is focused. */
+  @media (max-width: 600px) {
+    /* 2rem of vertical margin is a lot of a short screen to spend on nothing. */
+    body { margin: 1rem auto; padding: 0 .75rem; }
+    /* A wrapped header was stacking its rows almost on top of each other. */
+    .header { gap: .35rem 1rem; }
+    /* .6rem padding puts a button at ~40px tall, under the ~44px that is
+       comfortable to tap; .75rem clears it. Wider gaps between them, too. */
+    button { padding: .75rem .6rem; margin: .45rem 0; }
+    /* Continue/Submit/React! are the only thing to press on their screens —
+       give them the full width instead of a small target off to one side. */
+    button.action { width: 100%; padding: .75rem .6rem; }
+  }

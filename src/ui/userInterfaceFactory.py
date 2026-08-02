@@ -51,5 +51,12 @@ class UserInterfaceFactory:
             return WebUserInterface(
                 currentPrompt, timeService, player, host=host, port=port
             )
+        elif ui_type == UIType.PYODIDE:
+            # Imported lazily like the others: it reaches for the browser-only
+            # `js` module as soon as it is constructed, so nothing outside a
+            # Pyodide Worker should pay for importing it.
+            from ui.pyodideUserInterface import PyodideUserInterface
+
+            return PyodideUserInterface(currentPrompt, timeService, player)
         else:
             raise ValueError(f"Unsupported UI type: {ui_type}")

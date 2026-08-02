@@ -3,6 +3,8 @@ import json
 import shutil
 from datetime import datetime
 
+from browserSaveSync import syncBrowserSaves
+
 
 # @author Daniel McCoy Stephenson
 class SaveFileManager:
@@ -130,6 +132,10 @@ class SaveFileManager:
 
         if os.path.exists(slot_path):
             shutil.rmtree(slot_path)
+            # Browser storage mirrors the save directory wholesale, so a
+            # deletion has to be flushed too — otherwise the slot comes back
+            # on the next page load. A no-op outside the Pyodide front-end.
+            syncBrowserSaves()
             return True
         return False
 
@@ -156,6 +162,9 @@ class SaveFileManager:
                 shutil.move(old_stats, os.path.join(slot_1_path, "stats.json"))
             if os.path.exists(old_time):
                 shutil.move(old_time, os.path.join(slot_1_path, "timeService.json"))
+            # The migration rewrote the save directory's layout; flush it so a
+            # browser-storage player doesn't re-migrate on every page load.
+            syncBrowserSaves()
             return True
         except (IOError, OSError):
             return False
