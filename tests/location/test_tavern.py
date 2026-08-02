@@ -245,82 +245,6 @@ def test_changeBet_no_recursive_gamble():
             builtins.input = original_input
 
 
-def test_gamble_win_shows_correct_amount():
-    # prepare
-    tavernInstance = createTavern()
-    tavernInstance.player.money = 100
-    tavernInstance.currentBet = 50
-    tavern.random.randint = MagicMock(
-        return_value=1
-    )  # Make sure dice matches player choice
-
-    # Store prompt text after the win
-    win_prompt_text = None
-
-    def mock_showOptions(prompt, options):
-        nonlocal win_prompt_text
-        # First call: player chooses 1
-        # After processing, capture the prompt text
-        if win_prompt_text is None:
-            result = "1"
-            # We need to manually process what would happen
-            return result
-        else:
-            # Second call: player chooses to go back
-            return "8"
-
-    tavernInstance.userInterface.showOptions = MagicMock(side_effect=["1", "8"])
-
-    # We need to capture the state after the win but before the next iteration
-    # Let's test the win logic directly instead
-    input_value = 1
-    tavernInstance.diceThrow = 1
-
-    # Execute the win condition logic
-    winAmount = tavernInstance.currentBet
-    tavernInstance.player.money += tavernInstance.currentBet
-    tavernInstance.stats.totalMoneyMade += tavernInstance.currentBet
-    tavernInstance.currentBet = 0
-    tavernInstance.currentPrompt.text = (
-        "The dice rolled a %d! You won $%d! Care to try again? Current Bet: $%d"
-        % (tavernInstance.diceThrow, winAmount, tavernInstance.currentBet)
-    )
-
-    # check
-    assert tavernInstance.player.money == 150  # Won 50
-    assert tavernInstance.stats.totalMoneyMade == 50
-    assert tavernInstance.currentBet == 0
-    # Verify the message shows the actual bet amount won, not $0
-    assert "You won $50!" in tavernInstance.currentPrompt.text
-    assert "You won $0!" not in tavernInstance.currentPrompt.text
-
-
-def test_gamble_loss():
-    # prepare
-    tavernInstance = createTavern()
-    tavernInstance.player.money = 100
-    tavernInstance.currentBet = 50
-
-    # Test the loss logic directly
-    input_value = 1
-    tavernInstance.diceThrow = 2  # Different from player choice
-
-    # Execute the loss condition logic
-    tavernInstance.player.money -= tavernInstance.currentBet
-    tavernInstance.stats.moneyLostFromGambling += tavernInstance.currentBet
-    tavernInstance.currentBet = 0
-    tavernInstance.currentPrompt.text = (
-        "The dice rolled a %d! You lost your money! Care to try again? Current Bet: $%d"
-        % (tavernInstance.diceThrow, tavernInstance.currentBet)
-    )
-
-    # check
-    assert tavernInstance.player.money == 50  # Lost 50
-    assert tavernInstance.stats.moneyLostFromGambling == 50
-    assert tavernInstance.currentBet == 0
-    assert "You lost your money!" in tavernInstance.currentPrompt.text
-
-
 def test_changeBet_insufficient_money():
     # prepare
     tavernInstance = createTavern()
@@ -490,13 +414,27 @@ def test_getDrunk_can_earn_a_tip():
 
 
 def test_gamble_win_pays_multiple_of_bet():
-    # prepare - drive the real gamble() loop: guess 3, dice rolls 3, then go back
+    # prepare - drive the real gamble() loop: guess 3, dice rolls 3, then go
+    # back. The prompt is captured right after the win (before "Back"
+    # overwrites it), same pattern as test_gamble_loss_via_real_loop below.
     from src.location.tavern import DICE_WIN_MULTIPLIER
 
     tavernInstance = createTavern()
     tavernInstance.player.money = 100
     tavernInstance.currentBet = 50
-    tavernInstance.userInterface.showOptions = MagicMock(side_effect=["3", "8"])
+    textAfterWin = []
+    callCount = [0]
+
+    def showOptionsSideEffect(prompt, options):
+        callCount[0] += 1
+        if callCount[0] == 1:
+            return "3"
+        textAfterWin.append(tavernInstance.currentPrompt.text)
+        return "8"
+
+    tavernInstance.userInterface.showOptions = MagicMock(
+        side_effect=showOptionsSideEffect
+    )
 
     # call
     with patch("src.location.tavern.random.randint", return_value=3):
@@ -507,6 +445,9 @@ def test_gamble_win_pays_multiple_of_bet():
     assert tavernInstance.player.money == 100 + expectedWin
     assert tavernInstance.stats.totalMoneyMade == expectedWin
     assert tavernInstance.currentBet == 0
+    # Verify the message shows the multiplied amount won, not even money on the stake
+    assert "You won $%d!" % expectedWin in textAfterWin[0]
+    assert "You won $50!" not in textAfterWin[0]
 
 
 def test_gamble_loss_via_real_loop():
