@@ -44,11 +44,6 @@ EXPORT_MARKETS = [
     },
 ]
 
-# The cheapest boat any market will accept, i.e. the tier at which exporting
-# becomes available at all.
-MIN_EXPORT_BOAT_TIER = min(market["minBoatTier"] for market in EXPORT_MARKETS)
-
-
 def exportCapacity(player):
     """How many fish one run can carry (0 with no boat, or none big enough to
     make the crossing).
