@@ -1,7 +1,11 @@
 import pygame
 import sys
 import time
-from ui.baseUserInterface import BaseUserInterface
+from ui.baseUserInterface import (
+    BaseUserInterface,
+    unavailableMessage,
+    unavailableSuffix,
+)
 from prompt.prompt import Prompt
 from player.player import Player
 from world.timeService import TimeService
@@ -140,9 +144,50 @@ class PygameUserInterface(BaseUserInterface):
         # This will be called during drawing, so we'll store it as a flag
         pass
 
-    def showOptions(self, descriptor, optionList):
+    def _selectableIndexes(self, reasons):
+        """Indexes the highlight is allowed to land on, in order.
+
+        Options the game would refuse are drawn greyed out but skipped over by
+        the arrow keys, so holding DOWN never parks the cursor somewhere ENTER
+        does nothing."""
+        return [index for index, reason in enumerate(reasons) if reason is None]
+
+    def _initialSelection(self, reasons):
+        """Where the highlight opens: the first option the player can choose,
+        so a menu whose first row is greyed out doesn't start on it."""
+        selectable = self._selectableIndexes(reasons)
+        return selectable[0] if selectable else 0
+
+    def _moveSelection(self, reasons, step):
+        """The next selectable option in the given direction, wrapping around."""
+        selectable = self._selectableIndexes(reasons)
+        if not selectable:
+            return self.selected_option
+        if self.selected_option in selectable:
+            position = selectable.index(self.selected_option)
+        else:
+            # Nothing selectable is highlighted yet (an empty menu can't happen,
+            # but a stale highlight can) - step in from the nearest end.
+            position = -1 if step > 0 else 0
+        return selectable[(position + step) % len(selectable)]
+
+    def _optionRows(self, optionList, reasons):
+        """(text, isUnavailable) per option row, ready to draw.
+
+        Split out from _draw_game_screen for the same reason as _statusLines:
+        the wording can be asserted without a real font."""
+        return [
+            (
+                "[%d] %s%s" % (index + 1, option, unavailableSuffix(reason)),
+                reason is not None,
+            )
+            for index, (option, reason) in enumerate(zip(optionList, reasons))
+        ]
+
+    def showOptions(self, descriptor, optionList, unavailableOptions=None):
+        reasons = self.unavailableReasons(optionList, unavailableOptions)
         self.current_options = optionList
-        self.selected_option = 0
+        self.selected_option = self._initialSelection(reasons)
         self.waiting_for_input = True
 
         while self.waiting_for_input:
@@ -155,24 +200,26 @@ class PygameUserInterface(BaseUserInterface):
                     self._handle_resize(event.w, event.h)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        self.selected_option = (self.selected_option - 1) % len(
-                            optionList
-                        )
+                        self.selected_option = self._moveSelection(reasons, -1)
                     elif event.key == pygame.K_DOWN:
-                        self.selected_option = (self.selected_option + 1) % len(
-                            optionList
-                        )
+                        self.selected_option = self._moveSelection(reasons, 1)
                     elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
-                        self.waiting_for_input = False
-                        return str(self.selected_option + 1)
+                        if reasons[self.selected_option] is None:
+                            self.waiting_for_input = False
+                            return str(self.selected_option + 1)
                     elif event.key >= pygame.K_1 and event.key <= pygame.K_9:
                         option_num = event.key - pygame.K_1 + 1
                         if option_num <= len(optionList):
-                            self.waiting_for_input = False
-                            return str(option_num)
+                            reason = reasons[option_num - 1]
+                            if reason is None:
+                                self.waiting_for_input = False
+                                return str(option_num)
+                            # Say why instead of swallowing the keypress; the
+                            # prompt is redrawn on the next frame.
+                            self.currentPrompt.text = unavailableMessage(reason)
 
             # Draw the UI
-            self._draw_game_screen(descriptor, optionList)
+            self._draw_game_screen(descriptor, optionList, reasons)
 
             # Update display
             pygame.display.flip()
@@ -261,8 +308,10 @@ class PygameUserInterface(BaseUserInterface):
             "instructionsY": instructionsY,
         }
 
-    def _draw_game_screen(self, descriptor, optionList):
+    def _draw_game_screen(self, descriptor, optionList, reasons=None):
         """Draw the main game screen with responsive layout"""
+        if reasons is None:
+            reasons = [None] * len(optionList)
         # Clear screen
         self.screen.fill(self.BLACK)
 
@@ -320,12 +369,19 @@ class PygameUserInterface(BaseUserInterface):
         highlight_margin = self.width * 0.02  # 2% margin for highlight
         y_offset = layout["optionsY"]
 
-        for i, option in enumerate(optionList):
-            color = self.LIGHT_BLUE if i == self.selected_option else self.WHITE
-            option_text = f"[{i + 1}] {option}"
+        for i, (option_text, unavailable) in enumerate(
+            self._optionRows(optionList, reasons)
+        ):
+            # Greyed out is how an unavailable option reads here, matching the
+            # web front-end's disabled buttons; the highlight never lands on
+            # one, so the selected colour can't apply to it.
+            if unavailable:
+                color = self.GRAY
+            else:
+                color = self.LIGHT_BLUE if i == self.selected_option else self.WHITE
 
             # Draw selection highlight with proportional sizing
-            if i == self.selected_option:
+            if i == self.selected_option and not unavailable:
                 highlight_x = margin_x + highlight_margin
                 highlight_width = self.width - 2 * (margin_x + highlight_margin)
                 rect = pygame.Rect(

@@ -246,22 +246,28 @@ class WebUserInterface(BaseUserInterface):
     def divider(self):
         pass
 
-    def showOptions(self, descriptor, optionList):
+    def showOptions(self, descriptor, optionList, unavailableOptions=None):
+        # "unavailable" is a list parallel to "options" - the reason each one
+        # can't be picked, or null. The browser greys those buttons out and
+        # shows the reason on the row; sending the reason as data rather than
+        # baked into the label is what lets it be styled apart from the option.
+        reasons = self.unavailableReasons(optionList, unavailableOptions)
         self._present(
             {
                 "type": "options",
                 "descriptor": descriptor,
                 "prompt": self.currentPrompt.text,
                 "options": list(optionList),
+                "unavailable": reasons,
                 "header": self._header(),
             }
         )
-        valid = {str(i + 1) for i in range(len(optionList))}
+        valid = self.selectableNumbers(reasons)
         while True:
             choice = str(self._awaitInput())
             if choice in valid:
                 return choice
-            # ignore anything that isn't a listed option and keep waiting
+            # ignore anything that isn't a selectable option and keep waiting
 
     def showDialogue(self, text):
         self._present({"type": "dialogue", "text": text})

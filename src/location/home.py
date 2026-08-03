@@ -155,13 +155,22 @@ class Home:
             tier = housing.currentTier(self.player)
             options = []
             actions = []
+            unavailable = {}
             for targetTier, targetInfo, netCost in self._availableMoves():
                 options.append(self._moveLabel(tier, targetTier, targetInfo, netCost))
                 actions.append(("move", targetTier))
+                # Moving down pays out and is always possible; only a move that
+                # costs money can be out of reach (see housing.moveHome).
+                if netCost > 0 and not self.player.canAfford(netCost):
+                    unavailable[len(options)] = "not enough money"
             options.append("Back")
             actions.append(("back", None))
 
-            choice = int(self.userInterface.showOptions(self._housingStatus(), options))
+            choice = int(
+                self.userInterface.showOptions(
+                    self._housingStatus(), options, unavailable
+                )
+            )
             action, targetTier = actions[choice - 1]
 
             if action == "move":

@@ -119,6 +119,13 @@ class Bank:
         # a fixed number.
         li = ["Make a Deposit", "Make a Withdrawal"]
         actions = ["deposit", "withdraw"]
+        # An empty purse or an empty account makes one side of the counter
+        # pointless; both are visible in the header, so say which one is out.
+        unavailable = {}
+        if not (self.player.operatorMode or self.player.money > 0):
+            unavailable[1] = "no money on you"
+        if self.player.moneyInBank <= 0:
+            unavailable[2] = "nothing in the bank"
         if progression.isUnlocked(self.stats, progression.TALK):
             li.append("Talk to %s" % self.npc.name)
             actions.append("talk")
@@ -131,6 +138,7 @@ class Bank:
         input = self.userInterface.showOptions(
             "You're at the front of the line and the teller asks you what you want to do.",
             li,
+            unavailable,
         )
         action = actions[int(input) - 1]
 
@@ -188,6 +196,7 @@ class Bank:
         while True:
             options = []
             actions = []
+            unavailable = {}
             owned = investments.ownedCounts(self.player)
             for typeId in range(1, len(investments.PROPERTY_TYPES) + 1):
                 info = investments.typeInfo(typeId)
@@ -196,6 +205,10 @@ class Bank:
                     % (info["name"], info["cost"], info["dailyIncome"])
                 )
                 actions.append(("buy", typeId))
+                # The whole list is always shown, so the affordable rungs of the
+                # ladder read against the ones still out of reach.
+                if not self.player.canAfford(info["cost"]):
+                    unavailable[len(options)] = "not enough money"
                 if owned.get(typeId, 0) > 0:
                     options.append(
                         "Sell a %s (+$%d)" % (info["name"], info["resaleValue"])
@@ -205,7 +218,9 @@ class Bank:
             actions.append(("back", None))
 
             choice = int(
-                self.userInterface.showOptions(self._investmentsStatus(), options)
+                self.userInterface.showOptions(
+                    self._investmentsStatus(), options, unavailable
+                )
             )
             action, typeId = actions[choice - 1]
 

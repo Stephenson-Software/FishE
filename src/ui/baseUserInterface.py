@@ -5,6 +5,23 @@ from player.player import Player
 from world.timeService import TimeService
 
 
+def unavailableSuffix(reason):
+    """How a text front-end tags a menu row the game would refuse.
+
+    Shared by the console and pygame front-ends so the wording is identical in
+    both; the web front-end sends the bare reason to the browser instead, which
+    styles it rather than appending it to the label."""
+    return "" if reason is None else " (unavailable: %s)" % reason
+
+
+def unavailableMessage(reason):
+    """What to say when the player picks an option that can't be picked.
+
+    Names the blocker and what to do about it rather than a bare "try again",
+    which would read as though they had mistyped."""
+    return "You can't do that right now: %s." % reason
+
+
 # @author Daniel McCoy Stephenson
 class BaseUserInterface(ABC):
     """Abstract contract every front-end (text/console, pygame, web, ...) implements.
@@ -63,9 +80,49 @@ class BaseUserInterface(ABC):
         pass
 
     @abstractmethod
-    def showOptions(self, descriptor, optionList):
-        """Show numbered options and return the chosen option's number as a string."""
+    def showOptions(self, descriptor, optionList, unavailableOptions=None):
+        """Show numbered options and return the chosen option's number as a string.
+
+        unavailableOptions is an optional {optionNumber: reason} mapping naming
+        the 1-based options the game would refuse right now, each with a short
+        reason ("needs 10 energy - sleep at home"). Every front-end must show
+        those options as unpickable, spell the reason out beside them, and
+        refuse to return their number - see unavailableReasons()."""
         pass
+
+    def unavailableReasons(self, optionList, unavailableOptions):
+        """One entry per option: the reason it can't be picked, or None.
+
+        Call sites pass {optionNumber: reason} rather than a parallel list
+        because a menu is built by appending, so the row just added is always
+        len(optionList) and the numbers can't drift out of step as options
+        appear and disappear with the player's progress. Front-ends want the
+        parallel list, so the conversion happens once, here.
+        """
+        reasons = [None] * len(optionList)
+        for number, reason in (unavailableOptions or {}).items():
+            if not 1 <= number <= len(optionList):
+                raise ValueError(
+                    "showOptions was told option %r is unavailable (%r), but "
+                    "the menu only has %d option(s). The keys of "
+                    "unavailableOptions are 1-based option numbers into the "
+                    "list passed alongside it - a menu that appends its rows "
+                    "should mark one with len(optionList) right after "
+                    "appending it." % (number, reason, len(optionList))
+                )
+            reasons[number - 1] = reason
+        # Marking every option unavailable would leave the player facing a menu
+        # that accepts nothing, which no front-end can recover from. Fall back
+        # to a normal menu instead and let the game give its own refusal.
+        if optionList and all(reason is not None for reason in reasons):
+            return [None] * len(optionList)
+        return reasons
+
+    def selectableNumbers(self, reasons):
+        """The 1-based option numbers a front-end may return, as strings."""
+        return {
+            str(index + 1) for index, reason in enumerate(reasons) if reason is None
+        }
 
     @abstractmethod
     def showDialogue(self, text):

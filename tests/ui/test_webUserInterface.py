@@ -262,3 +262,49 @@ def test_http_server_post_input_with_malformed_json_defaults_to_empty_value():
         assert box["result"] == ""
     finally:
         ui.cleanup()
+
+
+def test_showOptions_publishes_the_reason_each_option_is_unavailable():
+    # check - the browser needs the reason as data (not baked into the label)
+    # so it can grey the button out and style the reason apart from the option
+    ui = makeWebUI()
+    thread, box = runInThread(
+        lambda: ui.showOptions("The docks", ["Fish", "Go Home"], {1: "no energy"})
+    )
+    waitForScreen(ui, "options")
+
+    screen = ui.get_state()["screen"]
+    assert screen["options"] == ["Fish", "Go Home"]
+    assert screen["unavailable"] == ["no energy", None]
+
+    ui.submit_input("2")
+    thread.join(timeout=2)
+    assert box["result"] == "2"
+
+
+def test_showOptions_always_publishes_an_unavailable_entry_per_option():
+    # check - one code path in the client: the list is the same length as the
+    # options even when everything is available
+    ui = makeWebUI()
+    thread, box = runInThread(lambda: ui.showOptions("Pick", ["Apple", "Banana"]))
+    waitForScreen(ui, "options")
+
+    assert ui.get_state()["screen"]["unavailable"] == [None, None]
+
+    ui.submit_input("1")
+    thread.join(timeout=2)
+
+
+def test_showOptions_refuses_an_unavailable_choice():
+    # check - the greyed-out button is disabled in the browser, but a response
+    # for it (a stale click, a hand-rolled POST) is ignored rather than acted on
+    ui = makeWebUI()
+    thread, box = runInThread(
+        lambda: ui.showOptions("The docks", ["Fish", "Go Home"], {1: "no energy"})
+    )
+    waitForScreen(ui, "options")
+
+    ui.submit_input("1")  # greyed out -> ignored
+    ui.submit_input("2")  # available
+    thread.join(timeout=2)
+    assert box["result"] == "2"

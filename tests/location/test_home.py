@@ -489,3 +489,64 @@ def test_run_reveals_the_ledger_and_the_housing_ladder_as_they_unlock():
 
         # check
         assert label in homeInstance.userInterface.showOptions.call_args[0][1]
+
+
+def markedOptions(locationInstance):
+    """{option label: reason} from the last showOptions call."""
+    call = locationInstance.userInterface.showOptions.call_args
+    options = call[0][1]
+    reasons = call[0][2] if len(call[0]) > 2 else {}
+    return {options[number - 1]: reason for number, reason in (reasons or {}).items()}
+
+
+def chooseBack(descriptor, options, unavailableOptions=None):
+    return str(len(options))  # Back is always the last entry
+
+
+def test_manageHome_greys_out_a_move_the_player_cannot_pay_for():
+    # prepare - renting with nothing saved. The rung up has to be bought
+    # outright (renting has no resale value to put toward it), so it is out of
+    # reach; moving back down to Homeless is free and stays available.
+    homeInstance = createHome()
+    homeInstance.player.homeTier = 1
+    homeInstance.player.money = 0
+    homeInstance.userInterface.showOptions = MagicMock(side_effect=chooseBack)
+
+    # call
+    homeInstance.manageHome()
+
+    # check
+    marked = markedOptions(homeInstance)
+    assert set(marked.values()) == {"not enough money"}
+    assert all(label.startswith("Move to") for label in marked)
+    assert not any(label.startswith("Move down to") for label in marked)
+
+
+def test_manageHome_leaves_a_move_down_available_when_broke():
+    # prepare - moving down the ladder pays cash back rather than costing
+    # money (see housing.moveHome), so it is never greyed out
+    homeInstance = createHome()
+    homeInstance.player.homeTier = len(housing.HOUSING_TIERS) - 1
+    homeInstance.player.money = 0
+    homeInstance.userInterface.showOptions = MagicMock(side_effect=chooseBack)
+
+    # call
+    homeInstance.manageHome()
+
+    # check - only the top rung is occupied, so every offered move is downward
+    marked = markedOptions(homeInstance)
+    assert marked == {}
+
+
+def test_manageHome_marks_nothing_when_every_move_is_affordable():
+    # prepare - renting, with money for the rung above as well as the one below
+    homeInstance = createHome()
+    homeInstance.player.homeTier = 1
+    homeInstance.player.money = 100000
+    homeInstance.userInterface.showOptions = MagicMock(side_effect=chooseBack)
+
+    # call
+    homeInstance.manageHome()
+
+    # check
+    assert markedOptions(homeInstance) == {}

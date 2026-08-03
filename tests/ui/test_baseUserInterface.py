@@ -9,7 +9,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 import pytest
 from unittest.mock import patch
 
-from ui.baseUserInterface import BaseUserInterface
+from ui.baseUserInterface import (
+    BaseUserInterface,
+    unavailableMessage,
+    unavailableSuffix,
+)
 from ui.userInterface import UserInterface
 from ui.consoleUserInterface import ConsoleUserInterface
 from player.player import Player
@@ -54,7 +58,7 @@ class RecordingUserInterface(BaseUserInterface):
     def divider(self):
         pass
 
-    def showOptions(self, descriptor, optionList):
+    def showOptions(self, descriptor, optionList, unavailableOptions=None):
         return self.choices.pop(0)
 
     def showDialogue(self, text):
@@ -199,3 +203,63 @@ def test_inherited_interactive_dialogue_reflects_unlocked_options():
 
     # check - the newly available question resolves to its own response
     assert ui.shownDialogues == ["Tester: R2"]
+
+
+def makeRecordingUI(choices=()):
+    prompt, timeService, player = makeArgs()
+    return RecordingUserInterface(prompt, timeService, player, choices=list(choices))
+
+
+def test_unavailableReasons_maps_option_numbers_onto_a_parallel_list():
+    # check - call sites key by 1-based option number (what len(optionList)
+    # gives them as they append); front-ends want it lined up with the options
+    ui = makeRecordingUI()
+    reasons = ui.unavailableReasons(["Fish", "Go Home", "Quit"], {1: "too tired"})
+
+    assert reasons == ["too tired", None, None]
+
+
+def test_unavailableReasons_defaults_to_everything_available():
+    # check - a menu that passes nothing is unchanged in every front-end
+    ui = makeRecordingUI()
+
+    assert ui.unavailableReasons(["A", "B"], None) == [None, None]
+    assert ui.unavailableReasons(["A", "B"], {}) == [None, None]
+
+
+def test_unavailableReasons_rejects_a_number_outside_the_menu():
+    # check - marking an option that isn't there means the call site's numbers
+    # have drifted from its option list, which would silently leave the wrong
+    # row (or no row) greyed out; say so instead
+    ui = makeRecordingUI()
+    with pytest.raises(ValueError) as raised:
+        ui.unavailableReasons(["Only"], {2: "nope"})
+
+    message = str(raised.value)
+    assert "1 option" in message
+    assert "len(optionList)" in message
+
+
+def test_unavailableReasons_never_blocks_every_option():
+    # check - a menu where nothing can be picked is one no front-end can get
+    # out of, so the marks are dropped and the game gives its own refusal
+    ui = makeRecordingUI()
+    reasons = ui.unavailableReasons(["A", "B"], {1: "no", 2: "also no"})
+
+    assert reasons == [None, None]
+
+
+def test_selectableNumbers_excludes_the_unavailable_rows():
+    # check - the set every front-end validates the player's answer against
+    ui = makeRecordingUI()
+
+    assert ui.selectableNumbers(["too tired", None, None]) == {"2", "3"}
+    assert ui.selectableNumbers([None]) == {"1"}
+
+
+def test_unavailable_wording_is_shared_by_the_text_front_ends():
+    # check - console and pygame both tag rows through these helpers, so the
+    # phrasing can't drift between them
+    assert unavailableSuffix(None) == ""
+    assert unavailableSuffix("no fish") == " (unavailable: no fish)"
+    assert unavailableMessage("no fish") == "You can't do that right now: no fish."

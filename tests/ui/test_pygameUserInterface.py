@@ -470,3 +470,110 @@ def test_drawBusy_wraps_a_message_wider_than_the_window():
         assert ui.screen.blit.call_count > 1
     finally:
         ui.cleanup()
+
+
+def test_optionRows_greys_out_and_labels_an_unavailable_option():
+    # check - the row carries the same "(unavailable: ...)" tag the console
+    # prints, and is flagged so the drawing code can grey it
+    ui = makeUI()
+    try:
+        rows = ui._optionRows(["Fish", "Go Home"], ["no energy", None])
+        assert rows == [
+            ("[1] Fish (unavailable: no energy)", True),
+            ("[2] Go Home", False),
+        ]
+    finally:
+        ui.cleanup()
+
+
+def test_selection_skips_unavailable_options():
+    # check - holding DOWN never parks the highlight somewhere ENTER does
+    # nothing; the cursor steps over the greyed-out rows and wraps
+    ui = makeUI()
+    try:
+        reasons = [None, "no money", None]
+        assert ui._selectableIndexes(reasons) == [0, 2]
+
+        ui.selected_option = 0
+        assert ui._moveSelection(reasons, 1) == 2
+        ui.selected_option = 2
+        assert ui._moveSelection(reasons, 1) == 0
+        ui.selected_option = 0
+        assert ui._moveSelection(reasons, -1) == 2
+    finally:
+        ui.cleanup()
+
+
+def test_selection_stays_put_when_nothing_is_selectable():
+    # check - a defensive case (the base contract drops the marks rather than
+    # blocking a whole menu), but the navigation must not loop forever if it
+    # ever is handed one
+    ui = makeUI()
+    try:
+        ui.selected_option = 1
+        assert ui._moveSelection(["a", "b"], 1) == 1
+    finally:
+        ui.cleanup()
+
+
+def test_initial_selection_starts_on_a_selectable_option():
+    # check - the highlight opens on something the player can choose rather
+    # than on a greyed-out first row
+    ui = makeUI()
+    try:
+        assert ui._initialSelection(["no energy", None, None]) == 1
+        assert ui._initialSelection([None, "no money"]) == 0
+        # nothing selectable: fall back to the top rather than raising
+        assert ui._initialSelection(["a", "b"]) == 0
+    finally:
+        ui.cleanup()
+
+
+def test_showOptions_ignores_the_number_key_of_a_greyed_out_option():
+    # the disabled option's key does nothing but say why; the next key picks
+    # an option that is actually available
+    ui = makeUI()
+    try:
+        with injected_events([keydown(key=pygame.K_1), keydown(key=pygame.K_2)]):
+            choice = ui.showOptions("Pick", ["Fish", "Go Home"], {1: "no energy"})
+        assert choice == "2"
+        assert ui.currentPrompt.text == "You can't do that right now: no energy."
+    finally:
+        ui.cleanup()
+
+
+def test_showOptions_enter_cannot_confirm_a_greyed_out_option():
+    # the highlight never lands on a disabled row, so ENTER confirms the first
+    # option the player can actually choose
+    ui = makeUI()
+    try:
+        with injected_events([keydown(key=pygame.K_RETURN)]):
+            choice = ui.showOptions("Pick", ["Fish", "Go Home"], {1: "no energy"})
+        assert choice == "2"
+    finally:
+        ui.cleanup()
+
+
+def test_showOptions_arrows_step_over_greyed_out_options():
+    # DOWN from the first available option skips the disabled middle row
+    ui = makeUI()
+    try:
+        with injected_events(
+            [keydown(key=pygame.K_DOWN), keydown(key=pygame.K_RETURN)]
+        ):
+            choice = ui.showOptions("Pick", ["A", "B", "C"], {2: "no money"})
+        assert choice == "3"
+    finally:
+        ui.cleanup()
+
+
+def test_draw_game_screen_draws_a_greyed_out_option():
+    # the drawing path itself has to cope with the reason text and the grey
+    # colour, not just the row builder that feeds it
+    ui = makeUI()
+    try:
+        ui._draw_game_screen(
+            "The Docks", ["Cast a line", "Go home"], ["no energy", None]
+        )
+    finally:
+        ui.cleanup()

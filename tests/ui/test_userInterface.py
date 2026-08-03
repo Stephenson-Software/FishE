@@ -336,3 +336,45 @@ def test_showInteractiveDialogue_shows_only_unlocked_options():
     printedText = printedOutput(printed)
     assert "Locked" in printedText
     assert "Test NPC: B" in printedText
+
+
+def test_showOptions_tags_an_unavailable_row_and_refuses_it():
+    # setup - "Fish" can't be picked; the player tries it anyway, then picks
+    # the option that is actually available
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    with patch.object(userInterface, "print", create=True) as printed:
+        userInterface.input = MagicMock(side_effect=["1", "2"])
+        choice = userInterfaceInstance.showOptions(
+            "The docks", ["Fish", "Go Home"], {1: "needs 10 energy - sleep at home"}
+        )
+
+    # check - the row says why it can't be used, and the refusal names the
+    # reason rather than implying the player mistyped
+    assert choice == "2"
+    printedText = printedOutput(printed)
+    assert "[1] Fish (unavailable: needs 10 energy - sleep at home)" in printedText
+    assert (
+        userInterfaceInstance.currentPrompt.text
+        == "You can't do that right now: needs 10 energy - sleep at home."
+    )
+
+
+def test_showOptions_still_rejects_a_number_that_is_not_on_the_menu():
+    # setup - an unavailable row and a plain mistype are different mistakes and
+    # get different messages
+    userInterfaceInstance = createUserInterface()
+    userInterfaceInstance.lotsOfSpace = MagicMock()
+    userInterfaceInstance.divider = MagicMock()
+
+    # call
+    with patch.object(userInterface, "print", create=True):
+        userInterface.input = MagicMock(side_effect=["9", "1"])
+        choice = userInterfaceInstance.showOptions("The docks", ["Fish"], {})
+
+    # check
+    assert choice == "1"
+    assert userInterfaceInstance.currentPrompt.text == "Try again!"

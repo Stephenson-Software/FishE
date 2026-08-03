@@ -25,6 +25,10 @@ DICE_WIN_MULTIPLIER = 5
 DRUNK_LOSS_CHANCE = 0.3
 DRUNK_TIP_CHANCE = 0.3
 
+# What a night's drinking costs. Named so the menu label, the affordability
+# check and the charge itself can't drift apart.
+DRINK_COST = 10
+
 
 # @author Daniel McCoy Stephenson
 class Tavern:
@@ -145,8 +149,11 @@ class Tavern:
         # Options and actions are built as a pair rather than dispatched on a
         # fixed number, because talking to Old Tom is revealed separately from
         # the tavern itself (see src/progression).
-        li = ["Get drunk ( $10 )", "Gamble"]
+        li = ["Get drunk ( $%d )" % DRINK_COST, "Gamble"]
         actions = ["drink", "gamble"]
+        unavailable = {}
+        if not self.player.canAfford(DRINK_COST):
+            unavailable[1] = "not enough money"
         if progression.isUnlocked(self.stats, progression.TALK):
             li.append("Talk to %s" % self.npc.name)
             actions.append("talk")
@@ -154,12 +161,14 @@ class Tavern:
         actions.append("docks")
 
         input = self.userInterface.showOptions(
-            "You sit at the bar, watching the barkeep clean a mug with a dirty rag.", li
+            "You sit at the bar, watching the barkeep clean a mug with a dirty rag.",
+            li,
+            unavailable,
         )
         action = actions[int(input) - 1]
 
         if action == "drink":
-            if self.player.canAfford(10):
+            if self.player.canAfford(DRINK_COST):
                 self.getDrunk()
                 return LocationType.HOME
             else:
@@ -182,7 +191,7 @@ class Tavern:
             return LocationType.DOCKS
 
     def getDrunk(self):
-        self.player.spendMoney(10)
+        self.player.spendMoney(DRINK_COST)
 
         self.userInterface.showBusy("You drink your way into the evening...", 3)
 
@@ -222,12 +231,20 @@ class Tavern:
     def gamble(self):
         while True:
             li = ["1", "2", "3", "4", "5", "6", "Change Bet", "Back"]
+            # Nothing rides on a face until money is on the table, so the six
+            # faces are greyed out until the player has set a bet - Change Bet
+            # and Back stay live, and they're the only way forward anyway.
+            unavailable = {}
+            if self.currentBet <= 0:
+                for face in range(1, 7):
+                    unavailable[face] = "place a bet first"
             input = int(
                 self.userInterface.showOptions(
                     "Once you place your bet, the burly man in front of you will throw the dice. "
                     "Guess the number right and he pays out %dx your bet."
                     % DICE_WIN_MULTIPLIER,
                     li,
+                    unavailable,
                 )
             )
 

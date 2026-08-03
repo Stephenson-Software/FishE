@@ -52,6 +52,8 @@ Sell that basket and you're shown where you sleep; put in a few days and the vil
 
 Nothing is made harder by this; it's pacing, not difficulty. A save file from a player who already owns half the village opens with all of it available, exactly as before.
 
+An option you've earned but can't use right now stays on the menu and says why, rather than being picked and refused: fishing with an empty energy bar, buying gear you can't afford or have already maxed out, withdrawing from an empty account, guessing a dice face before you've staked anything. In the browser those are greyed-out buttons carrying the reason; the console and pygame front-ends tag the same rows and skip over them.
+
 ### Your Goal
 Build a fortune of **$10,000** in total wealth (cash on hand plus savings in the bank). You're told about it once you've got your first $1,000 to your name, after which your progress toward the goal is shown in the status header. Reaching it earns a one-time victory — after which you're free to keep fishing or retire from the Home menu.
 
