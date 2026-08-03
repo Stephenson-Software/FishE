@@ -194,6 +194,26 @@ def test_npc_business_dialogue_fleet_tier():
     assert "retire a wealthy soul" in bankInstance._businessDialogue()
 
 
+def test_npc_interest_dialogue_discloses_the_daily_cap():
+    # prepare - the teller's "interest rates" answer must state the actual
+    # rule (the daily cap timeService.py enforces), not just "the more you
+    # save, the more you earn"
+    from src.world.timeService import INTEREST_RATE, MAX_INTEREST_PER_DAY
+
+    bankInstance = createBank()
+    options = bankInstance.npc.get_dialogue_options()
+    questions = [option["question"] for option in options]
+    index = questions.index("Tell me about interest rates.")
+
+    # call
+    response = bankInstance.npc.get_dialogue_response(index)
+
+    # check
+    assert "%d%%" % int(INTEREST_RATE * 100) in response
+    assert "$%d" % MAX_INTEREST_PER_DAY in response
+    assert "maxed out" in response
+
+
 def test_deposit_success():
     # prepare
     bankInstance = createBank()
@@ -331,6 +351,50 @@ def test_withdraw_invalid_input_retries_then_succeeds():
     assert bankInstance.userInterface.promptForNumber.call_count == 2
     assert bankInstance.player.moneyInBank == 90
     assert bankInstance.player.money == 10
+
+
+def test_deposit_negative_amount_is_rejected():
+    # prepare - a negative "deposit" would otherwise pass canAfford (money >=
+    # negative is always true) and mint cash out of nothing
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.money = 20
+    bankInstance.player.moneyInBank = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(
+        side_effect=[-100.0, 10.0]
+    )
+
+    # call
+    bankInstance.deposit()
+
+    # check - the negative attempt is rejected and re-prompted, then the
+    # valid second attempt goes through
+    assert bankInstance.userInterface.promptForNumber.call_count == 2
+    assert bankInstance.player.money == 10
+    assert bankInstance.player.moneyInBank == 10
+
+
+def test_withdraw_negative_amount_is_rejected():
+    # prepare - a negative "withdrawal" would otherwise pass the
+    # amount <= moneyInBank check and drive player.money negative
+    bankInstance = createBank()
+    bankInstance.userInterface.lotsOfSpace = MagicMock()
+    bankInstance.userInterface.divider = MagicMock()
+    bankInstance.player.moneyInBank = 400
+    bankInstance.player.money = 20
+    bankInstance.userInterface.promptForNumber = MagicMock(
+        side_effect=[-500.0, 10.0]
+    )
+
+    # call
+    bankInstance.withdraw()
+
+    # check - the negative attempt is rejected and re-prompted, then the
+    # valid second attempt goes through
+    assert bankInstance.userInterface.promptForNumber.call_count == 2
+    assert bankInstance.player.moneyInBank == 390
+    assert bankInstance.player.money == 30
 
 
 def test_manageInvestments_buy_when_affordable():
