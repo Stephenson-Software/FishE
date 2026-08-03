@@ -212,11 +212,10 @@ def createCrewNPC(player, name):
         )
 
     def crowdedDialogue():
-        info = business.tierInfo(business.currentTier(player))
         return (
-            "All %d berths full on the %s. Elbow to elbow out there! If you "
-            "want more hands you'll need more boat."
-            % (info["maxWorkers"], info["name"])
+            "All %d berths full across the fleet. Elbow to elbow out there! "
+            "If you want more hands you'll need another boat."
+            % boats.totalCrewBerths(player)
         )
 
     def businessNameDialogue():
@@ -257,8 +256,7 @@ def createCrewNPC(player, name):
                 # Only worth asking once there's no room left to hire.
                 "question": "Getting crowded out there, isn't it?",
                 "response": crowdedDialogue,
-                "condition": lambda: player.workers
-                >= business.tierInfo(business.currentTier(player))["maxWorkers"],
+                "condition": lambda: player.workers >= boats.totalCrewBerths(player),
             },
             {
                 # The outfit has to have a name before anyone can have an

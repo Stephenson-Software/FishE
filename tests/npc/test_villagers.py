@@ -256,6 +256,25 @@ def test_createCrewNPC_crowded_response_quotes_the_berth_count():
     assert "All %d berths" % business.tierInfo(1)["maxWorkers"] in response
 
 
+def test_createCrewNPC_crowded_question_stays_hidden_with_room_on_another_boat():
+    # prepare - two Rowboats, full crew on the first but the second still has
+    # room, so hiring is fleet-wide and the player isn't actually crowded out
+    player = createEmployedPlayer(tier=1)
+    boats.addBoat(player, 1)
+    for villager in villagers.availableVillagers(player)[
+        : business.tierInfo(1)["maxWorkers"] - 1
+    ]:
+        boats.hireWorker(player, villager["name"])
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+
+    # call
+    questions = [option["question"] for option in npc.get_dialogue_options()]
+
+    # check
+    assert "Getting crowded out there, isn't it?" not in questions
+    assert player.workers < boats.totalCrewBerths(player)
+
+
 def test_createCrewNPC_ambition_response_mentions_the_business():
     # prepare
     player = createEmployedPlayer(tier=len(business.BOAT_TIERS))

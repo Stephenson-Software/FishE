@@ -1,13 +1,18 @@
 from location.enum.locationType import LocationType
 from player.player import Player
 from prompt.prompt import Prompt
-from world.timeService import TimeService
+from world.timeService import TimeService, INTEREST_RATE, MAX_INTEREST_PER_DAY
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
 from business import business
 from investments import investments
 from progression import progression
+
+# The break-even point past which the daily interest cap binds - used so the
+# teller's dialogue can state the real rule instead of drifting from it (see
+# src/world/timeService.py for the underlying constants).
+_INTEREST_CAP_BALANCE = int(MAX_INTEREST_PER_DAY / INTEREST_RATE)
 
 
 # @author Daniel McCoy Stephenson
@@ -42,16 +47,20 @@ class Bank:
                     "response": "The bank is simple and safe! You can deposit money when you have some on hand, "
                     "and withdraw it whenever you need. We keep your money secure - "
                     "no risk of losing it to gambling or spending it accidentally! "
-                    "Plus, your savings earn interest over time. The more you save, the more you earn. "
-                    "It's the smart way to grow your wealth!",
+                    "Plus, your savings earn interest over time - up to $%d a day. "
+                    "It's the smart way to grow your wealth!" % MAX_INTEREST_PER_DAY,
                 },
                 {
                     "question": "Tell me about interest rates.",
-                    "response": "Ah yes, interest! Every day that passes, your savings grow by a small percentage. "
-                    "It might not seem like much at first, but over time it really adds up! "
+                    "response": "Ah yes, interest! Every day that passes, your savings grow by %d%%, "
+                    "up to $%d a day - past about $%d banked you've maxed out what I can pay you. "
                     "The interest is automatically added to your bank account. "
-                    "Think of it as the bank paying you for keeping your money with us. "
-                    "The more you save, the more interest you earn!",
+                    "Think of it as the bank paying you for keeping your money with us."
+                    % (
+                        int(INTEREST_RATE * 100),
+                        MAX_INTEREST_PER_DAY,
+                        _INTEREST_CAP_BALANCE,
+                    ),
                 },
                 {
                     "question": "Should I save or spend my money?",
@@ -222,6 +231,12 @@ class Bank:
             if amount is None:
                 self.currentPrompt.text = "Try again. Money: $%.2f" % self.player.money
                 continue
+            if amount <= 0:
+                self.currentPrompt.text = (
+                    "Enter an amount greater than zero. Money: $%.2f"
+                    % self.player.money
+                )
+                continue
 
             if self.player.canAfford(amount):
                 self.player.moneyInBank += amount
@@ -238,6 +253,12 @@ class Bank:
             if amount is None:
                 self.currentPrompt.text = (
                     "Try again. Money In Bank: $%.2f" % self.player.moneyInBank
+                )
+                continue
+            if amount <= 0:
+                self.currentPrompt.text = (
+                    "Enter an amount greater than zero. Money In Bank: $%.2f"
+                    % self.player.moneyInBank
                 )
                 continue
 
