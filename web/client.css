@@ -24,6 +24,13 @@
   button.danger:hover { background: #63202c; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   button:disabled:hover { background: #163345; }
+  /* A menu option the game would refuse right now. Greyed with its own muted
+     palette rather than the dimming above, because the reason printed on the
+     row has to stay readable - the point is that the player can see why. */
+  button.unavailable { opacity: 1; background: #10202a; border-color: #24343d;
+                       color: #7d94a3; }
+  button.unavailable:hover { background: #10202a; }
+  button .reason { color: #d8a866; font-style: italic; }
   button.action { width: auto; text-align: center; padding: .6rem 1.4rem;
                   background: #1d5a7a; border-color: #2f7ba0; }
   button.action:hover { background: #246a90; }

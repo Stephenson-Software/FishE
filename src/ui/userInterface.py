@@ -1,6 +1,10 @@
 import sys
 import time
-from ui.baseUserInterface import BaseUserInterface
+from ui.baseUserInterface import (
+    BaseUserInterface,
+    unavailableMessage,
+    unavailableSuffix,
+)
 from prompt.prompt import Prompt
 from player.player import Player
 from world.timeService import TimeService
@@ -30,7 +34,10 @@ class UserInterface(BaseUserInterface):
         self,
         descriptor,
         optionList,
+        unavailableOptions=None,
     ):
+        reasons = self.unavailableReasons(optionList, unavailableOptions)
+        selectable = self.selectableNumbers(reasons)
         while True:
             self.lotsOfSpace()
             self.divider()
@@ -54,17 +61,24 @@ class UserInterface(BaseUserInterface):
             self.divider()
             self.n = 1
             self.listOfN = []
-            for option in optionList:
-                print(" [%d] %s" % (self.n, option))
+            for option, reason in zip(optionList, reasons):
+                # An option the game would refuse is still listed - hiding it
+                # would leave the player wondering where it went - but it is
+                # marked with the reason instead of being selectable.
+                print(" [%d] %s%s" % (self.n, option, unavailableSuffix(reason)))
                 self.listOfN.append("%d" % self.n)
                 self.n += 1
 
             choice = input("\n> ")
-            for i in self.listOfN:
-                if choice == i:
-                    return choice
+            if choice in selectable:
+                return choice
 
-            self.currentPrompt.text = "Try again!"
+            if choice in self.listOfN:
+                # A listed option that can't be picked: say why rather than
+                # leaving "Try again!" to imply the player mistyped.
+                self.currentPrompt.text = unavailableMessage(reasons[int(choice) - 1])
+            else:
+                self.currentPrompt.text = "Try again!"
 
     def showDialogue(self, text):
         self.lotsOfSpace()

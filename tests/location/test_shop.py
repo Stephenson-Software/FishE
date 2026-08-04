@@ -562,9 +562,9 @@ def test_gilbert_fishing_explanation_widens_with_rod_level():
     # prepare - a maxed-out rod widens the window well past the base 2.0s
     shopInstance = createShop()
     shopInstance.player.rodLevel = shop.MAX_ROD_LEVEL
-    expectedWindow = docks.REACTION_BASE_WINDOW + (
-        shop.MAX_ROD_LEVEL - 1
-    ) * docks.ROD_WINDOW_STEP
+    expectedWindow = (
+        docks.REACTION_BASE_WINDOW + (shop.MAX_ROD_LEVEL - 1) * docks.ROD_WINDOW_STEP
+    )
 
     # call
     response = shopInstance._howFishingWorksDialogue()
@@ -572,3 +572,82 @@ def test_gilbert_fishing_explanation_widens_with_rod_level():
     # check
     assert "%.1f seconds" % expectedWindow in response
     assert "%.1f seconds" % docks.REACTION_BASE_WINDOW not in response
+
+
+def markedOptions(locationInstance):
+    """{option label: reason} from the last showOptions call, so a test names
+    the entry it means rather than a position that shifts with progression."""
+    call = locationInstance.userInterface.showOptions.call_args
+    options = call[0][1]
+    reasons = call[0][2] if len(call[0]) > 2 else {}
+    return {options[number - 1]: reason for number, reason in (reasons or {}).items()}
+
+
+def test_run_greys_out_selling_with_an_empty_hold():
+    # prepare - a new player walks in with no fish; "Sell Fish" is refused, so
+    # the option says why instead of the player finding out by picking it
+    shopInstance = createShop()
+    shopInstance.player.money = 10000  # afford the gear, so only selling is marked
+    shopInstance.userInterface.showOptions = MagicMock(return_value="1")
+    shopInstance.sellFish = MagicMock()
+
+    # call
+    shopInstance.run()
+
+    # check
+    assert markedOptions(shopInstance) == {"Sell Fish": "you have no fish"}
+
+
+def test_run_greys_out_gear_the_player_cannot_afford():
+    # prepare - fish to sell but no money for either upgrade
+    shopInstance = createShop()
+    shopInstance.player.addFish("Cod", 1)
+    shopInstance.player.money = 0
+    shopInstance.userInterface.showOptions = MagicMock(return_value="1")
+    shopInstance.sellFish = MagicMock()
+
+    # call
+    shopInstance.run()
+
+    # check
+    marked = markedOptions(shopInstance)
+    assert set(marked.values()) == {"not enough money"}
+    assert [label for label in marked if label.startswith("Buy Better Bait")]
+    assert [label for label in marked if label.startswith("Buy Better Rod")]
+    assert "Sell Fish" not in marked
+
+
+def test_run_greys_out_gear_that_is_already_maxed_out():
+    # prepare - all the money in the world, but nothing left to buy; "not
+    # enough money" would be the wrong reason here
+    shopInstance = createShop()
+    shopInstance.player.addFish("Cod", 1)
+    shopInstance.player.money = 100000
+    shopInstance.player.fishMultiplier = shop.MAX_FISH_MULTIPLIER
+    shopInstance.player.rodLevel = shop.MAX_ROD_LEVEL
+    shopInstance.userInterface.showOptions = MagicMock(return_value="1")
+    shopInstance.sellFish = MagicMock()
+
+    # call
+    shopInstance.run()
+
+    # check
+    assert sorted(markedOptions(shopInstance).values()) == [
+        "already the best bait",
+        "already the finest rod",
+    ]
+
+
+def test_run_marks_nothing_when_everything_can_be_bought():
+    # prepare
+    shopInstance = createShop()
+    shopInstance.player.addFish("Cod", 1)
+    shopInstance.player.money = 100000
+    shopInstance.userInterface.showOptions = MagicMock(return_value="1")
+    shopInstance.sellFish = MagicMock()
+
+    # call
+    shopInstance.run()
+
+    # check
+    assert markedOptions(shopInstance) == {}

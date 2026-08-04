@@ -29,6 +29,12 @@ window.FisheClient = (function () {
     return e;
   }
 
+  // The reason option i can't be picked, or null. Older screens (and any
+  // front-end that never marks anything unavailable) simply omit the list.
+  function unavailableReason(screen, i) {
+    return (screen.unavailable || [])[i] || null;
+  }
+
   function renderNotice(text, className) {
     const a = app();
     a.innerHTML = "";
@@ -80,11 +86,21 @@ window.FisheClient = (function () {
     if (screen.prompt) a.append(el("div", { className: "prompt", textContent: screen.prompt }));
     if (screen.type === "options") {
       screen.options.forEach((opt, i) => {
+        // An option the game would refuse right now is still listed, so the
+        // menu doesn't shuffle under the player, but it is greyed out and
+        // carries the reason - the button itself says why it can't be used.
+        const reason = unavailableReason(screen, i);
         const b = el("button", {
-          textContent: `[${i + 1}] ${opt}`,
-          className: /delete/i.test(opt) ? "danger" : "",
+          className: reason ? "unavailable" : (/delete/i.test(opt) ? "danger" : ""),
         });
-        b.onclick = () => send(String(i + 1));
+        b.append(`[${i + 1}] ${opt}`);
+        if (reason) {
+          b.append(el("span", { className: "reason", textContent: ` — ${reason}` }));
+          b.disabled = true;
+          b.title = reason;
+        } else {
+          b.onclick = () => send(String(i + 1));
+        }
         a.append(b);
       });
     } else if (screen.type === "dialogue") {
@@ -130,7 +146,12 @@ window.FisheClient = (function () {
     if (s.type === "options") {
       if (e.key >= "1" && e.key <= "9") {
         const n = parseInt(e.key, 10);
-        if (n <= s.options.length) { e.preventDefault(); send(String(n)); }
+        // A greyed-out option is no more pickable by its number key than by
+        // its button; the game would ignore the response either way.
+        if (n <= s.options.length && !unavailableReason(s, n - 1)) {
+          e.preventDefault();
+          send(String(n));
+        }
       }
     } else if (s.type === "dialogue" || s.type === "timed") {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); send(""); }

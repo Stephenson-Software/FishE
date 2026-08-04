@@ -7,6 +7,7 @@ from src.stats.stats import Stats
 from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.progression import progression
+from src.investments import investments
 from unittest.mock import MagicMock
 
 
@@ -361,9 +362,7 @@ def test_deposit_negative_amount_is_rejected():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.money = 20
     bankInstance.player.moneyInBank = 0
-    bankInstance.userInterface.promptForNumber = MagicMock(
-        side_effect=[-100.0, 10.0]
-    )
+    bankInstance.userInterface.promptForNumber = MagicMock(side_effect=[-100.0, 10.0])
 
     # call
     bankInstance.deposit()
@@ -383,9 +382,7 @@ def test_withdraw_negative_amount_is_rejected():
     bankInstance.userInterface.divider = MagicMock()
     bankInstance.player.moneyInBank = 400
     bankInstance.player.money = 20
-    bankInstance.userInterface.promptForNumber = MagicMock(
-        side_effect=[-500.0, 10.0]
-    )
+    bankInstance.userInterface.promptForNumber = MagicMock(side_effect=[-500.0, 10.0])
 
     # call
     bankInstance.withdraw()
@@ -514,3 +511,80 @@ def test_run_withdrawal_fires_from_its_position_with_a_short_menu():
     # check
     assert nextLocation == LocationType.BANK
     bankInstance.withdraw.assert_called_once()
+
+
+def markedOptions(locationInstance):
+    """{option label: reason} from the last showOptions call."""
+    call = locationInstance.userInterface.showOptions.call_args
+    options = call[0][1]
+    reasons = call[0][2] if len(call[0]) > 2 else {}
+    return {options[number - 1]: reason for number, reason in (reasons or {}).items()}
+
+
+def test_run_greys_out_the_side_of_the_counter_with_nothing_to_move():
+    # prepare - money in hand and nothing saved yet: depositing works,
+    # withdrawing has nothing to withdraw
+    bankInstance = createBank()
+    bankInstance.player.money = 50
+    bankInstance.player.moneyInBank = 0
+    bankInstance.userInterface.showOptions = MagicMock(return_value="5")
+
+    # call
+    bankInstance.run()
+
+    # check
+    assert markedOptions(bankInstance) == {"Make a Withdrawal": "nothing in the bank"}
+
+    # prepare - and the other way round
+    bankInstance.player.money = 0
+    bankInstance.player.moneyInBank = 50
+
+    # call
+    bankInstance.run()
+
+    # check
+    assert markedOptions(bankInstance) == {"Make a Deposit": "no money on you"}
+
+
+def test_run_leaves_depositing_available_in_operator_mode():
+    # prepare - operator mode can deposit with an empty purse (see Bank.run),
+    # so the option must not be greyed out
+    bankInstance = createBank()
+    bankInstance.player.money = 0
+    bankInstance.player.moneyInBank = 50
+    bankInstance.player.operatorMode = True
+    bankInstance.userInterface.showOptions = MagicMock(return_value="5")
+
+    # call
+    bankInstance.run()
+
+    # check
+    assert markedOptions(bankInstance) == {}
+
+
+def test_manageInvestments_greys_out_properties_out_of_reach():
+    # prepare - enough for the cheapest property and nothing more, so the
+    # ladder reads with the affordable rung against the ones still to come
+    bankInstance = createBank()
+    cheapest = investments.typeInfo(1)["cost"]
+    bankInstance.player.money = cheapest
+
+    def chooseBack(descriptor, options, unavailableOptions=None):
+        return str(len(options))  # Back is always last
+
+    bankInstance.userInterface.showOptions = MagicMock(side_effect=chooseBack)
+
+    # call
+    bankInstance.manageInvestments()
+
+    # check - the cheapest rung is live, everything dearer is marked, and Back
+    # is never marked
+    marked = markedOptions(bankInstance)
+    assert set(marked.values()) == {"not enough money"}
+    assert all(label.startswith("Buy a") for label in marked)
+    assert not any(
+        label.startswith("Buy a %s" % investments.typeInfo(1)["name"])
+        for label in marked
+    )
+    dearer = len(investments.PROPERTY_TYPES) - 1
+    assert len(marked) == dearer

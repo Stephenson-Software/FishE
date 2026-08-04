@@ -23,6 +23,9 @@ from progression import progression
 REACTION_BASE_WINDOW = 2.0
 ROD_WINDOW_STEP = 0.5
 
+# Energy spent per hour of fishing, and so the minimum needed to cast at all.
+FISHING_ENERGY_COST = 10
+
 
 # @author Daniel McCoy Stephenson
 class Docks:
@@ -103,6 +106,14 @@ class Docks:
         # a new one shows up. Quit stays last.
         li = ["Fish"]
         actions = ["fish"]
+        # Fishing is the one option here the player can be blocked from, and
+        # running out of energy is the commonest way a day ends - so say so on
+        # the option itself rather than only after they've picked it.
+        unavailable = {}
+        if not self.player.hasEnergy(FISHING_ENERGY_COST):
+            unavailable[len(li)] = (
+                "needs %d energy - sleep at home" % FISHING_ENERGY_COST
+            )
         for feature, label, action in (
             (progression.SHOP, "Go to Shop", "shop"),
             (progression.HOME, "Go Home", "home"),
@@ -142,13 +153,13 @@ class Docks:
         notices = boats.needsAttention(self.player)
         if notices:
             descriptor += "\n\nNeeds attention: " + "; ".join(notices) + "."
-        input = self.userInterface.showOptions(descriptor, li)
+        input = self.userInterface.showOptions(descriptor, li, unavailable)
 
         choice = int(input)
         action = actions[choice - 1]
 
         if action == "fish":
-            if self.player.hasEnergy(10):
+            if self.player.hasEnergy(FISHING_ENERGY_COST):
                 self.fish()
                 return LocationType.DOCKS
             else:
@@ -372,9 +383,13 @@ class Docks:
             options = []
             actions = []
 
+            unavailable = {}
+
             starter = business.tierInfo(1)
             options.append("Buy a %s ($%d)" % (starter["name"], starter["cost"]))
             actions.append("buy_boat")
+            if not self.player.canAfford(starter["cost"]):
+                unavailable[len(options)] = "not enough money"
 
             if self.player.boats:
                 berths = boats.totalCrewBerths(self.player)
@@ -408,7 +423,11 @@ class Docks:
             options.append("Back")
             actions.append("back")
 
-            choice = int(self.userInterface.showOptions(self._fleetStatus(), options))
+            choice = int(
+                self.userInterface.showOptions(
+                    self._fleetStatus(), options, unavailable
+                )
+            )
             action = actions[choice - 1]
 
             if action == "buy_boat":
@@ -435,15 +454,20 @@ class Docks:
                 self.currentPrompt.text = "What would you like to do?"
                 return
 
-    def _pickBoat(self, prompt, candidates=None):
+    def _pickBoat(self, prompt, candidates=None, unavailable=None):
         """Shared boat chooser. Returns the boat, or None if the player backed
-        out - every fleet action needs one and they should all read the same."""
+        out - every fleet action needs one and they should all read the same.
+
+        unavailable maps a 1-based position in candidates to the reason that
+        boat can't be chosen (an unaffordable repair bill, say), so the ones
+        the player can't act on are greyed out rather than picked and refused.
+        "Back" is appended last and is never marked."""
         candidates = self.player.boats if candidates is None else candidates
         if not candidates:
             return None
         options = [boats.describeBoat(boat) for boat in candidates]
         options.append("Back")
-        choice = int(self.userInterface.showOptions(prompt, options))
+        choice = int(self.userInterface.showOptions(prompt, options, unavailable))
         if choice == len(options):
             return None
         return candidates[choice - 1]
@@ -556,7 +580,14 @@ class Docks:
 
     def _repairBoat(self):
         damaged = [boat for boat in self.player.boats if boat["damage"] > 0]
-        boat = self._pickBoat("Which boat needs work?", damaged)
+        # Each hull has its own bill, so which ones are out of reach depends on
+        # the boat rather than on the menu as a whole.
+        unaffordable = {
+            index + 1: "repair costs $%d" % boats.repairCost(boat)
+            for index, boat in enumerate(damaged)
+            if not self.player.canAfford(boats.repairCost(boat))
+        }
+        boat = self._pickBoat("Which boat needs work?", damaged, unaffordable)
         if boat is None:
             return
         cost = boats.repairCost(boat)
@@ -579,7 +610,12 @@ class Docks:
             for boat in self.player.boats
             if boat["tier"] < len(business.BOAT_TIERS)
         ]
-        boat = self._pickBoat("Which boat are you upgrading?", upgradable)
+        unaffordable = {
+            index + 1: "upgrade costs $%d" % business.tierInfo(boat["tier"] + 1)["cost"]
+            for index, boat in enumerate(upgradable)
+            if not self.player.canAfford(business.tierInfo(boat["tier"] + 1)["cost"])
+        }
+        boat = self._pickBoat("Which boat are you upgrading?", upgradable, unaffordable)
         if boat is None:
             return
         nextInfo = business.tierInfo(boat["tier"] + 1)
@@ -1117,10 +1153,10 @@ class Docks:
         hours = random.randint(1, 10)
 
         # Check if player has enough energy for all hours
-        energy_needed = hours * 10
+        energy_needed = hours * FISHING_ENERGY_COST
         if not self.player.hasEnergy(energy_needed):
             # Fish for as many hours as energy allows
-            hours = self.player.energy // 10
+            hours = self.player.energy // FISHING_ENERGY_COST
             if hours == 0:
                 self.currentPrompt.text = "You're too tired to fish! Go home and sleep."
                 return

@@ -55,3 +55,15 @@ def test_a_missing_client_file_explains_where_it_should_be():
     message = str(raised)
     assert "web/" in message
     assert "no-such-client.js" in message
+
+
+def test_the_shared_client_consumes_the_unavailable_contract():
+    # WebUserInterface.showOptions publishes a reason per option; a contract
+    # the server sends and the client ignores would render every option as
+    # pickable, which is exactly what the greying-out is for. Both browser
+    # front-ends load this one file, so checking it covers both.
+    client = readWebFile("client.js")
+
+    assert "screen.unavailable" in client
+    assert "disabled = true" in client
+    assert "unavailable" in readWebFile("client.css")

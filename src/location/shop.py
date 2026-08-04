@@ -207,12 +207,27 @@ class Shop:
         # actions are built as a pair rather than dispatched on a fixed number.
         li = ["Sell Fish"]
         actions = ["sell"]
+        # Every purchase here has a gate the player can be on the wrong side of
+        # (an empty hold, an empty purse, gear already maxed out), so each row
+        # is marked as it is added - len(li) is always the number just used.
+        unavailable = {}
+        if self.player.fishCount == 0:
+            unavailable[len(li)] = "you have no fish"
         if progression.isUnlocked(self.stats, progression.BAIT):
             li.append("Buy Better Bait ( $%.2f )" % self.player.priceForBait)
             actions.append("bait")
+            if self.player.fishMultiplier >= MAX_FISH_MULTIPLIER:
+                unavailable[len(li)] = "already the best bait"
+            elif not self.player.canAfford(self.player.priceForBait):
+                unavailable[len(li)] = "not enough money"
         if progression.isUnlocked(self.stats, progression.ROD):
-            li.append("Buy Better Rod ( $%.2f )" % rodUpgradeCost(self.player.rodLevel))
+            rodCost = rodUpgradeCost(self.player.rodLevel)
+            li.append("Buy Better Rod ( $%.2f )" % rodCost)
             actions.append("rod")
+            if self.player.rodLevel >= MAX_ROD_LEVEL:
+                unavailable[len(li)] = "already the finest rod"
+            elif not self.player.canAfford(rodCost):
+                unavailable[len(li)] = "not enough money"
         if progression.isUnlocked(self.stats, progression.TALK):
             li.append("Talk to %s" % self.npc.name)
             actions.append("talk")
@@ -222,6 +237,7 @@ class Shop:
         input = self.userInterface.showOptions(
             "The shopkeeper winks at you as you behold his collection of fishing poles.",
             li,
+            unavailable,
         )
         action = actions[int(input) - 1]
 

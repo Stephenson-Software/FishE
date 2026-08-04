@@ -38,7 +38,7 @@ def dockChooser(label):
     Which options are on the menu (and so what each one is numbered) depends on
     how much of the game the player has unlocked, so tests say what they mean."""
 
-    def chooser(descriptor, optionList):
+    def chooser(descriptor, optionList, unavailableOptions=None):
         for index, option in enumerate(optionList, start=1):
             if option == label or option.startswith(label):
                 return str(index)
@@ -563,7 +563,7 @@ def fleetChooser(*wanted):
     these tests from breaking every time an option is added."""
     remaining = list(wanted)
 
-    def choose(descriptor, options):
+    def choose(descriptor, options, unavailableOptions=None):
         if remaining:
             prefix = remaining.pop(0)
             for index, option in enumerate(options, start=1):
@@ -1368,7 +1368,7 @@ def voyageChooser(*wanted, **kwargs):
     remaining = list(wanted)
     then = kwargs.get("then", "back")
 
-    def choose(descriptor, options):
+    def choose(descriptor, options, unavailableOptions=None):
         if remaining:
             prefix = remaining.pop(0)
             for index, option in enumerate(options, start=1):
@@ -1989,3 +1989,96 @@ def test_sam_fishing_explanation_widens_with_rod_level():
     # check
     assert "%.1f seconds" % expectedWindow in response
     assert "%.1f seconds" % docks.REACTION_BASE_WINDOW not in response
+
+
+def unavailableLabels(showOptionsMock):
+    """{option label: reason} from the last showOptions call, so a test can say
+    which entry was greyed out without depending on its position."""
+    call = showOptionsMock.call_args
+    options = call[0][1]
+    reasons = call[0][2] if len(call[0]) > 2 else {}
+    return {options[number - 1]: reason for number, reason in (reasons or {}).items()}
+
+
+def test_run_greys_out_fishing_when_the_player_is_out_of_energy():
+    # prepare - below the cost of a single hour, fishing is refused, so the
+    # option says so instead of the player finding out by picking it
+    docksInstance = createDocks()
+    docksInstance.player.energy = docks.FISHING_ENERGY_COST - 1
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
+
+    # call
+    docksInstance.run()
+
+    # check
+    marked = unavailableLabels(docksInstance.userInterface.showOptions)
+    assert marked == {"Fish": "needs 10 energy - sleep at home"}
+
+
+def test_run_leaves_fishing_available_with_energy_to_spare():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.player.energy = docks.FISHING_ENERGY_COST
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
+
+    # call
+    docksInstance.run()
+
+    # check - nothing on the docks menu is greyed out
+    assert unavailableLabels(docksInstance.userInterface.showOptions) == {}
+
+
+def test_run_leaves_fishing_available_in_operator_mode():
+    # prepare - operator mode ignores energy (Player.hasEnergy), so the option
+    # must not be greyed out for an operator with an empty bar
+    docksInstance = createDocks()
+    docksInstance.player.energy = 0
+    docksInstance.player.operatorMode = True
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
+
+    # call
+    docksInstance.run()
+
+    # check
+    assert unavailableLabels(docksInstance.userInterface.showOptions) == {}
+
+
+def test_manageFleet_greys_out_a_boat_the_player_cannot_afford():
+    # prepare - the only fleet entry with no boats yet is buying one
+    docksInstance = createDocks()
+    docksInstance.player.money = business.tierInfo(1)["cost"] - 1
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=fleetChooser())
+
+    # call
+    docksInstance.manageFleet()
+
+    # check
+    marked = unavailableLabels(docksInstance.userInterface.showOptions)
+    assert list(marked.values()) == ["not enough money"]
+    assert list(marked)[0].startswith("Buy a")
+
+
+def test_repair_menu_greys_out_a_hull_the_player_cannot_pay_for():
+    # prepare - a damaged boat and not enough money for her bill; the greying
+    # happens on the boat chooser, where the per-hull cost differs
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1)
+    boat["damage"] = 3
+    cost = boats.repairCost(boat)
+    docksInstance.player.money = cost - 1
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=fleetChooser())
+
+    # call
+    docksInstance._repairBoat()
+
+    # check - the boat's own row carries the bill she can't cover; Back is not
+    # marked, so the player can always leave
+    call = docksInstance.userInterface.showOptions.call_args
+    assert call[0][2] == {1: "repair costs $%d" % cost}
+    assert call[0][1][-1] == "Back"

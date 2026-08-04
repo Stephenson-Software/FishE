@@ -425,7 +425,7 @@ def test_gamble_win_pays_multiple_of_bet():
     textAfterWin = []
     callCount = [0]
 
-    def showOptionsSideEffect(prompt, options):
+    def showOptionsSideEffect(prompt, options, unavailableOptions=None):
         callCount[0] += 1
         if callCount[0] == 1:
             return "3"
@@ -462,7 +462,7 @@ def test_gamble_loss_via_real_loop():
     textAfterLoss = []
     callCount = [0]
 
-    def showOptionsSideEffect(prompt, options):
+    def showOptionsSideEffect(prompt, options, unavailableOptions=None):
         callCount[0] += 1
         if callCount[0] == 1:
             return "2"
@@ -495,7 +495,7 @@ def test_gamble_no_bet_placed():
     textAfterAttempt = []
     callCount = [0]
 
-    def showOptionsSideEffect(prompt, options):
+    def showOptionsSideEffect(prompt, options, unavailableOptions=None):
         callCount[0] += 1
         if callCount[0] == 1:
             return "1"
@@ -605,3 +605,71 @@ def test_run_hides_old_tom_until_conversation_is_unlocked():
     # check
     assert nextLocation == LocationType.TAVERN
     tavernInstance.talkToNPC.assert_called_once()
+
+
+def markedOptions(locationInstance):
+    """{option label: reason} from the last showOptions call."""
+    call = locationInstance.userInterface.showOptions.call_args
+    options = call[0][1]
+    reasons = call[0][2] if len(call[0]) > 2 else {}
+    return {options[number - 1]: reason for number, reason in (reasons or {}).items()}
+
+
+def test_run_greys_out_drinking_when_it_cannot_be_paid_for():
+    # prepare - a round costs DRINK_COST; short of it, the option says so
+    tavernInstance = createTavern()
+    tavernInstance.player.money = tavern.DRINK_COST - 1
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="4")
+
+    # call
+    tavernInstance.run()
+
+    # check
+    assert markedOptions(tavernInstance) == {
+        "Get drunk ( $%d )" % tavern.DRINK_COST: "not enough money"
+    }
+
+
+def test_run_leaves_drinking_available_with_the_exact_price():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.player.money = tavern.DRINK_COST
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="4")
+
+    # call
+    tavernInstance.run()
+
+    # check
+    assert markedOptions(tavernInstance) == {}
+
+
+def test_gamble_greys_out_the_dice_until_a_bet_is_placed():
+    # prepare - guessing a face does nothing while nothing is staked, so the
+    # faces are greyed and Change Bet / Back are left live
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.currentBet = 0
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="8")  # Back
+
+    # call
+    tavernInstance.gamble()
+
+    # check
+    marked = markedOptions(tavernInstance)
+    assert marked == {
+        face: "place a bet first" for face in ["1", "2", "3", "4", "5", "6"]
+    }
+
+
+def test_gamble_frees_the_dice_once_a_bet_is_on_the_table():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.currentBet = 25
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="8")  # Back
+
+    # call
+    tavernInstance.gamble()
+
+    # check
+    assert markedOptions(tavernInstance) == {}
