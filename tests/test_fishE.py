@@ -119,6 +119,10 @@ def createGameForPersistence(data_directory):
     saveFileManager = SaveFileManager(data_directory=data_directory)
     saveFileManager.select_save_slot(1)
     game.saveFileManager = saveFileManager
+    # __init__ sets both up before the load block; save()/load*() report through
+    # the front-end and record what would not load, so they are needed here too.
+    game.failedLoads = []
+    game.userInterface = MagicMock()
     return game
 
 
@@ -140,7 +144,12 @@ def createGameThroughInit(data_directory, saveFiles):
     os.makedirs(slot, exist_ok=True)
     for filename, contents in saveFiles.items():
         with open(os.path.join(slot, filename), "w") as f:
-            json.dump(contents, f)
+            # A raw string is written verbatim so a test can plant a damaged
+            # file; anything else is serialized as the JSON it stands for.
+            if isinstance(contents, str):
+                f.write(contents)
+            else:
+                json.dump(contents, f)
 
     config = Config()
     config.dataDirectory = data_directory
@@ -449,6 +458,200 @@ def test_save_handles_write_failure_without_raising():
         # call - must not raise even though writing to disk fails
         with patch("builtins.open", side_effect=IOError("disk full")):
             game.save()
+
+
+def test_save_failure_is_reported_through_the_front_end():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare
+        game = createGameForPersistence(data_directory)
+        game.player = Player()
+        game.stats = Stats()
+        game.timeService = TimeService(game.player, game.stats)
+
+        # call
+        with patch("builtins.open", side_effect=IOError("disk full")):
+            game.save()
+
+        # check - the player is told through the UI contract every front-end
+        # implements, rather than on a stdout none of them render
+        game.userInterface.showDialogue.assert_called_once()
+        said = game.userInterface.showDialogue.call_args[0][0]
+        assert "could not be saved" in said
+        assert "disk full" in said
+
+
+def test_save_leaves_no_temporary_files_behind():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare
+        game = createGameForPersistence(data_directory)
+        game.player = Player()
+        game.stats = Stats()
+        game.timeService = TimeService(game.player, game.stats)
+
+        # call
+        game.save()
+
+        # check - the temporary files the atomic write goes through are all
+        # renamed into place, so nothing ending in .tmp survives the save
+        slot = os.path.join(data_directory, "slot_1")
+        assert [name for name in os.listdir(slot) if name.endswith(".tmp")] == []
+
+
+def test_a_failed_save_does_not_truncate_the_previous_one():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - a slot holding a good save
+        game = createGameForPersistence(data_directory)
+        game.player = Player()
+        game.player.fishCount = 42
+        game.stats = Stats()
+        game.timeService = TimeService(game.player, game.stats)
+        game.save()
+
+        # call - the next save dies partway through writing player.json
+        game.player.fishCount = 99
+        with patch.object(
+            game.playerJsonReaderWriter,
+            "writePlayerToFile",
+            side_effect=IOError("disk full"),
+        ):
+            game.save()
+
+        # check - the save on disk is still the one that completed, not an
+        # empty file left behind by a truncating open()
+        reloaded = createGameForPersistence(data_directory)
+        reloaded.loadPlayer()
+        assert reloaded.player.fishCount == 42
+        slot = os.path.join(data_directory, "slot_1")
+        assert [name for name in os.listdir(slot) if name.endswith(".tmp")] == []
+
+
+def corruptPlayerSlot():
+    """A slot whose player.json is unreadable beside two intact files."""
+    return {
+        "player.json": "{ not valid json",
+        "stats.json": StatsJsonReaderWriter().createJsonFromStats(Stats()),
+        "timeService.json": TimeServiceJsonReaderWriter().createJsonFromTimeService(
+            TimeService(Player(), Stats())
+        ),
+    }
+
+
+def damagedBackupDirectories(data_directory):
+    slot = os.path.join(data_directory, "slot_1")
+    return sorted(name for name in os.listdir(slot) if name.startswith("damaged-"))
+
+
+def test_load_failure_is_reported_through_the_front_end_not_stdout(capsys):
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - a slot whose player.json cannot be parsed
+        game = createGameThroughInit(data_directory, corruptPlayerSlot())
+
+        # check - said through the front-end, naming the file that failed
+        said = "\n".join(
+            call[0][0] for call in game.userInterface.showDialogue.call_args_list
+        )
+        assert "player.json" in said
+        assert "new game has been started" in said
+        # nothing on stdout, which no front-end renders
+        assert "player.json" not in capsys.readouterr().out
+
+
+def test_load_failure_names_every_file_that_failed_in_one_dialogue():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - two of the three files are unreadable
+        saveFiles = corruptPlayerSlot()
+        saveFiles["stats.json"] = "{ not valid json either"
+        game = createGameThroughInit(data_directory, saveFiles)
+
+        # check - one dialogue, both files named
+        game.userInterface.showDialogue.assert_called_once()
+        said = game.userInterface.showDialogue.call_args[0][0]
+        assert "player.json" in said
+        assert "stats.json" in said
+
+
+def test_a_schema_failure_is_described_in_one_short_line():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - a syntactically valid save with an out-of-range value,
+        # which jsonschema reports as a multi-paragraph dump of instance and
+        # schema; a dialogue box can show no such thing
+        savedPlayer = PlayerJsonReaderWriter().createJsonFromPlayer(Player())
+        savedPlayer["homeTier"] = 99
+        game = createGameThroughInit(data_directory, {"player.json": savedPlayer})
+
+        # check - the reason is named, on one trimmed line
+        said = game.userInterface.showDialogue.call_args[0][0]
+        described = [line for line in said.splitlines() if "player.json" in line]
+        assert len(described) == 1
+        assert len(described[0]) < 160
+
+
+def test_describeLoadFailure_trims_a_reason_too_long_for_a_dialogue():
+    # prepare
+    game = fishE.FishE.__new__(fishE.FishE)
+
+    # call
+    described = game._describeLoadFailure("player.json", IOError("x" * 500))
+
+    # check - named, trimmed, and marked as trimmed
+    assert described.startswith("player.json (")
+    assert described.endswith("...)")
+    assert len(described) < 160
+
+
+def test_a_save_that_fails_to_load_is_copied_aside_before_it_is_overwritten():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare - remember the bytes of the whole slot before the game runs
+        saveFiles = corruptPlayerSlot()
+        game = createGameThroughInit(data_directory, saveFiles)
+        slot = os.path.join(data_directory, "slot_1")
+
+        # call - the first action of the fresh fallback game writes the slot
+        game.save()
+
+        # check - one backup directory holds every file as it was, so the run
+        # that would not load is still recoverable by hand
+        backups = damagedBackupDirectories(data_directory)
+        assert len(backups) == 1
+        backup = os.path.join(slot, backups[0])
+        assert sorted(os.listdir(backup)) == [
+            "player.json",
+            "stats.json",
+            "timeService.json",
+        ]
+        with open(os.path.join(backup, "player.json")) as f:
+            assert f.read() == "{ not valid json"
+
+
+def test_a_slot_that_loads_cleanly_is_not_copied_aside():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - an intact save
+        createGameThroughInit(
+            data_directory,
+            {
+                "player.json": PlayerJsonReaderWriter().createJsonFromPlayer(Player()),
+                "stats.json": StatsJsonReaderWriter().createJsonFromStats(Stats()),
+                "timeService.json": TimeServiceJsonReaderWriter().createJsonFromTimeService(
+                    TimeService(Player(), Stats())
+                ),
+            },
+        )
+
+        # check
+        assert damagedBackupDirectories(data_directory) == []
+
+
+def test_a_damaged_save_that_cannot_be_copied_aside_says_so():
+    with tempfile.TemporaryDirectory() as data_directory:
+        # prepare/call - the copy itself fails
+        with patch("src.fishE.shutil.copy2", side_effect=OSError("read-only")):
+            game = createGameThroughInit(data_directory, corruptPlayerSlot())
+
+        # check - the player is warned the slot will be overwritten rather
+        # than being told about a backup that does not exist
+        said = game.userInterface.showDialogue.call_args[0][0]
+        assert "could not be copied aside" in said
+        assert damagedBackupDirectories(data_directory) == []
 
 
 def test_selectSaveFile_new_game_selects_next_slot():

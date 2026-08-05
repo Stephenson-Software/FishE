@@ -1,5 +1,7 @@
 import os
 import json
+import shutil
+from datetime import datetime
 from jsonschema.exceptions import ValidationError
 from location import bank, docks, home, shop, tavern
 from location.enum.locationType import LocationType
@@ -36,6 +38,11 @@ class FishE:
         self.statsJsonReaderWriter = StatsJsonReaderWriter()
         self.saveFileManager = SaveFileManager(data_directory=self.config.dataDirectory)
 
+        # What the load block below could not read, one description per file.
+        # Collected rather than reported one file at a time so a slot with
+        # three bad files costs the player one dialogue instead of three.
+        self.failedLoads = []
+
         # Start from default (new-game) state, then build the UI so the save-file
         # manager can render and read input through the active front-end. A
         # chosen save is loaded over these defaults below.
@@ -65,6 +72,12 @@ class FishE:
         time_path = self.saveFileManager.get_save_path("timeService.json")
         if os.path.exists(time_path) and os.path.getsize(time_path) > 0:
             self.loadTimeService()
+
+        # A failed load leaves fresh objects in place of the player's run, and
+        # save() writes them back after the very next action - so the bytes
+        # that failed have to be copied aside before play() is ever reached.
+        if self.failedLoads:
+            self._preserveDamagedSave()
 
         # loadPlayer()/loadStats() rebind self.player/self.stats to brand-new
         # objects, but only loadTimeService() rebuilds the TimeService around
@@ -274,32 +287,141 @@ class FishE:
             return True
         return False
 
+    def _describeLoadFailure(self, filename, error):
+        """One short line naming a save file and why it would not load.
+
+        Kept to a single trimmed line because this ends up inside a dialogue
+        box: jsonschema's ValidationError renders as a multi-paragraph dump of
+        the whole instance and schema, which no front-end can show and no
+        player would read. Its .message is the one-line reason; every other
+        error the load handlers catch is already short."""
+        reason = getattr(error, "message", None) or str(error)
+        lines = reason.splitlines()
+        reason = lines[0] if lines else error.__class__.__name__
+        if len(reason) > 120:
+            reason = reason[:117] + "..."
+        return "%s (%s)" % (filename, reason)
+
+    def _preserveDamagedSave(self):
+        """Copy a slot that would not load aside, and tell the player about it.
+
+        The load handlers fall back to fresh objects, and save() runs at the
+        end of every loop iteration, so without this the player's first action
+        writes a brand-new character over the run that failed to load - bytes
+        that were recoverable by hand until that moment.
+
+        The whole slot is copied, not only the file that failed: restoring a
+        run needs player.json, stats.json and timeService.json together, so
+        keeping just the unreadable one would preserve nothing usable.
+
+        Returns the backup directory, or None if nothing could be copied."""
+        slotDirectory = os.path.dirname(
+            self.saveFileManager.get_save_path("player.json")
+        )
+        backupDirectory = os.path.join(
+            slotDirectory, "damaged-%s" % datetime.now().strftime("%Y%m%d-%H%M%S")
+        )
+
+        copied = []
+        try:
+            os.makedirs(backupDirectory, exist_ok=True)
+            for name in sorted(os.listdir(slotDirectory)):
+                source = os.path.join(slotDirectory, name)
+                if os.path.isfile(source):
+                    shutil.copy2(source, os.path.join(backupDirectory, name))
+                    copied.append(name)
+        except (IOError, OSError):
+            copied = []
+
+        if not copied:
+            # An empty or half-written backup is worse than none: it looks like
+            # a rescued save and would be trusted as one.
+            shutil.rmtree(backupDirectory, ignore_errors=True)
+            backupDirectory = None
+
+        if backupDirectory is not None:
+            # Same reason delete_save_slot flushes: under the browser front-end
+            # the copy exists only in the Worker's in-memory filesystem until
+            # it is mirrored to IndexedDB.
+            syncBrowserSaves()
+            whereItWent = (
+                "A copy of the slot as it was has been kept in:\n  %s\n\n"
+                % backupDirectory
+            )
+        else:
+            whereItWent = (
+                "The slot could not be copied aside, so it will be overwritten "
+                "as you play. Close the game now if you want to keep it.\n\n"
+            )
+
+        self.userInterface.showDialogue(
+            "This save could not be read, so a new game has been started in "
+            "its slot.\n\nWhat failed to load:\n  %s\n\n%sNothing you did "
+            "caused this - a save can be damaged by a crash or a power cut "
+            "while the game is writing to disk."
+            % ("\n  ".join(self.failedLoads), whereItWent)
+        )
+        return backupDirectory
+
+    def _writeSaveFile(self, filename, writeContents):
+        """Write one save file so a failure can never truncate the old one.
+
+        Opening the real path with mode "w" empties it before a single byte is
+        written, so a crash, a full disk or a kill mid-dump leaves a partial
+        file and no intact copy anywhere - which is how a slot becomes
+        unreadable in the first place. The contents go to a temporary file
+        beside the target instead, and os.replace() (atomic on POSIX and
+        Windows) swaps it in only once it is complete."""
+        path = self.saveFileManager.get_save_path(filename)
+        temporaryPath = path + ".tmp"
+        try:
+            with open(temporaryPath, "w") as saveFile:
+                writeContents(saveFile)
+            os.replace(temporaryPath, path)
+        except (IOError, OSError):
+            # A half-written temporary file is worth nothing and would only
+            # confuse a later recovery, so it goes; the previous save stays.
+            try:
+                os.remove(temporaryPath)
+            except OSError:
+                pass
+            raise
+
     def save(self):
         # create data directory - use SaveFileManager's directory
         if not os.path.exists(self.saveFileManager.data_directory):
             os.makedirs(self.saveFileManager.data_directory, exist_ok=True)
 
         try:
-            with open(
-                self.saveFileManager.get_save_path("player.json"), "w"
-            ) as playerSaveFile:
-                self.playerJsonReaderWriter.writePlayerToFile(
-                    self.player, playerSaveFile
-                )
-
-            with open(
-                self.saveFileManager.get_save_path("timeService.json"), "w"
-            ) as timeServiceSaveFile:
-                self.timeServiceJsonReaderWriter.writeTimeServiceToFile(
-                    self.timeService, timeServiceSaveFile
-                )
-
-            with open(
-                self.saveFileManager.get_save_path("stats.json"), "w"
-            ) as statsSaveFile:
-                self.statsJsonReaderWriter.writeStatsToFile(self.stats, statsSaveFile)
+            self._writeSaveFile(
+                "player.json",
+                lambda saveFile: self.playerJsonReaderWriter.writePlayerToFile(
+                    self.player, saveFile
+                ),
+            )
+            self._writeSaveFile(
+                "timeService.json",
+                lambda saveFile: self.timeServiceJsonReaderWriter.writeTimeServiceToFile(
+                    self.timeService, saveFile
+                ),
+            )
+            self._writeSaveFile(
+                "stats.json",
+                lambda saveFile: self.statsJsonReaderWriter.writeStatsToFile(
+                    self.stats, saveFile
+                ),
+            )
         except (IOError, OSError) as e:
-            print(f"\n Warning: Failed to save game: {e}")
+            # Said through the front-end rather than printed: stdout is not
+            # rendered at all by pygame or either web front-end, and the
+            # console clears it on the next screen. Repeated on every action
+            # that fails to save, because a run that is no longer being
+            # written down is exactly what the player must not miss.
+            self.userInterface.showDialogue(
+                "Your game could not be saved: %s\n\n"
+                "The run continues, but progress since the last successful "
+                "save is not on disk. Check for a full or read-only disk." % e
+            )
             # Game continues even if save fails
             return
 
@@ -317,8 +439,7 @@ class FishE:
                     playerSaveFile
                 )
         except (IOError, OSError, json.JSONDecodeError, ValidationError) as e:
-            print(f"\n Warning: Failed to load player data: {e}")
-            print(" Creating new player...")
+            self.failedLoads.append(self._describeLoadFailure("player.json", e))
             self.player = Player(self.config)
 
     def loadStats(self):
@@ -328,8 +449,7 @@ class FishE:
             ) as statsSaveFile:
                 self.stats = self.statsJsonReaderWriter.readStatsFromFile(statsSaveFile)
         except (IOError, OSError, json.JSONDecodeError, ValidationError) as e:
-            print(f"\n Warning: Failed to load stats data: {e}")
-            print(" Creating new stats...")
+            self.failedLoads.append(self._describeLoadFailure("stats.json", e))
             self.stats = Stats()
 
     def loadTimeService(self):
@@ -343,8 +463,7 @@ class FishE:
                     )
                 )
         except (IOError, OSError, json.JSONDecodeError, ValidationError) as e:
-            print(f"\n Warning: Failed to load time service data: {e}")
-            print(" Creating new time service...")
+            self.failedLoads.append(self._describeLoadFailure("timeService.json", e))
             self.timeService = TimeService(self.player, self.stats)
 
 

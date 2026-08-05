@@ -59,6 +59,32 @@ def test_list_save_files_with_saves():
         shutil.rmtree(temp_dir)
 
 
+def test_list_save_files_ignores_a_damaged_save_backup_inside_a_slot():
+    # A slot the game could not read gets copied into a "damaged-..."
+    # subdirectory of itself (see FishE._preserveDamagedSave), which must stay
+    # invisible to the menu rather than being offered as a slot of its own.
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+
+        slot_path = os.path.join(temp_dir, "slot_1")
+        backup_path = os.path.join(slot_path, "damaged-20260101-000000")
+        os.makedirs(backup_path)
+
+        for directory in (slot_path, backup_path):
+            with open(os.path.join(directory, "player.json"), "w") as f:
+                json.dump({"money": 100, "fishCount": 5, "energy": 80}, f)
+            with open(os.path.join(directory, "timeService.json"), "w") as f:
+                json.dump({"day": 3, "time": 10}, f)
+
+        save_files = manager.list_save_files()
+        assert len(save_files) == 1
+        assert save_files[0]["slot"] == 1
+        assert manager.get_next_available_slot() == 2
+    finally:
+        shutil.rmtree(temp_dir)
+
+
 def test_list_save_files_ignores_invalid_names():
     """Test that list_save_files ignores directories with invalid names"""
     temp_dir = tempfile.mkdtemp()
