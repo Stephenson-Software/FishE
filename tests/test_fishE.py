@@ -601,9 +601,9 @@ def test_describeLoadFailure_trims_a_reason_too_long_for_a_dialogue():
 
 def test_a_save_that_fails_to_load_is_copied_aside_before_it_is_overwritten():
     with tempfile.TemporaryDirectory() as data_directory:
-        # prepare - remember the bytes of the whole slot before the game runs
-        saveFiles = corruptPlayerSlot()
-        game = createGameThroughInit(data_directory, saveFiles)
+        # prepare - a slot whose player.json cannot be parsed, loaded by a
+        # game that therefore falls back to a brand-new character
+        game = createGameThroughInit(data_directory, corruptPlayerSlot())
         slot = os.path.join(data_directory, "slot_1")
 
         # call - the first action of the fresh fallback game writes the slot
