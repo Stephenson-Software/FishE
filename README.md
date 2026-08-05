@@ -131,6 +131,8 @@ FishE supports multiple save files, allowing you to maintain different game prog
 
 Each save file is stored in its own slot (slot_1, slot_2, etc.) in the `data/` directory, ensuring your saves never conflict with each other. Set `FISHE_SAVE_DIR` to keep them somewhere else.
 
+Saves are written atomically — each file goes to a temporary file beside it and is swapped into place only once it's complete — so a crash or a power cut mid-save leaves the previous save intact rather than a half-written one. If a slot still turns out to be unreadable, the game tells you so on startup instead of starting quietly from scratch, and copies the whole slot into a `damaged-<date>-<time>` folder inside it before the new game overwrites anything. That folder is yours to inspect or restore by hand; deleting the slot from the menu deletes it too.
+
 When you play in your own browser (the Pyodide front-end above), those same slots are written to your browser's IndexedDB instead of to disk — creating, saving and deleting a slot all take effect there, so your progress is waiting for you when you come back to the tab. They belong to that browser on that machine: clearing the site's data clears them, and they don't follow you to another browser or another device.
 
 ## Contributing
