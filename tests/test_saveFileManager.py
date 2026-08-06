@@ -445,6 +445,10 @@ def test_read_save_metadata_missing_files():
 
 
 def test_read_save_metadata_corrupted_json():
+    """A player.json that will not parse is reported, not dropped.
+
+    Returning None here would take the slot out of list_save_files() and so out
+    of the numbers get_next_available_slot() treats as taken."""
     temp_dir = tempfile.mkdtemp()
     try:
         manager = SaveFileManager(temp_dir)
@@ -456,13 +460,20 @@ def test_read_save_metadata_corrupted_json():
             f.write("invalid json{")
 
         metadata = manager._read_save_metadata(slot_path)
-        assert metadata is None
+        assert metadata is not None
+        assert metadata["unreadable"] is True
+        assert metadata["reason"]
+        assert metadata["last_modified"] is not None
+        # No game data is invented for a file that could not be read, so a menu
+        # cannot render it as "$0, 0 fish" and pass it off as a real save.
+        assert "money" not in metadata
+        assert "fishCount" not in metadata
     finally:
         shutil.rmtree(temp_dir)
 
 
 def test_read_save_metadata_empty_player_file():
-    """Test reading metadata from an empty player.json file"""
+    """An empty player.json is a damaged save, not one with nothing in it."""
     temp_dir = tempfile.mkdtemp()
     try:
         manager = SaveFileManager(temp_dir)
@@ -475,12 +486,117 @@ def test_read_save_metadata_empty_player_file():
             f.write("")
 
         metadata = manager._read_save_metadata(slot_path)
-        # Empty file still returns metadata with last_modified but no game data
         assert metadata is not None
-        assert "last_modified" in metadata
-        # Game data fields should not be present since file is empty
+        assert metadata["unreadable"] is True
         assert "money" not in metadata
         assert "fishCount" not in metadata
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_read_save_metadata_player_file_that_is_not_an_object():
+    """Valid JSON that is not an object counts as unreadable rather than raising.
+
+    player_data.get(...) would raise AttributeError on this, which is not one of
+    the errors the read guards against - so it would escape list_save_files()
+    and take down the whole save menu over one bad slot."""
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+
+        slot_path = os.path.join(temp_dir, "slot_1")
+        os.makedirs(slot_path)
+        with open(os.path.join(slot_path, "player.json"), "w") as f:
+            f.write("42")
+
+        metadata = manager._read_save_metadata(slot_path)
+        assert metadata is not None
+        assert metadata["unreadable"] is True
+
+        # and the listing it feeds still works
+        save_files = manager.list_save_files()
+        assert len(save_files) == 1
+        assert save_files[0]["slot"] == 1
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_list_save_files_keeps_a_slot_whose_player_file_is_unreadable():
+    """A damaged slot stays in the list and stays claimed.
+
+    Both halves matter together: the slot has to be visible so the player is
+    told it exists, and counted as taken so "Create New Save" does not point at
+    the directory and overwrite the intact files beside the damaged one."""
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+
+        slot_path = os.path.join(temp_dir, "slot_1")
+        os.makedirs(slot_path)
+        with open(os.path.join(slot_path, "player.json"), "w") as f:
+            f.write("{ truncated")
+        with open(os.path.join(slot_path, "stats.json"), "w") as f:
+            json.dump({"totalFishCaught": 900}, f)
+        with open(os.path.join(slot_path, "timeService.json"), "w") as f:
+            json.dump({"day": 40, "time": 9}, f)
+
+        save_files = manager.list_save_files()
+        assert len(save_files) == 1
+        assert save_files[0]["slot"] == 1
+        assert save_files[0]["metadata"]["unreadable"] is True
+        assert manager.get_next_available_slot() == 2
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_read_save_metadata_survives_an_unreadable_modification_time():
+    """A slot is still listed when only its timestamp cannot be read.
+
+    getmtime can fail if the file is removed between the existence check and the
+    read; losing the whole slot over a missing display string would be the very
+    disappearance this metadata is here to prevent."""
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+
+        slot_path = os.path.join(temp_dir, "slot_1")
+        os.makedirs(slot_path)
+        with open(os.path.join(slot_path, "player.json"), "w") as f:
+            json.dump({"money": 100, "fishCount": 5, "energy": 80}, f)
+
+        with patch("os.path.getmtime", side_effect=OSError("gone")):
+            metadata = manager._read_save_metadata(slot_path)
+
+        assert metadata is not None
+        assert metadata["money"] == 100
+        assert metadata["last_modified"] is None
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_read_save_metadata_damaged_timeservice_leaves_the_slot_loadable():
+    """A damaged calendar does not condemn a readable player.
+
+    timeService.json is not the run: FishE reports and preserves the damage on
+    load and carries on, so the slot must stay loadable rather than being marked
+    unreadable and locked out of the menu."""
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+
+        slot_path = os.path.join(temp_dir, "slot_1")
+        os.makedirs(slot_path)
+        with open(os.path.join(slot_path, "player.json"), "w") as f:
+            json.dump({"money": 100, "fishCount": 5, "energy": 80}, f)
+        with open(os.path.join(slot_path, "timeService.json"), "w") as f:
+            f.write("{ not valid json")
+
+        metadata = manager._read_save_metadata(slot_path)
+        assert "unreadable" not in metadata
+        assert metadata["money"] == 100
+        assert metadata["fishCount"] == 5
+        # The day is simply absent, which the menu renders with its own default.
+        assert "day" not in metadata
     finally:
         shutil.rmtree(temp_dir)
 

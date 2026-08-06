@@ -623,6 +623,43 @@ def test_a_save_that_fails_to_load_is_copied_aside_before_it_is_overwritten():
             assert f.read() == "{ not valid json"
 
 
+def test_an_empty_player_file_is_reported_and_copied_aside():
+    # prepare/call - a zero-byte player.json (what the old truncating write left
+    # behind on a crash) beside a stats.json and timeService.json that load fine
+    with tempfile.TemporaryDirectory() as data_directory:
+        saveFiles = corruptPlayerSlot()
+        saveFiles["player.json"] = ""
+        game = createGameThroughInit(data_directory, saveFiles)
+
+        # check - an empty file is a failed load, not an absent one: it is named
+        # through the front-end and the slot is copied aside. Skipping the read
+        # for it used to hand the player a starting character on the saved
+        # calendar with nothing said and no copy kept.
+        assert any("player.json" in described for described in game.failedLoads)
+        said = game.userInterface.showDialogue.call_args[0][0]
+        assert "player.json" in said
+        assert len(damagedBackupDirectories(data_directory)) == 1
+
+
+def test_an_empty_stats_or_time_file_is_reported_too():
+    # prepare/call - player.json is intact; the other two are zero-byte
+    with tempfile.TemporaryDirectory() as data_directory:
+        game = createGameThroughInit(
+            data_directory,
+            {
+                "player.json": PlayerJsonReaderWriter().createJsonFromPlayer(Player()),
+                "stats.json": "",
+                "timeService.json": "",
+            },
+        )
+
+        # check - both are named in the one dialogue, same as any other damage
+        described = "\n".join(game.failedLoads)
+        assert "stats.json" in described
+        assert "timeService.json" in described
+        assert len(damagedBackupDirectories(data_directory)) == 1
+
+
 def test_a_slot_that_loads_cleanly_is_not_copied_aside():
     with tempfile.TemporaryDirectory() as data_directory:
         # prepare/call - an intact save
@@ -686,6 +723,105 @@ def test_selectSaveFile_loads_existing_slot():
 
     # check
     game.saveFileManager.select_save_slot.assert_called_once_with(2)
+
+
+def test_selectSaveFile_shows_a_damaged_slot_as_unpickable():
+    # prepare - slot 1 will not parse, slot 2 is fine
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.list_save_files.return_value = [
+        {"slot": 1, "metadata": {"unreadable": True, "reason": "Expecting value"}},
+        {"slot": 2, "metadata": {"day": 3, "money": 100, "fishCount": 5}},
+    ]
+    game.saveFileManager.get_next_available_slot.return_value = 3
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.return_value = "2"  # the intact slot
+
+    # call
+    game._selectSaveFile()
+
+    # check - the damaged slot is on the menu (so the player knows it is there),
+    # is not offered as something to load, and is marked unpickable with a reason
+    # that points at the one menu entry that can clear it
+    descriptor, options, unavailable = game.userInterface.showOptions.call_args[0]
+    assert "damaged" in options[0]
+    assert "Load Slot 1" not in options[0]
+    assert 1 in unavailable
+    assert "delete" in unavailable[1].lower()
+    # the intact slot is untouched by any of that
+    assert options[1] == "Load Slot 2 (Day 3, $100, 5 fish)"
+    assert 2 not in unavailable
+    game.saveFileManager.select_save_slot.assert_called_once_with(2)
+
+
+def test_selectSaveFile_new_save_skips_a_damaged_slot():
+    # prepare - the only slot is damaged, so a new game must land elsewhere
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.list_save_files.return_value = [
+        {"slot": 1, "metadata": {"unreadable": True, "reason": "Expecting value"}}
+    ]
+    game.saveFileManager.get_next_available_slot.return_value = 2
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.return_value = "2"  # "Create New Save (Slot 2)"
+
+    # call
+    game._selectSaveFile()
+
+    # check - slot 2, not the occupied slot 1 whose intact stats.json and
+    # timeService.json would have been overwritten by the first save
+    options = game.userInterface.showOptions.call_args[0][1]
+    assert options[1] == "Create New Save (Slot 2)"
+    game.saveFileManager.select_save_slot.assert_called_once_with(2)
+
+
+def test_selectSaveFile_explains_a_damaged_slot_a_front_end_let_through():
+    # prepare - a front-end that hands back an unavailable option's number
+    # anyway, which showOptions is contracted not to do. Without a branch for
+    # it the menu would re-render forever and say nothing about why.
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.list_save_files.return_value = [
+        {"slot": 1, "metadata": {"unreadable": True, "reason": "Expecting value"}}
+    ]
+    game.saveFileManager.get_next_available_slot.return_value = 2
+    game.userInterface = MagicMock()
+    # the damaged slot, then "Create New Save (Slot 2)" to leave the menu
+    game.userInterface.showOptions.side_effect = ["1", "2"]
+
+    # call
+    game._selectSaveFile()
+
+    # check - the player is told why, and pointed at the way out, rather than
+    # facing a menu that appears to ignore them
+    said = game.userInterface.showDialogue.call_args[0][0]
+    assert "could not be read" in said
+    assert "Delete a Save File" in said
+    game.saveFileManager.select_save_slot.assert_called_once_with(2)
+
+
+def test_deleteSaveFile_tags_the_damaged_slot():
+    # prepare - deleting is the only way to reclaim a damaged slot, so the row
+    # has to be identifiable here
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.delete_save_slot.return_value = True
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.side_effect = ["1", "1"]  # Delete Slot 1, then Yes
+
+    # call
+    game._deleteSaveFile(
+        [
+            {"slot": 1, "metadata": {"unreadable": True}},
+            {"slot": 2, "metadata": {"day": 1, "money": 0, "fishCount": 0}},
+        ]
+    )
+
+    # check
+    options = game.userInterface.showOptions.call_args_list[0][0][1]
+    assert options[0] == "Delete Slot 1 (damaged)"
+    assert options[1] == "Delete Slot 2"
+    game.saveFileManager.delete_save_slot.assert_called_once_with(1)
 
 
 def test_deleteSaveFile_confirmed():
