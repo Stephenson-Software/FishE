@@ -58,40 +58,86 @@ class SaveFileManager:
         return save_files
 
     def _read_save_metadata(self, slot_path):
-        """Read metadata from a save slot"""
-        try:
-            player_file = os.path.join(slot_path, "player.json")
-            time_file = os.path.join(slot_path, "timeService.json")
+        """Read metadata from a save slot.
 
-            if not os.path.exists(player_file):
-                return None
+        Returns None only when the slot holds no run at all (no player.json).
+        A player.json that will not parse comes back as the marker described in
+        _unreadable_save_metadata rather than as None, so a damaged slot stays
+        listed and stays claimed instead of disappearing."""
+        player_file = os.path.join(slot_path, "player.json")
+        time_file = os.path.join(slot_path, "timeService.json")
 
-            metadata = {}
-
-            # Read player data
-            if os.path.exists(player_file) and os.path.getsize(player_file) > 0:
-                with open(player_file, "r") as f:
-                    player_data = json.load(f)
-                    metadata["money"] = player_data.get("money", 0)
-                    metadata["fishCount"] = player_data.get("fishCount", 0)
-                    metadata["energy"] = player_data.get("energy", 100)
-
-            # Read time data
-            if os.path.exists(time_file) and os.path.getsize(time_file) > 0:
-                with open(time_file, "r") as f:
-                    time_data = json.load(f)
-                    metadata["day"] = time_data.get("day", 1)
-                    metadata["time"] = time_data.get("time", 0)
-
-            # Get last modified time
-            metadata["last_modified"] = datetime.fromtimestamp(
-                os.path.getmtime(player_file)
-            ).strftime("%Y-%m-%d %H:%M:%S")
-
-            return metadata
-        except (json.JSONDecodeError, IOError, OSError) as e:
-            # Return None for corrupted or inaccessible save files
+        if not os.path.exists(player_file):
             return None
+
+        metadata = {}
+
+        # player.json is the file that holds the run, so it is read strictly.
+        # Deliberately no "size > 0" guard: an empty file is a damaged file
+        # rather than an absent one, and skipping the read for it is what let a
+        # zero-byte save be offered in the menu as a real one.
+        try:
+            with open(player_file, "r") as f:
+                player_data = json.load(f)
+        except (json.JSONDecodeError, IOError, OSError) as error:
+            return self._unreadable_save_metadata(player_file, error)
+
+        if not isinstance(player_data, dict):
+            # Valid JSON that is not an object - a bare number, or some other
+            # file copied over the save - has no fields to read, and .get()
+            # would raise AttributeError here, taking the whole menu down with
+            # it rather than reporting one bad slot.
+            return self._unreadable_save_metadata(
+                player_file, ValueError("not a JSON object")
+            )
+
+        metadata["money"] = player_data.get("money", 0)
+        metadata["fishCount"] = player_data.get("fishCount", 0)
+        metadata["energy"] = player_data.get("energy", 100)
+
+        # The calendar is not the run: a slot whose timeService.json is missing
+        # or damaged still holds a loadable player, and FishE reports and
+        # preserves that damage on load. So this read is tolerant - leaving the
+        # fields out just falls the menu label back to its "Day 1" default.
+        try:
+            with open(time_file, "r") as f:
+                time_data = json.load(f)
+            if isinstance(time_data, dict):
+                metadata["day"] = time_data.get("day", 1)
+                metadata["time"] = time_data.get("time", 0)
+        except (json.JSONDecodeError, IOError, OSError):
+            pass
+
+        metadata["last_modified"] = self._last_modified(player_file)
+
+        return metadata
+
+    def _last_modified(self, path):
+        """A file's modification time as a display string, or None if unknown."""
+        try:
+            return datetime.fromtimestamp(os.path.getmtime(path)).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        except OSError:
+            return None
+
+    def _unreadable_save_metadata(self, player_file, error):
+        """Metadata standing in for a slot whose player.json will not parse.
+
+        Returned instead of None because list_save_files() drops a slot with no
+        metadata, and get_next_available_slot() derives the taken slot numbers
+        from that same filtered list - so a damaged slot used to vanish from the
+        menu *and* be handed straight back as "Create New Save", pointing the
+        next save at the occupied directory and overwriting the intact
+        stats.json and timeService.json sitting beside the damaged file.
+
+        Callers key off "unreadable" to show the slot as present but unpickable
+        (see FishE._selectSaveFile)."""
+        return {
+            "unreadable": True,
+            "reason": str(error),
+            "last_modified": self._last_modified(player_file),
+        }
 
     def get_next_available_slot(self):
         """Returns the next available save slot number, or None if all slots are full"""

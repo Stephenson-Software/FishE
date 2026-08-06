@@ -60,17 +60,24 @@ class FishE:
         # Show save file selection menu (uses the UI above)
         self._selectSaveFile()
 
-        # Load the chosen slot over the defaults if it has data
+        # Load the chosen slot over the defaults if it has data.
+        #
+        # Existence is the only condition: a file that is present but empty is a
+        # damaged save, not an absent one, and it has to reach the loader to be
+        # treated as such. Skipping the read on a zero-byte file (which an
+        # earlier truncating write could leave behind) meant nothing was
+        # appended to failedLoads, so the player was handed a starting character
+        # on the saved calendar with no warning and no copy kept.
         player_path = self.saveFileManager.get_save_path("player.json")
-        if os.path.exists(player_path) and os.path.getsize(player_path) > 0:
+        if os.path.exists(player_path):
             self.loadPlayer()
 
         stats_path = self.saveFileManager.get_save_path("stats.json")
-        if os.path.exists(stats_path) and os.path.getsize(stats_path) > 0:
+        if os.path.exists(stats_path):
             self.loadStats()
 
         time_path = self.saveFileManager.get_save_path("timeService.json")
-        if os.path.exists(time_path) and os.path.getsize(time_path) > 0:
+        if os.path.exists(time_path):
             self.loadTimeService()
 
         # A failed load leaves fresh objects in place of the player's run, and
@@ -154,8 +161,28 @@ class FishE:
             # Build the option list, tracking what each option does in parallel.
             options = []
             actions = []  # (kind, arg) for the option at the same index
+            unavailable = {}  # {optionNumber: reason} for rows that can't be picked
             for save in save_files:
                 metadata = save["metadata"]
+                if metadata.get("unreadable"):
+                    # Shown rather than hidden, and unpickable rather than
+                    # loadable. Hiding it is what let the slot be handed back as
+                    # "Create New Save" and overwritten (see
+                    # SaveFileManager._unreadable_save_metadata); offering it as
+                    # a save would promise a run that cannot be read. Deleting
+                    # it is how the slot gets reclaimed, so the reason says so.
+                    # The action is only here to keep actions[] aligned with
+                    # options[] - showOptions will not return this number.
+                    # The label only identifies the slot; the blocker lives in
+                    # the reason, the same way every other unusable option in
+                    # the game is built. Spelling "damaged, cannot be loaded"
+                    # into the label as well reads as a stutter once a
+                    # front-end appends the reason to the row.
+                    options.append("Slot %d (damaged)" % save["slot"])
+                    actions.append(("damaged", save["slot"]))
+                    reason = "can't be read - delete it to reuse the slot"
+                    unavailable[len(options)] = reason
+                    continue
                 options.append(
                     "Load Slot %d (Day %d, $%d, %d fish)"
                     % (
@@ -178,7 +205,9 @@ class FishE:
             actions.append(("quit", None))
 
             choice = int(
-                self.userInterface.showOptions("FishE - Save File Manager", options)
+                self.userInterface.showOptions(
+                    "FishE - Save File Manager", options, unavailable
+                )
             )
             kind, arg = actions[choice - 1]
 
@@ -190,10 +219,30 @@ class FishE:
                 # loop to show the refreshed menu either way
             elif kind == "quit":
                 exit(0)
+            elif kind == "damaged":
+                # A conforming front-end refuses to return an unavailable
+                # option's number, so this should be unreachable. It is handled
+                # anyway because the alternative is falling out of this
+                # if-chain and silently re-rendering the same menu forever,
+                # which is an unexplained hang rather than a visible bug - and
+                # a new front-end is exactly the thing that would get this
+                # wrong (see the parity note on BaseUserInterface.showOptions).
+                self.userInterface.showDialogue(
+                    "Slot %d can't be loaded: its player.json could not be "
+                    "read.\n\nIt has been left alone rather than overwritten, "
+                    "so you can still copy the folder somewhere safe. To use "
+                    "the slot again, choose 'Delete a Save File'." % arg
+                )
 
     def _deleteSaveFile(self, save_files):
         """Delete a save file. Returns True if a file was deleted, False if cancelled."""
-        options = ["Delete Slot %d" % save["slot"] for save in save_files]
+        # A damaged slot is tagged here too: this menu is the only way to
+        # reclaim it, so the player has to be able to tell which row is the
+        # unreadable one they came here to clear.
+        options = []
+        for save in save_files:
+            damaged = " (damaged)" if save["metadata"].get("unreadable") else ""
+            options.append("Delete Slot %d%s" % (save["slot"], damaged))
         options.append("Cancel")
 
         choice = int(self.userInterface.showOptions("Delete a Save File", options))

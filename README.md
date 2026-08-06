@@ -124,14 +124,18 @@ Sell your catch at the shop. The shop has a limited amount of money each day tha
 ### Multiple Save Files
 FishE supports multiple save files, allowing you to maintain different game progressions simultaneously. When you start the game, you'll see a save file manager that displays:
 
-- **Existing Saves**: each save slot is listed with a snapshot of its progress (Day, Money, and Fish count)
+- **Existing Saves**: each save slot is listed with a snapshot of its progress (Day, Money, and Fish count) — or, if the slot is damaged, with the fact that it can't be loaded (see below)
 - **Create New Save**: Start a fresh game in a new save slot
 - **Delete Save**: Remove unwanted save files
 - **Load**: Pick any existing save slot to continue your adventure
 
 Each save file is stored in its own slot (slot_1, slot_2, etc.) in the `data/` directory, ensuring your saves never conflict with each other. Set `FISHE_SAVE_DIR` to keep them somewhere else.
 
-Saves are written atomically — each file goes to a temporary file beside it and is swapped into place only once it's complete — so a crash or a power cut mid-save leaves the previous save intact rather than a half-written one. If a slot still turns out to be unreadable, the game tells you so on startup instead of starting quietly from scratch, and copies the whole slot into a `damaged-<date>-<time>` folder inside it before the new game overwrites anything. That folder is yours to inspect or restore by hand; deleting the slot from the menu deletes it too.
+Saves are written atomically — each file goes to a temporary file beside it and is swapped into place only once it's complete — so a crash or a power cut mid-save leaves the previous save intact rather than a half-written one.
+
+If a slot's `player.json` still turns out to be unreadable, the slot is listed as `Slot N (damaged)` rather than dropped from the menu, and marked unpickable with its reason the same way any unusable option is (see above) — so you can see it's there and can't pick it by mistake. Its number stays taken too, so **Create New Save** offers the next free slot instead of pointing a new game at the damaged one and overwriting the intact files beside it. Deleting it from the menu is how you reclaim the slot, and that row is marked `(damaged)` so you know which one you're clearing.
+
+Damage the menu can't see ahead of time — a save that parses but fails validation, or a bad `stats.json` or `timeService.json` — is caught on load instead: the game tells you so on startup rather than starting quietly from scratch, and copies the whole slot into a `damaged-<date>-<time>` folder inside it before the new game overwrites anything. That folder is yours to inspect or restore by hand; deleting the slot from the menu deletes it too.
 
 When you play in your own browser (the Pyodide front-end above), those same slots are written to your browser's IndexedDB instead of to disk — creating, saving and deleting a slot all take effect there, so your progress is waiting for you when you come back to the tab. They belong to that browser on that machine: clearing the site's data clears them, and they don't follow you to another browser or another device.
 
