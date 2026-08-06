@@ -173,9 +173,14 @@ class FishE:
                     # it is how the slot gets reclaimed, so the reason says so.
                     # The action is only here to keep actions[] aligned with
                     # options[] - showOptions will not return this number.
-                    options.append("Slot %d - damaged, cannot be loaded" % save["slot"])
+                    # The label only identifies the slot; the blocker lives in
+                    # the reason, the same way every other unusable option in
+                    # the game is built. Spelling "damaged, cannot be loaded"
+                    # into the label as well reads as a stutter once a
+                    # front-end appends the reason to the row.
+                    options.append("Slot %d (damaged)" % save["slot"])
                     actions.append(("damaged", save["slot"]))
-                    reason = "this save is damaged - delete it to reuse the slot"
+                    reason = "can't be read - delete it to reuse the slot"
                     unavailable[len(options)] = reason
                     continue
                 options.append(
