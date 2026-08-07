@@ -73,3 +73,35 @@ class TimeService:
             "evicted": rentSummary["evicted"],
             "report": boats.describeDay(fleetSummary),
         }
+
+
+def dayReportLines(summary):
+    """What the player has to be told about a day that just passed.
+
+    Takes increaseDay()'s (or increaseTime()'s) return value and turns it into
+    display lines: the fleet's overnight takings, then the eviction notice if
+    rent went unpaid.
+
+    Lives beside the producer because reading only "evicted" and dropping
+    "report" is the mistake this is here to stop being possible - a player
+    could sail a multi-day voyage and come home a crew member short, or
+    homeless, without a line of text saying so. increaseTime() returns
+    {"evicted": False, "report": []} on the hours that don't roll a day, so
+    every caller can pass its return value straight in without first checking
+    whether a day actually turned over; the result is simply empty."""
+    lines = list(summary.get("report", []))
+    if summary.get("evicted"):
+        lines.append(housing.EVICTION_MESSAGE)
+    return lines
+
+
+def appendDayReport(prompt, summary, separator=" "):
+    """Append dayReportLines() to the prompt the player is about to be shown.
+
+    separator is the gap placed before each line. It defaults to one space,
+    which is what a location uses when the line continues a sentence it just
+    wrote ("You sleep until the next morning. ..."). FishE's game loop passes
+    two, because there the day's news is being appended to whatever a
+    completely different subsystem already put on the screen."""
+    for line in dayReportLines(summary):
+        prompt.text += separator + line

@@ -1330,7 +1330,7 @@ def test_exportFish_reports_an_eviction_from_the_day_that_passed():
 
     def evictOnNewDay():
         docksInstance.player.homeTier = 0
-        return {"evicted": True}
+        return {"evicted": True, "report": ["The Marauder landed 9 fish."]}
 
     docksInstance.timeService.increaseDay = MagicMock(side_effect=evictOnNewDay)
     docksInstance.userInterface.showOptions = MagicMock(return_value="1")
@@ -1338,8 +1338,10 @@ def test_exportFish_reports_an_eviction_from_the_day_that_passed():
     # call
     docksInstance.exportFish()
 
-    # check - the trip report mentions what happened while the player was away
+    # check - the trip report mentions what happened while the player was away:
+    # both the eviction and the fleet's own takings for the day.
     assert housing.EVICTION_MESSAGE in docksInstance.currentPrompt.text
+    assert "The Marauder landed 9 fish." in docksInstance.currentPrompt.text
 
 
 def createSailingDocks(role=None, tier=3, crew=2, damage=0, money=5000):
@@ -2082,3 +2084,58 @@ def test_repair_menu_greys_out_a_hull_the_player_cannot_pay_for():
     call = docksInstance.userInterface.showOptions.call_args
     assert call[0][2] == {1: "repair costs $%d" % cost}
     assert call[0][1][-1] == "Back"
+
+
+def test_fish_reports_what_the_fleet_did_while_the_player_was_on_the_water():
+    # A trip long enough to cross 8am used to read only the "evicted" flag and
+    # drop the fleet's overnight report, so a crew member who didn't come back
+    # went unmentioned until the player happened to open Manage Fleet.
+    docksInstance = createDocks()
+    docksInstance.userInterface.lotsOfSpace = MagicMock()
+    docksInstance.userInterface.divider = MagicMock()
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+
+    with patch("src.location.docks.random.randint", side_effect=[3, 6]):
+        # the day rolls over partway through the trip, with news
+        docksInstance.timeService.increaseTime = MagicMock(
+            side_effect=[
+                {"evicted": False, "report": []},
+                {"evicted": False, "report": ["The Marauder came home a man short."]},
+                {"evicted": False, "report": []},
+            ]
+        )
+
+        # call
+        docksInstance.fish()
+
+    # check - the trip's own message still leads, with the day's news after it
+    assert "You caught" in docksInstance.currentPrompt.text
+    assert "The Marauder came home a man short." in docksInstance.currentPrompt.text
+
+
+def test_a_voyage_leg_reports_what_happened_back_home():
+    # Each leg rolls a day, which runs wages, rent and eviction at home. The
+    # leg used to bind nothing from increaseDay(), so a player could sail a
+    # multi-day voyage and come home evicted with nothing having said so.
+    docksInstance, boat = createSailingDocks()
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=voyageChooser(
+            "Marauder", "A short run", "Full stores", then="first"
+        )
+    )
+    docksInstance.userInterface.showDialogue = MagicMock()
+    docksInstance.timeService.increaseDay = MagicMock(
+        return_value={"evicted": True, "report": ["The fleet landed 9 fish."]}
+    )
+
+    # call
+    with patch("src.business.adventures.random.randint", return_value=0):
+        with patch("src.business.adventures.random.random", return_value=0.99):
+            docksInstance.takeTheHelm()
+
+    # check - the news is on the same screen as the leg that caused it
+    said = "\n".join(
+        call[0][0] for call in docksInstance.userInterface.showDialogue.call_args_list
+    )
+    assert "The fleet landed 9 fish." in said
+    assert housing.EVICTION_MESSAGE in said

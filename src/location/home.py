@@ -1,7 +1,7 @@
 from location.enum.locationType import LocationType
 from player.player import Player
 from prompt.prompt import Prompt
-from world.timeService import TimeService
+from world.timeService import TimeService, appendDayReport
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from achievements import achievements
@@ -84,10 +84,7 @@ class Home:
         )
         # What the fleet did overnight, so a crew lost or a hull damaged is
         # news the player is told rather than something they discover later.
-        for line in summary.get("report", []):
-            self.currentPrompt.text += " " + line
-        if summary["evicted"]:
-            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
+        appendDayReport(self.currentPrompt, summary)
 
     def _moveCostLabel(self, netCost):
         if netCost > 0:

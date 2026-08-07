@@ -4,13 +4,12 @@ from location.enum.locationType import LocationType
 
 from player.player import Player
 from prompt.prompt import Prompt
-from world.timeService import TimeService
+from world.timeService import TimeService, appendDayReport
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
 from npc import villagers
 from business import business
-from housing import housing
 from progression import progression
 
 
@@ -222,11 +221,7 @@ class Tavern:
         else:
             self.currentPrompt.text = "You have a headache."
 
-        summary = self.timeService.increaseDay()
-        for line in summary.get("report", []):
-            self.currentPrompt.text += " " + line
-        if summary["evicted"]:
-            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
+        appendDayReport(self.currentPrompt, self.timeService.increaseDay())
 
     def gamble(self):
         while True:

@@ -673,3 +673,22 @@ def test_gamble_frees_the_dice_once_a_bet_is_on_the_table():
 
     # check
     assert markedOptions(tavernInstance) == {}
+
+
+def test_getDrunk_reports_what_the_fleet_did_overnight():
+    # Drinking rolls the day over the same way sleeping does, so it owes the
+    # player the same overnight report.
+    from src.housing import housing
+
+    tavernInstance = createTavern()
+    tavernInstance.player.money = tavern.DRINK_COST
+    tavernInstance.timeService.increaseDay = MagicMock(
+        return_value={"evicted": True, "report": ["The Marauder landed 12 fish."]}
+    )
+
+    # call
+    tavernInstance.getDrunk()
+
+    # check
+    assert "The Marauder landed 12 fish." in tavernInstance.currentPrompt.text
+    assert housing.EVICTION_MESSAGE in tavernInstance.currentPrompt.text

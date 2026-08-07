@@ -10,7 +10,7 @@ from prompt.prompt import Prompt
 from player.playerJsonReaderWriter import PlayerJsonReaderWriter
 from stats.statsJsonReaderWriter import StatsJsonReaderWriter
 from world.timeServiceJsonReaderWriter import TimeServiceJsonReaderWriter
-from world.timeService import TimeService
+from world.timeService import TimeService, appendDayReport
 from stats.stats import Stats
 from ui.userInterfaceFactory import UserInterfaceFactory
 from ui.enum.uiType import UIType
@@ -18,7 +18,6 @@ from saveFileManager import SaveFileManager
 from browserSaveSync import syncBrowserSaves
 from achievements import achievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
-from housing import housing
 from progression import progression
 from config.config import Config
 
@@ -306,12 +305,15 @@ class FishE:
             # announce reaching the wealth goal once (the run continues)
             self.announceGoalIfReached()
 
-            # increase time - almost any action can roll a day over, so this
-            # is the one place guaranteed to catch an eviction regardless of
-            # what triggered it (appended so the action's own message is
-            # preserved on the next screen, same as milestones above)
-            if self.timeService.increaseTime()["evicted"]:
-                self.prompt.text += "  " + housing.EVICTION_MESSAGE
+            # increase time - almost any action can roll a day over, so this is
+            # the one place guaranteed to catch an eviction (and the fleet's
+            # overnight takings) regardless of what triggered it. Two spaces
+            # because this is appended to whatever the action itself already
+            # wrote, and is preserved on the next screen the same way the
+            # milestones above are.
+            appendDayReport(
+                self.prompt, self.timeService.increaseTime(), separator="  "
+            )
 
             self.save()
 

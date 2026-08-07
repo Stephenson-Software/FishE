@@ -1124,3 +1124,39 @@ def test_play_announces_one_unlock_per_screen():
     ]
     assert len(announcements) == 1
     assert game.stats.unlockedFeatures == [progression.SHOP]
+
+
+def test_play_appends_the_overnight_fleet_report():
+    # The hourly tick is the one place guaranteed to run whatever the player
+    # did, and it used to read only "evicted" - dropping the fleet's overnight
+    # report on any action that happened to roll the day over.
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.timeService.increaseTime.return_value = {
+        "evicted": False,
+        "report": ["The Marauder landed 12 fish."],
+    }
+
+    # call
+    game.play()
+
+    # check
+    assert "The Marauder landed 12 fish." in game.prompt.text
+
+
+def test_play_appends_the_fleet_report_and_the_eviction_together():
+    # Both halves of the day's news survive the same tick, separated from the
+    # action's own message by the game loop's wider gap.
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.timeService.increaseTime.return_value = {
+        "evicted": True,
+        "report": ["The Marauder landed 12 fish."],
+    }
+
+    # call
+    game.play()
+
+    # check
+    assert "The Marauder landed 12 fish." in game.prompt.text
+    assert housing.EVICTION_MESSAGE in game.prompt.text

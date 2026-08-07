@@ -3,7 +3,13 @@ from unittest.mock import patch
 
 from src.player.player import Player
 from src.stats.stats import Stats
-from src.world.timeService import TimeService
+from src.housing import housing
+from src.prompt.prompt import Prompt
+from src.world.timeService import (
+    TimeService,
+    appendDayReport,
+    dayReportLines,
+)
 
 
 def createTimeService():
@@ -202,3 +208,58 @@ def test_increaseDay_rolls_new_weather():
     # check - weather was rolled from the documented option pool
     mockChoice.assert_called_once_with(WEATHER_OPTIONS)
     assert timeService.weather == "stormy"
+
+
+def test_dayReportLines_carries_the_fleet_report_and_the_eviction_notice():
+    # Both halves of increaseDay()'s contract, in the order the player reads
+    # them: what the fleet did, then what went wrong at home.
+    lines = dayReportLines(
+        {"evicted": True, "report": ["The Marauder landed 12 fish.", "Bess quit."]}
+    )
+
+    assert lines == [
+        "The Marauder landed 12 fish.",
+        "Bess quit.",
+        housing.EVICTION_MESSAGE,
+    ]
+
+
+def test_dayReportLines_is_empty_on_an_hour_that_does_not_roll_a_day():
+    # increaseTime() returns this shape 23 hours out of 24, so every caller can
+    # pass its return value straight in without checking first.
+    assert dayReportLines({"evicted": False, "report": []}) == []
+
+
+def test_dayReportLines_tolerates_a_summary_with_no_report_key():
+    # Callers that only ever produced an eviction flag (and tests that mock
+    # increaseTime with just {"evicted": ...}) must not raise here.
+    assert dayReportLines({"evicted": False}) == []
+    assert dayReportLines({"evicted": True}) == [housing.EVICTION_MESSAGE]
+
+
+def test_appendDayReport_appends_nothing_when_no_day_passed():
+    prompt = Prompt("You caught 3 cod.")
+
+    appendDayReport(prompt, {"evicted": False, "report": []})
+
+    assert prompt.text == "You caught 3 cod."
+
+
+def test_appendDayReport_separator_defaults_to_one_space():
+    prompt = Prompt("You sleep until the next morning.")
+
+    appendDayReport(prompt, {"evicted": False, "report": ["The fleet landed 4 fish."]})
+
+    assert prompt.text == ("You sleep until the next morning. The fleet landed 4 fish.")
+
+
+def test_appendDayReport_honours_a_wider_separator():
+    # FishE's game loop passes two spaces, because there the day's news is
+    # appended to text a different subsystem already wrote.
+    prompt = Prompt("You bought a rod.")
+
+    appendDayReport(
+        prompt, {"evicted": False, "report": ["The fleet landed 4 fish."]}, "  "
+    )
+
+    assert prompt.text == "You bought a rod.  The fleet landed 4 fish."
