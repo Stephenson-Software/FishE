@@ -550,3 +550,21 @@ def test_manageHome_marks_nothing_when_every_move_is_affordable():
 
     # check
     assert markedOptions(homeInstance) == {}
+
+
+def test_sleep_reports_what_the_fleet_did_overnight():
+    # Sleeping is the commonest way a day passes, so the overnight report has to
+    # survive the shared helper this site now routes through.
+    homeInstance = createHome()
+    homeInstance.timeService.increaseDay = MagicMock(
+        return_value={"evicted": False, "report": ["The Marauder landed 12 fish."]}
+    )
+
+    # call
+    homeInstance.sleep()
+
+    # check - the night's own message leads, the fleet's news follows
+    assert homeInstance.currentPrompt.text.startswith(
+        "You sleep until the next morning"
+    )
+    assert "The Marauder landed 12 fish." in homeInstance.currentPrompt.text

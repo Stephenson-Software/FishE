@@ -3,7 +3,7 @@ import random
 from location.enum.locationType import LocationType
 from player.player import Player
 from prompt.prompt import Prompt
-from world.timeService import TimeService
+from world.timeService import TimeService, appendDayReport, dayReportLines
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from npc.npc import NPC
@@ -13,7 +13,6 @@ from business import business
 from business import boats
 from business import export
 from business import adventures
-from housing import housing
 from progression import progression
 
 
@@ -920,11 +919,15 @@ class Docks:
             outcome = adventures.resolveChoice(voyage, choices[picked - 1])
             notes = adventures.advanceLeg(voyage)
 
-            self.userInterface.showDialogue(
-                "\n".join([outcome] + notes) if notes else outcome
-            )
-            # A day at sea is a day at home too.
-            self.timeService.increaseDay()
+            # A day at sea is a day at home too - the fleet still lands its
+            # catch and rent still comes due while the player is away. The
+            # day rolls before the dialogue is built so its news goes on the
+            # same screen as the leg that caused it; dropping it is how a
+            # player could sail a five-day voyage and come home evicted with
+            # nothing on screen having said so.
+            dayLines = dayReportLines(self.timeService.increaseDay())
+
+            self.userInterface.showDialogue("\n".join([outcome] + notes + dayLines))
 
         self._endVoyage(voyage)
 
@@ -972,14 +975,6 @@ class Docks:
             else "  Hull     sound"
         )
         return "\n".join(lines)
-
-    def _reportTheDay(self, summary):
-        """Append what happened while a day passed - the fleet's overnight
-        takings, and anything that went wrong at home."""
-        for line in summary.get("report", []):
-            self.currentPrompt.text += " " + line
-        if summary["evicted"]:
-            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
 
     def _exportStatus(self):
         """What the next export run would look like, shown above the market
@@ -1076,7 +1071,7 @@ class Docks:
         # The round trip is what stops exporting from being a free repeatable
         # action, so the day passes here (and everything a new day brings -
         # the crew's catch, wages, rent - happens while you're away).
-        self._reportTheDay(self.timeService.increaseDay())
+        appendDayReport(self.currentPrompt, self.timeService.increaseDay())
         return True
 
     def _exportRefusal(self, summary, market):
@@ -1181,14 +1176,17 @@ class Docks:
             quality, qualityLabel = 0.25, "The fish nearly got away."
 
         # Spend the fishing hours: time passes and energy is consumed. A long
-        # enough trip can cross a day boundary (and so, e.g., miss a rent
-        # payment) without the player ever seeing a "new day" screen, so
-        # track that across the loop to mention it in the trip's own report.
-        evicted = False
+        # enough trip can cross a day boundary - missing a rent payment, or
+        # landing the fleet's catch - without the player ever seeing a "new
+        # day" screen, so the day's news is collected here and folded into the
+        # trip's own report below. It has to be collected rather than appended
+        # as it happens, because that report is written further down and would
+        # overwrite anything put on the prompt now. A trip runs 1-10 hours, so
+        # it crosses at most one 8am boundary and these lines can't stack up.
+        dayLines = []
         for i in range(hours):
             self.stats.hoursSpentFishing += 1
-            if self.timeService.increaseTime()["evicted"]:
-                evicted = True
+            dayLines += dayReportLines(self.timeService.increaseTime())
             self.player.spendEnergy(10)  # Consume 10 energy per hour
 
         baseFish = random.randint(1, 10)
@@ -1216,8 +1214,10 @@ class Docks:
         if weatherLabel:
             self.currentPrompt.text += " " + weatherLabel
 
-        if evicted:
-            self.currentPrompt.text += " " + housing.EVICTION_MESSAGE
+        # What the fleet did while the player was out on the water, and the
+        # eviction notice if a day turned over mid-trip.
+        for line in dayLines:
+            self.currentPrompt.text += " " + line
 
     def talkToNPC(self):
         self.userInterface.showInteractiveDialogue(self.npc)
