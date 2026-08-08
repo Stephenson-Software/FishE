@@ -900,14 +900,37 @@ def test_selectSaveFile_delete_then_quit():
     # Delete submenu: Delete Slot 1 / Cancel -> "2" (Cancel)
     # Menu again: same options -> "4" (Quit)
     game.userInterface.showOptions.side_effect = ["3", "2", "4"]
+    game.running = True
 
-    # call/check - Quit calls exit(0), which raises SystemExit
-    try:
-        game._selectSaveFile()
-        assert False, "expected SystemExit"
-    except SystemExit as e:
-        assert e.code == 0
+    # call
+    game._selectSaveFile()
+
+    # check - Quit ends the run rather than the process, so play() still gets to
+    # run and clean the front-end up. No slot is selected on the way out.
+    assert game.running is False
     game.saveFileManager.select_save_slot.assert_not_called()
+
+
+def test_init_stops_short_of_building_a_run_when_the_save_menu_is_quit():
+    # No slot was chosen, so there is nothing to load a run out of -
+    # get_save_path() raises ValueError without one. __init__ returns instead,
+    # leaving play() to fall straight through to its cleanup().
+    createFishE()  # installs the module-level mocks the rest of this file uses
+    saveManager = fishE.SaveFileManager.return_value
+    saveManager.get_save_path.reset_mock()
+
+    def quitTheMenu(self):
+        self.running = False
+
+    with patch.object(fishE.FishE, "_selectSaveFile", quitTheMenu):
+        game = fishE.FishE()
+
+    # check - nothing past the menu ran, and the front-end is still there for
+    # play() to clean up
+    assert game.running is False
+    assert not hasattr(game, "locations")
+    saveManager.get_save_path.assert_not_called()
+    assert game.userInterface is not None
 
 
 def createGameForPlay():
@@ -1160,3 +1183,50 @@ def test_play_appends_the_fleet_report_and_the_eviction_together():
     # check
     assert "The Marauder landed 12 fish." in game.prompt.text
     assert housing.EVICTION_MESSAGE in game.prompt.text
+
+
+def test_play_cleans_the_front_end_up_when_the_run_ends():
+    # cleanup() is what publishes the "game over" screen on the browser
+    # front-ends and closes pygame's window. It had one production caller, on
+    # the Pyodide path, so a player who retired under the server-backed web
+    # front-end was shown "lost connection to the game" instead.
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+
+    # call
+    game.play()
+
+    # check
+    game.userInterface.cleanup.assert_called_once()
+
+
+def test_play_cleans_the_front_end_up_even_when_a_location_raises():
+    # A crash still has to release the window and close the socket, or the
+    # browser sits on a screen that never changes and pygame keeps its display.
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.side_effect = RuntimeError("boom")
+
+    # call
+    try:
+        game.play()
+        assert False, "expected the location's error to propagate"
+    except RuntimeError:
+        pass
+
+    # check
+    game.userInterface.cleanup.assert_called_once()
+
+
+def test_play_cleans_the_front_end_up_when_the_save_menu_was_quit():
+    # Quitting the save-file manager leaves running False, so the loop never
+    # runs a single iteration - and that is exactly the path that used to call
+    # exit(0) and take the process down before any front-end was told.
+    game = createGameForPlay()
+    game.running = False
+
+    # call
+    game.play()
+
+    # check
+    game.locations[LocationType.HOME].run.assert_not_called()
+    game.userInterface.cleanup.assert_called_once()

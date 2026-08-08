@@ -21,6 +21,16 @@ WEB_ASSET_DIRECTORY = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web")
 )
 
+# How long cleanup() will hold the server open waiting for the browser to
+# collect the ended screen. The page polls every 300ms (see htmlPage below), so
+# this is many attempts' worth - it is a ceiling for the case where nobody is
+# listening at all (the tab was closed, or the game was driven by something
+# other than a browser), not an expected wait. Without it the socket closed in
+# the same instant the ended screen was published, and the player who had just
+# retired was told the game had crashed.
+ENDED_SCREEN_PICKUP_TIMEOUT_SECONDS = 2.0
+ENDED_SCREEN_PICKUP_INTERVAL_SECONDS = 0.02
+
 
 def _readWebAsset(name):
     """Read a shared browser-client file from web/, or explain why it could not."""
@@ -190,6 +200,14 @@ class WebUserInterface(BaseUserInterface):
         self._screen = {"type": "loading"}
         self._version = 0
         self._inputQueue = queue.Queue()
+        # The highest version the browser has actually been handed, or None if
+        # it has never asked for one. cleanup() is the only reader: it is what
+        # lets the server stay open exactly long enough for the ended screen to
+        # be collected, rather than for a fixed guess at how long a poll takes.
+        # None rather than 0 because the opening screen is version 0, so a page
+        # that polled before the game presented anything is a real listener and
+        # has to be told apart from one that never connected.
+        self._servedVersion = None
         self._server = None
         if start_server:
             self._server = ThreadingHTTPServer((host, port), _makeRequestHandler(self))
@@ -205,6 +223,8 @@ class WebUserInterface(BaseUserInterface):
     def get_state(self):
         """Snapshot of the current screen for the browser to render."""
         with self._lock:
+            # Serving it counts as delivering it; see _awaitEndedScreenPickup.
+            self._servedVersion = self._version
             return {"version": self._version, "screen": self._screen}
 
     def submit_input(self, value):
@@ -303,6 +323,40 @@ class WebUserInterface(BaseUserInterface):
     def cleanup(self):
         self._present({"type": "ended"})
         if self._server is not None:
+            # Publishing the screen is not the same as the browser having it:
+            # the page only finds out on its next poll. Closing the socket first
+            # is what turned "you retired" into "lost connection to the game".
+            self._awaitEndedScreenPickup()
             self._server.shutdown()
             self._server.server_close()
             self._server = None
+
+    def _awaitEndedScreenPickup(
+        self,
+        timeoutSeconds=ENDED_SCREEN_PICKUP_TIMEOUT_SECONDS,
+        intervalSeconds=ENDED_SCREEN_PICKUP_INTERVAL_SECONDS,
+    ):
+        """Block until the browser has been served the current screen.
+
+        Returns True if it was collected (or if there was never anyone to
+        collect it), False if the timeout ran out first - which is the "stopped
+        listening" case, a reason to shut down anyway rather than to hang the
+        process on the way out.
+
+        A page that has never once asked for a screen is not a browser that is
+        about to; waiting on it would only spend the timeout to reach the same
+        shutdown. So an untouched server closes immediately.
+
+        Only the server-backed front-end needs any of this. PyodideUserInterface
+        pushes screens to the page as they are presented and has no server, so
+        cleanup() never reaches here."""
+        deadline = time.time() + timeoutSeconds
+        while True:
+            with self._lock:
+                if self._servedVersion is None:
+                    return True
+                if self._servedVersion >= self._version:
+                    return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(intervalSeconds)

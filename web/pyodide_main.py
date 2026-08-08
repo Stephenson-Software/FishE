@@ -22,20 +22,18 @@ def main():
     game = None
     try:
         game = FishE(interfaceType=UIType.PYODIDE)
+        # play() publishes the ended screen itself, from a finally, so every
+        # front-end is told the session is over rather than only this one.
         game.play()
     except SystemExit:
-        # Choosing "Quit" in the save-file manager calls exit(). In a browser
-        # tab there is no process to end, and letting SystemExit escape would
-        # surface as a Worker error, so it is treated as a normal finish.
+        # Nothing in the game raises this any more, but a browser tab has no
+        # process to end and letting SystemExit escape would surface as a Worker
+        # error, so it is still treated as a normal finish.
         pass
 
-    # Nothing else calls cleanup() when the game loop ends, and without it the
-    # tab would sit on the last screen forever rather than saying it's over.
-    if game is not None:
-        game.userInterface.cleanup()
-    else:
-        # Quit before the game finished being built: there is no interface to
-        # clean up, so tell the page directly.
+    if game is None:
+        # The game never finished being built, so there is no interface to have
+        # cleaned up: tell the page directly.
         SharedArrayBufferBridge().postScreen({"type": "ended"})
 
 

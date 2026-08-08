@@ -308,3 +308,94 @@ def test_showOptions_refuses_an_unavailable_choice():
     ui.submit_input("2")  # available
     thread.join(timeout=2)
     assert box["result"] == "2"
+
+
+def test_cleanup_publishes_the_ended_screen():
+    ui = makeWebUI()
+
+    # call
+    ui.cleanup()
+
+    # check
+    assert ui.get_state()["screen"]["type"] == "ended"
+
+
+def test_cleanup_holds_the_server_open_until_the_ended_screen_is_collected():
+    # The page only discovers new state on its next poll (300ms apart), so
+    # closing the socket in the same instant the ended screen is published is
+    # what showed "lost connection to the game" to a player who had just retired.
+    ui = makeWebUI(start_server=True, port=0)
+    host, port = ui.address
+    base = "http://127.0.0.1:%d" % port
+
+    # a browser is listening: it has collected at least one screen already
+    urllib.request.urlopen(base + "/state", timeout=2).read()
+
+    collected = {}
+
+    def pollUntilEnded():
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            try:
+                raw = urllib.request.urlopen(base + "/state", timeout=2).read()
+            except Exception:
+                return  # server closed before the ended screen could be read
+            if json.loads(raw)["screen"]["type"] == "ended":
+                collected["seen"] = True
+                return
+            time.sleep(0.02)
+
+    poller = threading.Thread(target=pollUntilEnded)
+    poller.start()
+
+    # call
+    ui.cleanup()
+    poller.join(timeout=3)
+
+    # check - the browser read the ended screen off a server that was still up
+    assert collected.get("seen") is True
+
+
+def test_cleanup_closes_a_server_no_browser_ever_polled_without_waiting():
+    # Nothing has ever asked for a screen, so there is no page about to find out
+    # about this one - waiting would only spend the timeout to reach the same
+    # shutdown.
+    ui = makeWebUI(start_server=True, port=0)
+
+    # call
+    started = time.time()
+    ui.cleanup()
+    elapsed = time.time() - started
+
+    # check
+    assert elapsed < webUserInterface.ENDED_SCREEN_PICKUP_TIMEOUT_SECONDS
+    assert ui.address is None
+
+
+def test_cleanup_gives_up_on_a_browser_that_stopped_listening():
+    # The tab was closed mid-run: a client polled once and never came back. The
+    # process must not hang on the way out.
+    ui = makeWebUI(start_server=True, port=0)
+    host, port = ui.address
+    urllib.request.urlopen("http://127.0.0.1:%d/state" % port, timeout=2).read()
+
+    # call - a short ceiling stands in for the real one so the suite isn't slowed
+    ui._present({"type": "ended"})
+    collected = ui._awaitEndedScreenPickup(timeoutSeconds=0.05, intervalSeconds=0.01)
+
+    # check
+    assert collected is False
+    ui.cleanup()
+
+
+def test_cleanup_is_safe_to_call_twice():
+    # play() runs it from a finally, and a front-end driven directly may run it
+    # again; the second call must not fail on an already-closed server.
+    ui = makeWebUI(start_server=True, port=0)
+
+    # call
+    ui.cleanup()
+    ui.cleanup()
+
+    # check
+    assert ui.get_state()["screen"]["type"] == "ended"

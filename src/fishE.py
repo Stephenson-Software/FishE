@@ -59,6 +59,15 @@ class FishE:
         # Show save file selection menu (uses the UI above)
         self._selectSaveFile()
 
+        # "Quit" from that menu leaves no slot selected, and there is no run to
+        # build around one. Everything below would fail on the first
+        # get_save_path() anyway, so this returns instead - leaving play() to
+        # fall straight through to cleanup(), which is what tells a browser
+        # front-end the session is over. (This used to be exit(0) inside the
+        # menu, which killed the process before any front-end could be told.)
+        if not self.running:
+            return
+
         # Load the chosen slot over the defaults if it has data.
         #
         # Existence is the only condition: a file that is present but empty is a
@@ -217,7 +226,11 @@ class FishE:
                 self._deleteSaveFile(save_files)
                 # loop to show the refreshed menu either way
             elif kind == "quit":
-                exit(0)
+                # Ends the run rather than the process: exit(0) here skipped
+                # play() entirely, so the front-end was never cleaned up and a
+                # browser tab was left waiting on a screen that never came.
+                self.running = False
+                return
             elif kind == "damaged":
                 # A conforming front-end refuses to return an unavailable
                 # option's number, so this should be unreachable. It is handled
@@ -266,56 +279,71 @@ class FishE:
         return False
 
     def play(self):
-        while self.running:
-            # show the current location and goal progress in the UI header
-            self.userInterface.currentLocationName = self.currentLocation.capitalize()
-            # The fortune the run is ultimately about is itself a late reveal:
-            # a player on their first cast is working toward filling a bucket,
-            # not toward $10,000, and an empty string hides the line.
-            if progression.isUnlocked(self.stats, progression.GOAL):
-                self.userInterface.goalProgress = "$%d / $%d" % (
-                    self.getTotalWealth(),
-                    GOAL_AMOUNT,
+        # cleanup() is what publishes the "game over" screen on the browser
+        # front-ends and closes pygame's window. The loop ends from several
+        # places (retiring, a location returning NONE, quitting the save-file
+        # manager), so running it from a finally is the one arrangement no
+        # front-end can be left out of - which is how the server-backed web
+        # front-end used to die mid-poll and show "lost connection" instead of
+        # the ended screen. BaseUserInterface.cleanup() is a no-op by default,
+        # so the console front-end is unaffected.
+        try:
+            while self.running:
+                # show the current location and goal progress in the UI header
+                self.userInterface.currentLocationName = (
+                    self.currentLocation.capitalize()
                 )
-            else:
-                self.userInterface.goalProgress = ""
+                # The fortune the run is ultimately about is itself a late reveal:
+                # a player on their first cast is working toward filling a bucket,
+                # not toward $10,000, and an empty string hides the line.
+                if progression.isUnlocked(self.stats, progression.GOAL):
+                    self.userInterface.goalProgress = "$%d / $%d" % (
+                        self.getTotalWealth(),
+                        GOAL_AMOUNT,
+                    )
+                else:
+                    self.userInterface.goalProgress = ""
 
-            # change location
-            nextLocation = self.locations[self.currentLocation].run()
+                # change location
+                nextLocation = self.locations[self.currentLocation].run()
 
-            if nextLocation == LocationType.NONE:
-                self.running = False
+                if nextLocation == LocationType.NONE:
+                    self.running = False
 
-            self.currentLocation = nextLocation
+                self.currentLocation = nextLocation
 
-            # announce any milestones just crossed (appended so the action's own
-            # message is preserved on the next screen)
-            newlyEarned = achievements.getNewlyEarned(self.stats)
-            for milestone in newlyEarned:
-                self.prompt.text += "  [Milestone unlocked: %s!]" % milestone["name"]
+                # announce any milestones just crossed (appended so the action's own
+                # message is preserved on the next screen)
+                newlyEarned = achievements.getNewlyEarned(self.stats)
+                for milestone in newlyEarned:
+                    self.prompt.text += (
+                        "  [Milestone unlocked: %s!]" % milestone["name"]
+                    )
 
-            # announce the one thing the player has just opened up, with the
-            # reason they opened it, so the newly-appeared menu entry is
-            # explained on the same screen it first shows up on (appended for
-            # the same reason as milestones above)
-            unlock = progression.getNextUnlock(self.player, self.stats)
-            if unlock is not None:
-                self.prompt.text += "  [%s]" % unlock["announcement"]
+                # announce the one thing the player has just opened up, with the
+                # reason they opened it, so the newly-appeared menu entry is
+                # explained on the same screen it first shows up on (appended for
+                # the same reason as milestones above)
+                unlock = progression.getNextUnlock(self.player, self.stats)
+                if unlock is not None:
+                    self.prompt.text += "  [%s]" % unlock["announcement"]
 
-            # announce reaching the wealth goal once (the run continues)
-            self.announceGoalIfReached()
+                # announce reaching the wealth goal once (the run continues)
+                self.announceGoalIfReached()
 
-            # increase time - almost any action can roll a day over, so this is
-            # the one place guaranteed to catch an eviction (and the fleet's
-            # overnight takings) regardless of what triggered it. Two spaces
-            # because this is appended to whatever the action itself already
-            # wrote, and is preserved on the next screen the same way the
-            # milestones above are.
-            appendDayReport(
-                self.prompt, self.timeService.increaseTime(), separator="  "
-            )
+                # increase time - almost any action can roll a day over, so this is
+                # the one place guaranteed to catch an eviction (and the fleet's
+                # overnight takings) regardless of what triggered it. Two spaces
+                # because this is appended to whatever the action itself already
+                # wrote, and is preserved on the next screen the same way the
+                # milestones above are.
+                appendDayReport(
+                    self.prompt, self.timeService.increaseTime(), separator="  "
+                )
 
-            self.save()
+                self.save()
+        finally:
+            self.userInterface.cleanup()
 
     def getTotalWealth(self):
         return self.player.money + self.player.moneyInBank
