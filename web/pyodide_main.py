@@ -14,29 +14,16 @@ server-backed one.
 """
 
 from ui.enum.uiType import UIType
-from ui.pyodideUserInterface import SharedArrayBufferBridge
 from fishE import FishE
 
 
 def main():
-    game = None
-    try:
-        game = FishE(interfaceType=UIType.PYODIDE)
-        game.play()
-    except SystemExit:
-        # Choosing "Quit" in the save-file manager calls exit(). In a browser
-        # tab there is no process to end, and letting SystemExit escape would
-        # surface as a Worker error, so it is treated as a normal finish.
-        pass
-
-    # Nothing else calls cleanup() when the game loop ends, and without it the
-    # tab would sit on the last screen forever rather than saying it's over.
-    if game is not None:
-        game.userInterface.cleanup()
-    else:
-        # Quit before the game finished being built: there is no interface to
-        # clean up, so tell the page directly.
-        SharedArrayBufferBridge().postScreen({"type": "ended"})
+    # play() publishes the ended screen through the front-end's cleanup() on
+    # every way out of the game - including "Quit" from the save-file manager,
+    # which ends the run rather than the process so a tab with no process to
+    # end is not a special case here (see FishE.play).
+    game = FishE(interfaceType=UIType.PYODIDE)
+    game.play()
 
 
 main()

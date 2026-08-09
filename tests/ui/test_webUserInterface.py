@@ -20,13 +20,21 @@ from stats.stats import Stats
 from world.timeService import TimeService
 
 
-def makeWebUI(start_server=False, port=0):
+def makeWebUI(start_server=False, port=0, endedScreenTimeoutSeconds=0.1):
     prompt = Prompt("What would you like to do?")
     player = Player()
     stats = Stats()
     timeService = TimeService(player, stats)
+    # No browser polls these servers, so cleanup()'s wait for the ended screen
+    # to be collected always runs to its timeout; the production default (two
+    # seconds) would be paid by every test that starts one.
     return WebUserInterface(
-        prompt, timeService, player, port=port, start_server=start_server
+        prompt,
+        timeService,
+        player,
+        port=port,
+        start_server=start_server,
+        endedScreenTimeoutSeconds=endedScreenTimeoutSeconds,
     )
 
 
@@ -308,3 +316,79 @@ def test_showOptions_refuses_an_unavailable_choice():
     ui.submit_input("2")  # available
     thread.join(timeout=2)
     assert box["result"] == "2"
+
+
+def test_cleanup_publishes_the_ended_screen():
+    # check - the run's last screen says the game is over, whether or not a
+    # server is involved (the Pyodide front-end inherits this path)
+    ui = makeWebUI()
+    ui.cleanup()
+
+    assert ui.get_state()["screen"] == {"type": "ended"}
+
+
+def test_cleanup_holds_the_server_open_until_the_ended_screen_is_fetched():
+    # The browser only learns the game finished on its next poll, so closing
+    # the socket the instant the ended screen is published loses it: the page
+    # would show "Lost connection" to a player who had just retired.
+    ui = makeWebUI(start_server=True, port=0, endedScreenTimeoutSeconds=2.0)
+    host, port = ui.address
+    base = "http://127.0.0.1:%d" % port
+
+    thread, box = runInThread(ui.cleanup)
+    try:
+        waitForScreen(ui, "ended")
+        # Still serving: the ended screen has not been collected yet.
+        assert thread.is_alive()
+        state = json.loads(urllib.request.urlopen(base + "/state", timeout=2).read())
+        assert state["screen"] == {"type": "ended"}
+    finally:
+        thread.join(timeout=3)
+
+    # check - once the page has it, the server is closed rather than left running
+    assert not thread.is_alive()
+    assert ui.address is None
+
+
+def test_cleanup_stops_waiting_when_nothing_is_listening():
+    # A closed tab (or a game driven by anything other than a browser) never
+    # fetches the ended screen, so the wait has to end on its own.
+    ui = makeWebUI(start_server=True, port=0, endedScreenTimeoutSeconds=0.2)
+
+    startTime = time.time()
+    ui.cleanup()
+    elapsed = time.time() - startTime
+
+    assert 0.2 <= elapsed < 2.0
+    assert ui.address is None
+
+
+def test_record_state_delivered_keeps_the_highest_version_seen():
+    # Two polls can overlap, and the older one can finish last; the newer
+    # screen must not be reported as uncollected because of it.
+    ui = makeWebUI()
+    ui._present({"type": "dialogue", "text": "Caught a fish!"})
+    version = ui.get_state()["version"]
+
+    ui.record_state_delivered(version)
+    ui.record_state_delivered(version - 1)
+
+    assert ui.awaitScreenDelivery(timeout=0) is True
+
+
+def test_awaitScreenDelivery_reports_an_uncollected_screen():
+    # check - a screen published after the last delivery is not treated as seen
+    ui = makeWebUI()
+    ui.record_state_delivered(ui.get_state()["version"])
+    ui._present({"type": "dialogue", "text": "Caught a fish!"})
+
+    assert ui.awaitScreenDelivery(timeout=0) is False
+
+
+def test_client_stops_polling_once_the_game_has_ended():
+    # check - the server is gone by the time the page renders the ended
+    # screen, so the poll loop stops rather than failing every 300ms for the
+    # rest of the tab's life
+    page = webUserInterface.htmlPage()
+
+    assert 'state.screen.type === "ended"' in page

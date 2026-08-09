@@ -59,6 +59,14 @@ class FishE:
         # Show save file selection menu (uses the UI above)
         self._selectSaveFile()
 
+        # "Quit" from that menu clears running rather than ending the process,
+        # so the front-end still gets its cleanup() (see _selectSaveFile and
+        # play()). Nothing below can run without a chosen slot - get_save_path()
+        # raises when none was selected - and there is no run to build anyway,
+        # so construction stops here and play() returns immediately.
+        if not self.running:
+            return
+
         # Load the chosen slot over the defaults if it has data.
         #
         # Existence is the only condition: a file that is present but empty is a
@@ -153,7 +161,10 @@ class FishE:
         """Display the save-file menu through the UI and let the player choose.
 
         Slots and actions are presented as numbered options (so the menu renders
-        and reads input through the active front-end — console or pygame)."""
+        and reads input through the active front-end — console or pygame).
+
+        Returns once a slot is selected, or with self.running cleared if the
+        player chose "Quit" without picking one."""
         while True:  # loop instead of recursion to avoid stack overflow
             save_files = self.saveFileManager.list_save_files()
 
@@ -217,7 +228,16 @@ class FishE:
                 self._deleteSaveFile(save_files)
                 # loop to show the refreshed menu either way
             elif kind == "quit":
-                exit(0)
+                # Ending the run rather than the process. exit(0) killed the
+                # interpreter from inside __init__, so cleanup() was never
+                # reached: the pygame window vanished without pygame.quit(),
+                # and both browser front-ends left the tab on the save-file
+                # menu with no ended screen (the Pyodide entry point had to
+                # catch SystemExit and post one itself). __init__ returns
+                # early on a cleared running flag, and play() then does
+                # nothing but clean up - one exit path for every front-end.
+                self.running = False
+                return
             elif kind == "damaged":
                 # A conforming front-end refuses to return an unavailable
                 # option's number, so this should be unreachable. It is handled
@@ -266,6 +286,21 @@ class FishE:
         return False
 
     def play(self):
+        """Run the game loop, releasing the front-end however it ends.
+
+        The cleanup() call is here, once, rather than at each of the places a
+        run can finish (retiring, quitting, an unhandled error): every
+        front-end needs it and only this method sees all of those endings.
+        Without it the pygame window closed without pygame.quit(), and the
+        browser front-ends never published their ended screen - the tab kept
+        polling a server that had exited and told a player who had just retired
+        that the connection was lost. It is a no-op for the console."""
+        try:
+            self._runGameLoop()
+        finally:
+            self.userInterface.cleanup()
+
+    def _runGameLoop(self):
         while self.running:
             # show the current location and goal progress in the UI header
             self.userInterface.currentLocationName = self.currentLocation.capitalize()
