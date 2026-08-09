@@ -1,3 +1,4 @@
+import itertools
 from unittest.mock import patch
 
 from src.business import adventures
@@ -326,6 +327,391 @@ def test_every_outcome_branch_is_reachable():
                         voyage["status"] = "sailing"
                         voyage["crew"] = list(crew)
                         assert adventures.resolveChoice(voyage, choice)
+
+
+# --- what each outcome handler actually does --------------------------------
+#
+# The two sweeps above prove every branch is *reachable*. They prove nothing
+# about what any of them *does*: a sign flip, a wrong keyword to gain(), or a
+# repair where a damage was meant all still return narration, and still ship
+# green. The table below names, for every handler in the event table, which
+# part of the voyage it moves and by how much - with the dice pinned to each
+# end of the handler's documented range, so both bounds are checked.
+#
+# Deltas are stated per side: "low" is what the handler should do when every
+# random.randint comes up at the bottom of its range, "high" at the top.
+# Anything not named is expected not to move at all.
+
+SWEEP_CREW = [villager["name"] for villager in villagers.VILLAGERS]
+SWEEP_ABOARD = len(SWEEP_CREW)
+SWEEP_DAMAGE = 40  # sail out already hurt, so a repair at sea is observable
+SWEEP_SPECIALIST = "Cormac Ide"
+# loseCrew picks at random from the roster; with random.choice pinned to the
+# head of the list it is always the first hand aboard who doesn't come back.
+SWEEP_FIRST_LOST = SWEEP_CREW[0]
+
+HANDLER_EFFECTS = [
+    {
+        "label": "squall, run before it, and it catches her",
+        "handler": adventures._squallRunBefore,
+        "luck": 0.0,
+        "low": {"hull": -10},
+        "high": {"hull": -22},
+    },
+    {
+        "label": "squall, run before it, and outrun it",
+        "handler": adventures._squallRunBefore,
+        "luck": 0.99,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "squall, hug the coast",
+        "handler": adventures._squallHugCoast,
+        "low": {"supplies": -SWEEP_ABOARD},
+        "high": {"supplies": -SWEEP_ABOARD},
+    },
+    {
+        "label": "squall, read the sky",
+        "handler": adventures._squallReadIt,
+        "specialist": True,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "squall, ride it out, and she works at her seams",
+        "handler": adventures._squallAnchor,
+        "luck": 0.0,
+        "low": {"hull": -5},
+        "high": {"hull": -12},
+    },
+    {
+        "label": "squall, ride it out, no harm done",
+        "handler": adventures._squallAnchor,
+        "luck": 0.99,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "driftwood, take what floats",
+        "handler": adventures._driftwoodSalvage,
+        "low": {"supplies": 2},
+        "high": {"supplies": 6},
+    },
+    {
+        "label": "driftwood, dive on it",
+        "handler": adventures._driftwoodDive,
+        "specialist": True,
+        "low": {"supplies": 6},
+        "high": {"supplies": 12},
+    },
+    {
+        "label": "driftwood, give it a wide berth",
+        "handler": adventures._driftwoodPassBy,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "leak, canvas and tar",
+        "handler": adventures._leakPatch,
+        "low": {"hull": -4},
+        "high": {"hull": -10},
+    },
+    {
+        "label": "leak, the shipwright finds the seam",
+        "handler": adventures._leakShipwright,
+        "specialist": True,
+        "low": {"hull": 8},
+        "high": {"hull": 16},
+    },
+    {
+        "label": "leak, pump and press on",
+        "handler": adventures._leakIgnore,
+        "low": {"hull": -14},
+        "high": {"hull": -26},
+    },
+    {
+        "label": "sickness, press on, and a hand doesn't get up",
+        "handler": adventures._sickPush,
+        "luck": 0.0,
+        "low": {"crewLost": SWEEP_FIRST_LOST},
+        "high": {"crewLost": SWEEP_FIRST_LOST},
+    },
+    {
+        "label": "sickness, press on, and they come right",
+        "handler": adventures._sickPush,
+        "luck": 0.99,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "sickness, heave to and rest them",
+        "handler": adventures._sickRest,
+        "low": {"supplies": -SWEEP_ABOARD},
+        "high": {"supplies": -SWEEP_ABOARD},
+    },
+    {
+        "label": "sickness, the cook takes the sick berth",
+        "handler": adventures._sickCook,
+        "specialist": True,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "becalmed, wait it out",
+        "handler": adventures._becalmedWait,
+        "low": {"supplies": -SWEEP_ABOARD},
+        "high": {"supplies": -SWEEP_ABOARD},
+    },
+    {
+        "label": "becalmed, tow her, and a hand gives out",
+        "handler": adventures._becalmedRow,
+        "luck": 0.0,
+        "low": {"crewLost": SWEEP_FIRST_LOST},
+        "high": {"crewLost": SWEEP_FIRST_LOST},
+    },
+    {
+        "label": "becalmed, tow her clear",
+        "handler": adventures._becalmedRow,
+        "luck": 0.99,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "becalmed, navigate out of it",
+        "handler": adventures._becalmedNavigate,
+        "specialist": True,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "good grounds, shoot the nets",
+        "handler": adventures._goodGroundsFish,
+        "low": {"fish": 20},
+        "high": {"fish": 45},
+    },
+    {
+        "label": "good grounds, rig every net aboard",
+        "handler": adventures._goodGroundsNets,
+        "specialist": True,
+        "low": {"fish": 40},
+        "high": {"fish": 70},
+    },
+    {
+        "label": "good grounds, push on to deeper water",
+        "handler": adventures._goodGroundsMoveOn,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "merchantman, board her, and take her",
+        "handler": adventures._merchantBoard,
+        "luck": 0.0,
+        "low": {"money": 250, "fish": 10},
+        "high": {"money": 700, "fish": 40},
+    },
+    {
+        "label": "merchantman, board her, beaten off with a hand lost",
+        "handler": adventures._merchantBoard,
+        "luck": [0.99, 0.0],
+        "low": {"hull": -12, "crewLost": SWEEP_FIRST_LOST},
+        "high": {"hull": -28, "crewLost": SWEEP_FIRST_LOST},
+    },
+    {
+        "label": "merchantman, board her, and break off",
+        "handler": adventures._merchantBoard,
+        "luck": [0.99, 0.99],
+        "low": {"hull": -12},
+        "high": {"hull": -28},
+    },
+    {
+        "label": "merchantman, shadow her to her anchorage",
+        "handler": adventures._merchantShadow,
+        "specialist": True,
+        "low": {"money": 400},
+        "high": {"money": 900},
+    },
+    {
+        "label": "merchantman, hail her and escort instead",
+        "handler": adventures._merchantHail,
+        "low": {"money": 60},
+        "high": {"money": 160},
+    },
+    {
+        "label": "merchantman, let her pass",
+        "handler": adventures._merchantLetPass,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "patrol, run for it, and lose them",
+        "handler": adventures._patrolRun,
+        "luck": 0.0,
+        "low": {},
+        "high": {},
+    },
+    {
+        "label": "patrol, run for it, and take two across the quarter",
+        "handler": adventures._patrolRun,
+        "luck": 0.99,
+        "low": {"hull": -15},
+        "high": {"hull": -30},
+    },
+    {
+        "label": "patrol, show false colours",
+        "handler": adventures._patrolColours,
+        "low": {"supplies": -SWEEP_ABOARD},
+        "high": {"supplies": -SWEEP_ABOARD},
+    },
+    {
+        "label": "patrol, fight, and take the cutter",
+        "handler": adventures._patrolFight,
+        "luck": 0.0,
+        "low": {"money": 300},
+        "high": {"money": 800},
+    },
+    {
+        "label": "patrol, fight, and lose a hand over the side",
+        "handler": adventures._patrolFight,
+        "luck": [0.99, 0.0],
+        "low": {"hull": -20, "crewLost": SWEEP_FIRST_LOST},
+        "high": {"hull": -40, "crewLost": SWEEP_FIRST_LOST},
+    },
+    {
+        "label": "patrol, fight, and come off badly but whole",
+        "handler": adventures._patrolFight,
+        "luck": [0.99, 0.99],
+        "low": {"hull": -20},
+        "high": {"hull": -40},
+    },
+    {
+        "label": "passengers, reassure them",
+        "handler": adventures._passengerCalm,
+        "low": {"money": 40},
+        "high": {"money": 110},
+    },
+    {
+        "label": "passengers, feed them properly",
+        "handler": adventures._passengerFeed,
+        "specialist": True,
+        "low": {"money": 120},
+        "high": {"money": 240},
+    },
+    {
+        "label": "passengers, let them complain",
+        "handler": adventures._passengerIgnore,
+        "low": {},
+        "high": {},
+    },
+]
+
+NO_MOVEMENT = {
+    "money": 0,
+    "fish": 0,
+    "hull": 0,
+    "supplies": 0,
+    "crewLost": None,
+    "handsLost": 0,
+}
+
+
+def createSweepVoyage():
+    """A voyage with every specialty aboard, sailing out already damaged so a
+    repair at sea moves the hull rather than being clamped at sound."""
+    _, _, voyage = createVoyage(
+        role=boats.ROLE_PIRACY,
+        tier=3,
+        crew=SWEEP_CREW,
+        plan=2,
+        damage=SWEEP_DAMAGE,
+    )
+    return voyage
+
+
+def measureHandler(spec, pickBound):
+    """Run one handler with the dice pinned and report what it moved."""
+    voyage = createSweepVoyage()
+    before = {
+        "money": voyage["money"],
+        "fish": voyage["fish"],
+        "hull": voyage["hull"],
+        "supplies": voyage["supplies"],
+        "crew": list(voyage["crew"]),
+        "hands": voyage["hands"],
+    }
+    rolls = spec.get("luck", 0.0)
+    rolls = list(rolls) if isinstance(rolls, list) else [rolls]
+
+    # cycle() rather than a bare side_effect list: a handler may roll more
+    # times than the branch under test needs, and running dry would read as a
+    # test bug rather than the outcome it is.
+    with patch(
+        "src.business.adventures.random.random", side_effect=itertools.cycle(rolls)
+    ), patch(
+        "src.business.adventures.random.randint", lambda low, high: pickBound(low, high)
+    ), patch(
+        "src.business.adventures.random.choice", lambda seq: seq[0]
+    ):
+        if spec.get("specialist"):
+            text = spec["handler"](voyage, SWEEP_SPECIALIST)
+        else:
+            text = spec["handler"](voyage)
+
+    lost = [name for name in before["crew"] if name not in voyage["crew"]]
+    return text, {
+        "money": voyage["money"] - before["money"],
+        "fish": voyage["fish"] - before["fish"],
+        "hull": voyage["hull"] - before["hull"],
+        "supplies": voyage["supplies"] - before["supplies"],
+        "crewLost": lost[0] if lost else None,
+        "handsLost": before["hands"] - voyage["hands"],
+    }
+
+
+def test_every_outcome_in_the_event_table_has_a_state_spec():
+    # prepare - every handler the player can actually pick on screen
+    offered = {
+        choice["outcome"] for event in adventures.EVENTS for choice in event["choices"]
+    }
+    specified = {spec["handler"] for spec in HANDLER_EFFECTS}
+
+    # check - a new choice added to EVENTS fails here until its effects are
+    # written down, which is the only thing stopping this table going stale
+    missing = sorted(handler.__name__ for handler in offered - specified)
+    assert missing == []
+    assert sorted(handler.__name__ for handler in specified - offered) == []
+
+
+def test_every_outcome_handler_moves_exactly_what_the_table_says():
+    for spec in HANDLER_EFFECTS:
+        for side, pickBound in (("low", min), ("high", max)):
+            # call
+            text, moved = measureHandler(spec, pickBound)
+
+            # check - narration is the least of it; the state is the outcome
+            expected = dict(NO_MOVEMENT, **spec[side])
+            assert isinstance(text, str) and text, spec["label"]
+            assert moved == expected, "%s (%s end of the range)" % (
+                spec["label"],
+                side,
+            )
+
+
+def test_boarding_a_merchantman_is_likelier_with_more_hands_aboard():
+    # prepare - the same roll of the dice, a thin crew and a full one
+    thin = createVoyage(role=boats.ROLE_PIRACY, tier=3, crew=["Marta Kell"])[2]
+    full = createSweepVoyage()
+
+    # call - a roll a lone hand can't clear but a full boat can
+    with patch("src.business.adventures.random.random", return_value=0.6), patch(
+        "src.business.adventures.random.randint", lambda low, high: low
+    ), patch("src.business.adventures.random.choice", lambda seq: seq[0]):
+        adventures._merchantBoard(thin)
+        adventures._merchantBoard(full)
+
+    # check - who you brought decides whether you get over the rail
+    assert thin["money"] == 0
+    assert full["money"] > 0
 
 
 def test_addSupplies_and_repair_are_bounded_sensibly():
