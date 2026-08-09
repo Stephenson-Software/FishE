@@ -343,12 +343,31 @@ def test_every_outcome_branch_is_reachable():
 # Anything not named is expected not to move at all.
 
 SWEEP_CREW = [villager["name"] for villager in villagers.VILLAGERS]
-SWEEP_ABOARD = len(SWEEP_CREW)
 SWEEP_DAMAGE = 40  # sail out already hurt, so a repair at sea is observable
 SWEEP_SPECIALIST = "Cormac Ide"
+
+
+def createSweepVoyage():
+    """A voyage with every specialty aboard, sailing out already damaged so a
+    repair at sea moves the hull rather than being clamped at sound."""
+    _, _, voyage = createVoyage(
+        role=boats.ROLE_PIRACY,
+        tier=3,
+        crew=SWEEP_CREW,
+        plan=2,
+        damage=SWEEP_DAMAGE,
+    )
+    return voyage
+
+
+# Read off the boat rather than from len(SWEEP_CREW): berths are capped by
+# tier, so if the roster ever outgrows them the number that decides how much a
+# hungry leg eats is who actually got aboard, not who was hired.
+_sweepSample = createSweepVoyage()
+SWEEP_ABOARD = adventures.crewAboard(_sweepSample)
 # loseCrew picks at random from the roster; with random.choice pinned to the
 # head of the list it is always the first hand aboard who doesn't come back.
-SWEEP_FIRST_LOST = SWEEP_CREW[0]
+SWEEP_FIRST_LOST = _sweepSample["crew"][0]
 
 HANDLER_EFFECTS = [
     {
@@ -615,19 +634,6 @@ NO_MOVEMENT = {
 }
 
 
-def createSweepVoyage():
-    """A voyage with every specialty aboard, sailing out already damaged so a
-    repair at sea moves the hull rather than being clamped at sound."""
-    _, _, voyage = createVoyage(
-        role=boats.ROLE_PIRACY,
-        tier=3,
-        crew=SWEEP_CREW,
-        plan=2,
-        damage=SWEEP_DAMAGE,
-    )
-    return voyage
-
-
 def measureHandler(spec, pickBound):
     """Run one handler with the dice pinned and report what it moved."""
     voyage = createSweepVoyage()
@@ -699,7 +705,7 @@ def test_every_outcome_handler_moves_exactly_what_the_table_says():
 
 def test_boarding_a_merchantman_is_likelier_with_more_hands_aboard():
     # prepare - the same roll of the dice, a thin crew and a full one
-    thin = createVoyage(role=boats.ROLE_PIRACY, tier=3, crew=["Marta Kell"])[2]
+    _, _, thin = createVoyage(role=boats.ROLE_PIRACY, tier=3, crew=["Marta Kell"])
     full = createSweepVoyage()
 
     # call - a roll a lone hand can't clear but a full boat can
