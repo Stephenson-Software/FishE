@@ -247,7 +247,7 @@ class WebUserInterface(BaseUserInterface):
         with self._lock:
             self._deliveredVersion = max(self._deliveredVersion, version)
 
-    def awaitScreenDelivery(self, timeout):
+    def _awaitScreenDelivery(self, timeout):
         """Block until the current screen has been sent to the browser.
 
         Returns True if it went out, False if the timeout ran out first -
@@ -356,7 +356,7 @@ class WebUserInterface(BaseUserInterface):
             # Hold the server open until the page has the ended screen;
             # otherwise the run's last screen is never fetched and the browser
             # reports a lost connection instead.
-            self.awaitScreenDelivery(self._endedScreenTimeoutSeconds)
+            self._awaitScreenDelivery(self._endedScreenTimeoutSeconds)
             self._server.shutdown()
             self._server.server_close()
             self._server = None

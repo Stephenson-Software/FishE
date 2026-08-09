@@ -373,16 +373,16 @@ def test_record_state_delivered_keeps_the_highest_version_seen():
     ui.record_state_delivered(version)
     ui.record_state_delivered(version - 1)
 
-    assert ui.awaitScreenDelivery(timeout=0) is True
+    assert ui._awaitScreenDelivery(timeout=0) is True
 
 
-def test_awaitScreenDelivery_reports_an_uncollected_screen():
+def test_waiting_for_delivery_reports_an_uncollected_screen():
     # check - a screen published after the last delivery is not treated as seen
     ui = makeWebUI()
     ui.record_state_delivered(ui.get_state()["version"])
     ui._present({"type": "dialogue", "text": "Caught a fish!"})
 
-    assert ui.awaitScreenDelivery(timeout=0) is False
+    assert ui._awaitScreenDelivery(timeout=0) is False
 
 
 def test_client_stops_polling_once_the_game_has_ended():
