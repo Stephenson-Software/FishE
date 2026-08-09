@@ -900,13 +900,14 @@ def test_selectSaveFile_delete_then_quit():
     # Delete submenu: Delete Slot 1 / Cancel -> "2" (Cancel)
     # Menu again: same options -> "4" (Quit)
     game.userInterface.showOptions.side_effect = ["3", "2", "4"]
+    game.running = True
 
-    # call/check - Quit calls exit(0), which raises SystemExit
-    try:
-        game._selectSaveFile()
-        assert False, "expected SystemExit"
-    except SystemExit as e:
-        assert e.code == 0
+    # call - Quit returns rather than raising SystemExit; ending the process
+    # here skipped the front-end's cleanup() (see FishE.play)
+    game._selectSaveFile()
+
+    # check - the run is over and no slot was claimed
+    assert game.running is False
     game.saveFileManager.select_save_slot.assert_not_called()
 
 
@@ -1160,3 +1161,72 @@ def test_play_appends_the_fleet_report_and_the_eviction_together():
     # check
     assert "The Marauder landed 12 fish." in game.prompt.text
     assert housing.EVICTION_MESSAGE in game.prompt.text
+
+
+def test_play_cleans_up_the_front_end_when_the_run_ends():
+    # Retiring or quitting used to return out of play() with nothing released:
+    # the pygame window closed without pygame.quit(), and neither browser
+    # front-end ever published its ended screen.
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+
+    # call
+    game.play()
+
+    # check
+    game.userInterface.cleanup.assert_called_once_with()
+
+
+def test_play_cleans_up_the_front_end_when_the_loop_raises():
+    # An error mid-run is exactly when a leftover window or a still-bound
+    # server is hardest to explain, so cleanup happens on the way out either way.
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.side_effect = RuntimeError("kraken")
+
+    # call/check - the error still reaches the caller
+    try:
+        game.play()
+        assert False, "expected RuntimeError"
+    except RuntimeError as error:
+        assert str(error) == "kraken"
+    game.userInterface.cleanup.assert_called_once_with()
+
+
+def test_quit_from_the_save_file_menu_ends_the_run_without_exiting():
+    # "Quit" called exit(0) from inside __init__, ending the process before
+    # any front-end could clean up - which is why the Pyodide entry point had
+    # to catch SystemExit and publish an ended screen of its own. It now
+    # clears running, __init__ stops early, and play() does nothing but hand
+    # the front-end the same cleanup() every other ending gets.
+    with tempfile.TemporaryDirectory() as data_directory:
+        fishE.Player = Player
+        fishE.Stats = Stats
+        fishE.TimeService = TimeService
+        fishE.Prompt = Prompt
+        fishE.PlayerJsonReaderWriter = PlayerJsonReaderWriter
+        fishE.StatsJsonReaderWriter = StatsJsonReaderWriter
+        fishE.TimeServiceJsonReaderWriter = TimeServiceJsonReaderWriter
+        fishE.SaveFileManager = SaveFileManager
+
+        config = Config()
+        config.dataDirectory = data_directory
+
+        userInterface = MagicMock()
+        # An empty save directory offers "Create New Save (Slot 1)" then "Quit".
+        userInterface.showOptions.return_value = "2"
+        factory = MagicMock()
+        factory.create_user_interface.return_value = userInterface
+
+        # call
+        with patch.object(fishE, "Config", return_value=config), patch.object(
+            fishE, "UserInterfaceFactory", factory
+        ):
+            game = fishE.FishE()
+            game.play()
+
+        # check - no slot was claimed, nothing was written, and the front-end
+        # was released
+        assert game.running is False
+        assert game.saveFileManager.selected_save_slot is None
+        assert os.listdir(data_directory) == []
+        userInterface.cleanup.assert_called_once_with()

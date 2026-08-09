@@ -21,6 +21,19 @@ WEB_ASSET_DIRECTORY = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web")
 )
 
+# How long cleanup() gives the browser to collect the ended screen before it
+# closes the server, and how often it checks whether that has happened.
+#
+# The client only discovers a new screen on its next poll, so shutting the
+# socket the instant the ended screen is published closes it before the screen
+# can be fetched: a player who had just retired was shown "Lost connection"
+# instead of the end of their run. The wait ends as soon as the screen has
+# actually gone out (typically within one poll interval), so the timeout is
+# only ever paid when nobody is listening - a closed tab, or a game driven by
+# something other than a browser.
+ENDED_SCREEN_DELIVERY_TIMEOUT_SECONDS = 2.0
+ENDED_SCREEN_DELIVERY_POLL_SECONDS = 0.02
+
 
 def _readWebAsset(name):
     """Read a shared browser-client file from web/, or explain why it could not."""
@@ -99,6 +112,10 @@ async function poll() {
     failures = 0;
     if (recovered) version = -1;  // force a re-render to clear the disconnect banner
     if (state.version !== version) { version = state.version; FisheClient.render(state.screen); }
+    // The game shuts its server down once this screen has gone out, so there
+    // is nothing left to poll for: stop, rather than spend the rest of the
+    // tab's life failing to reach a process that has finished.
+    if (state.screen && state.screen.type === "ended") { return; }
   } catch (e) {
     failures++;
     // Don't clobber the intentional "game ended" screen with a scary banner.
@@ -135,8 +152,12 @@ def _makeRequestHandler(ui):
             if self.path in ("/", "/index.html"):
                 self._send(200, "text/html; charset=utf-8", htmlPage().encode("utf-8"))
             elif self.path.startswith("/state"):
-                body = json.dumps(ui.get_state()).encode("utf-8")
-                self._send(200, "application/json", body)
+                state = ui.get_state()
+                self._send(200, "application/json", json.dumps(state).encode("utf-8"))
+                # Recorded only once the bytes are on the wire, so cleanup()
+                # cannot close the server out from under a response it is
+                # still writing (see record_state_delivered).
+                ui.record_state_delivered(state["version"])
             else:
                 self._send(404, "text/plain", b"Not found")
 
@@ -184,11 +205,17 @@ class WebUserInterface(BaseUserInterface):
         host="127.0.0.1",
         port=8000,
         start_server=True,
+        endedScreenTimeoutSeconds=ENDED_SCREEN_DELIVERY_TIMEOUT_SECONDS,
     ):
         super().__init__(currentPrompt, timeService, player)
         self._lock = threading.Lock()
         self._screen = {"type": "loading"}
         self._version = 0
+        # The newest screen version the browser has been handed. Starts below
+        # the first version so "nothing has been collected yet" is a state
+        # cleanup() can tell apart from "the current screen has been seen".
+        self._deliveredVersion = -1
+        self._endedScreenTimeoutSeconds = endedScreenTimeoutSeconds
         self._inputQueue = queue.Queue()
         self._server = None
         if start_server:
@@ -210,6 +237,29 @@ class WebUserInterface(BaseUserInterface):
     def submit_input(self, value):
         """Deliver the player's browser response to the waiting game thread."""
         self._inputQueue.put(value)
+
+    def record_state_delivered(self, version):
+        """Note that the browser has been sent the screen at this version.
+
+        Only cleanup() reads this, to know the ended screen reached the page
+        before the server is closed. Kept as the highest version seen so an
+        overlapping poll that finishes late cannot walk it backwards."""
+        with self._lock:
+            self._deliveredVersion = max(self._deliveredVersion, version)
+
+    def _awaitScreenDelivery(self, timeout):
+        """Block until the current screen has been sent to the browser.
+
+        Returns True if it went out, False if the timeout ran out first -
+        which is the ordinary outcome when no page is polling."""
+        deadline = time.monotonic() + timeout
+        while True:
+            with self._lock:
+                if self._deliveredVersion >= self._version:
+                    return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(ENDED_SCREEN_DELIVERY_POLL_SECONDS)
 
     # --- transport seams ---------------------------------------------------
     # Every screen below is built once and shared by both web front-ends; only
@@ -303,6 +353,10 @@ class WebUserInterface(BaseUserInterface):
     def cleanup(self):
         self._present({"type": "ended"})
         if self._server is not None:
+            # Hold the server open until the page has the ended screen;
+            # otherwise the run's last screen is never fetched and the browser
+            # reports a lost connection instead.
+            self._awaitScreenDelivery(self._endedScreenTimeoutSeconds)
             self._server.shutdown()
             self._server.server_close()
             self._server = None
