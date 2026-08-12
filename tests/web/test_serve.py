@@ -111,6 +111,17 @@ def test_misspelled_port_names_the_variable(monkeypatch):
         _resolvePort()
 
 
+def test_free_port_is_bound_and_handed_back():
+    server = _bindServer("127.0.0.1", 0)
+    try:
+        boundHost, boundPort = server.server_address[0], server.server_address[1]
+    finally:
+        server.server_close()
+
+    assert boundHost == "127.0.0.1"
+    assert boundPort != 0
+
+
 def test_taken_port_is_explained_rather_than_traced():
     # "It is already running in another terminal" is the ordinary failure, and
     # allow_reuse_address does not cover it: that only reopens a socket left in
