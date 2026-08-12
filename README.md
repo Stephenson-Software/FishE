@@ -25,6 +25,8 @@ python3 web/serve.py
 # then open http://127.0.0.1:8080
 ```
 
+Set `FISHE_WEB_PORT` to serve on a different port (and `FISHE_WEB_HOST`, e.g. `0.0.0.0`, to be reachable from outside the machine); both entry points name that variable if the port they were given is misspelled or already taken.
+
 `web/serve.py` only serves files — it never runs the game. It does have to send the `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers it sets, though: without them the page is not cross-origin isolated, `SharedArrayBuffer` is unavailable, and the browser cannot deliver your input to the game. Any proxy placed in front of it must preserve those headers.
 
 **On a server (`UIType.WEB`)** — the game runs in the Python process and the browser is a terminal for it, with save files on the server's disk under `data/`. Handy for playing over a terminal-less machine on your own network, but everyone who opens the page shares one game and one set of saves:
