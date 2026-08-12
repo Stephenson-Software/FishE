@@ -21,6 +21,7 @@ missing, which is the usual symptom of a proxy in front of this server dropping
 them.
 """
 
+import errno
 import http.server
 import os
 from urllib.parse import unquote, urlparse
@@ -29,6 +30,14 @@ REPOSITORY_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..")
 WEB_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 INDEX_PATHS = ("/", "/play", "/play/", "/index.html")
+
+# FISHE_WEB_PORT is read here and by UserInterfaceFactory's WEB branch, with a
+# different default in each: 8080 for this server (what the Dockerfile sets),
+# 8000 for the server-backed front-end behind examples/web_app.py. They are
+# separate programs that can be run at the same time, so the defaults are
+# deliberately not shared - the check on the value is, so a misspelled port
+# names itself whichever one the player started.
+DEFAULT_PORT = "8080"
 
 
 class _Handler(http.server.SimpleHTTPRequestHandler):
@@ -82,12 +91,46 @@ class _Server(http.server.ThreadingHTTPServer):
     daemon_threads = True
 
 
+def _resolvePort():
+    """The port to serve on, or a ValueError naming the variable that is wrong."""
+    portText = os.environ.get("FISHE_WEB_PORT", DEFAULT_PORT)
+    try:
+        return int(portText)
+    except ValueError:
+        raise ValueError(f"FISHE_WEB_PORT must be an integer, got: {portText!r}")
+
+
+def _bindServer(host, port):
+    """Bind the server, turning a refused address into a sentence.
+
+    A port that is already listening - a second copy of the game, most often -
+    otherwise surfaces as an errno raised from inside http.server, naming
+    neither FishE nor the variable the player would have to change."""
+    try:
+        return _Server((host, port), _Handler)
+    except OSError as e:
+        if e.errno == errno.EADDRINUSE:
+            reason = "something else is already listening there"
+        elif e.errno == errno.EACCES:
+            reason = "this process is not allowed to use that port"
+        else:
+            reason = str(e)
+        raise OSError(
+            f"FishE could not be served at http://{host}:{port}/: {reason}. "
+            f"Set FISHE_WEB_PORT to a free port (or FISHE_WEB_HOST to an "
+            f"address this machine can bind) and start it again."
+        ) from e
+
+
 def main():
     host = os.environ.get("FISHE_WEB_HOST", "127.0.0.1")
-    port = int(os.environ.get("FISHE_WEB_PORT", "8080"))
+    port = _resolvePort()
+    # Bound before the URL is announced, so a failure is never preceded by an
+    # address that was never served.
+    server = _bindServer(host, port)
     print(f"FishE is being served at http://{host}:{port}/")
     print("Open that URL to play. Press Ctrl+C here to stop.")
-    _Server((host, port), _Handler).serve_forever()
+    server.serve_forever()
 
 
 if __name__ == "__main__":

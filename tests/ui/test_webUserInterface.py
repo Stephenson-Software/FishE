@@ -6,6 +6,8 @@ import threading
 import urllib.error
 import urllib.request
 
+import pytest
+
 # Use the bare `ui.*`/`player.*` import style (matching production) so class
 # identities line up with the runtime MRO; pytest.ini exposes both `.` and `src`.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -392,3 +394,21 @@ def test_client_stops_polling_once_the_game_has_ended():
     page = webUserInterface.htmlPage()
 
     assert 'state.screen.type === "ended"' in page
+
+
+def test_taken_port_is_explained_rather_than_traced():
+    # The front-end does not exist yet when the bind fails, so there is no
+    # showDialogue to say it through - a second copy of the game would
+    # otherwise reach the player as an errno raised from inside http.server.
+    running = makeWebUI(start_server=True)
+    port = running.address[1]
+    try:
+        with pytest.raises(OSError) as raised:
+            makeWebUI(start_server=True, port=port)
+    finally:
+        running.cleanup()
+
+    message = str(raised.value)
+    assert "FISHE_WEB_PORT" in message
+    assert "already listening" in message
+    assert str(port) in message

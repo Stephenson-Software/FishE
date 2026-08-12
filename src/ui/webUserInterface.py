@@ -1,3 +1,4 @@
+import errno
 import json
 import os
 import queue
@@ -144,6 +145,30 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
+def _bindServer(host, port, handler):
+    """Start the game's HTTP server, turning a refused address into a sentence.
+
+    The front-end does not exist yet at this point, so there is no showDialogue
+    to say it through: a port that is already listening - a second copy of the
+    game, most often - would otherwise reach the player as an errno raised from
+    inside http.server, naming neither FishE nor FISHE_WEB_PORT, which is what
+    they would have to change."""
+    try:
+        return ThreadingHTTPServer((host, port), handler)
+    except OSError as e:
+        if e.errno == errno.EADDRINUSE:
+            reason = "something else is already listening there"
+        elif e.errno == errno.EACCES:
+            reason = "this process is not allowed to use that port"
+        else:
+            reason = str(e)
+        raise OSError(
+            f"FishE's web front-end could not be served at http://{host}:{port}/: "
+            f"{reason}. Set FISHE_WEB_PORT to a free port (or FISHE_WEB_HOST to "
+            f"an address this machine can bind) and start the game again."
+        ) from e
+
+
 def _makeRequestHandler(ui):
     """Build a request handler bound to a specific WebUserInterface instance."""
 
@@ -219,7 +244,7 @@ class WebUserInterface(BaseUserInterface):
         self._inputQueue = queue.Queue()
         self._server = None
         if start_server:
-            self._server = ThreadingHTTPServer((host, port), _makeRequestHandler(self))
+            self._server = _bindServer(host, port, _makeRequestHandler(self))
             self._server.daemon_threads = True
             threading.Thread(target=self._server.serve_forever, daemon=True).start()
 

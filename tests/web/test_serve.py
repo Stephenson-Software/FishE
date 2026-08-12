@@ -2,7 +2,9 @@ import threading
 import urllib.error
 import urllib.request
 
-from web.serve import _Handler, _Server
+import pytest
+
+from web.serve import _bindServer, _Handler, _resolvePort, _Server
 
 
 def startServer():
@@ -82,3 +84,47 @@ def test_does_not_serve_the_rest_of_the_repository():
 
     assert not served
     assert status == 404
+
+
+def test_port_defaults_to_the_one_the_dockerfile_sets(monkeypatch):
+    monkeypatch.delenv("FISHE_WEB_PORT", raising=False)
+
+    assert _resolvePort() == 8080
+
+
+def test_port_is_read_from_the_environment(monkeypatch):
+    monkeypatch.setenv("FISHE_WEB_PORT", "9001")
+
+    assert _resolvePort() == 9001
+
+
+def test_misspelled_port_names_the_variable(monkeypatch):
+    # This entry point is the one the Dockerfile runs, so its port is the one
+    # most likely to arrive from outside - and a bare int() conversion error
+    # names neither the variable nor what it should hold.
+    monkeypatch.setenv("FISHE_WEB_PORT", "80801x")
+
+    with pytest.raises(ValueError, match="FISHE_WEB_PORT"):
+        _resolvePort()
+
+    with pytest.raises(ValueError, match="80801x"):
+        _resolvePort()
+
+
+def test_taken_port_is_explained_rather_than_traced():
+    # "It is already running in another terminal" is the ordinary failure, and
+    # allow_reuse_address does not cover it: that only reopens a socket left in
+    # TIME_WAIT, while a live listener still refuses the bind.
+    server, _ = startServer()
+    host, port = server.server_address[0], server.server_address[1]
+    try:
+        with pytest.raises(OSError) as raised:
+            _bindServer(host, port)
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    message = str(raised.value)
+    assert "FISHE_WEB_PORT" in message
+    assert "already listening" in message
+    assert str(port) in message
