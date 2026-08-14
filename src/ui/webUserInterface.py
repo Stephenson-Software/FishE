@@ -145,6 +145,32 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
+# The address this front-end serves on when nothing says otherwise. Stated
+# here, beside the server that binds it, so the factory branch that reads the
+# environment and the constructor below share one copy of the default rather
+# than each carrying their own - a copy elsewhere would keep announcing the old
+# value if this one ever moved, with nothing failing to say so. (web/serve.py
+# deliberately keeps a different default of its own; see the comment there.)
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8000
+
+
+def resolveAddressFromEnvironment():
+    """The (host, port) to serve on, or a ValueError naming the variable that is
+    wrong.
+
+    FISHE_WEB_HOST/FISHE_WEB_PORT are how a player moves the game off the
+    default loopback address - e.g. FISHE_WEB_HOST=0.0.0.0 so a container's
+    port mapping or reverse proxy can reach it."""
+    host = os.environ.get("FISHE_WEB_HOST", DEFAULT_HOST)
+    portText = os.environ.get("FISHE_WEB_PORT", str(DEFAULT_PORT))
+    try:
+        port = int(portText)
+    except ValueError:
+        raise ValueError(f"FISHE_WEB_PORT must be an integer, got: {portText!r}")
+    return host, port
+
+
 def _bindServer(host, port, handler):
     """Start the game's HTTP server, turning a refused address into a sentence.
 
@@ -227,8 +253,8 @@ class WebUserInterface(BaseUserInterface):
         currentPrompt: Prompt,
         timeService: TimeService,
         player: Player,
-        host="127.0.0.1",
-        port=8000,
+        host=DEFAULT_HOST,
+        port=DEFAULT_PORT,
         start_server=True,
         endedScreenTimeoutSeconds=ENDED_SCREEN_DELIVERY_TIMEOUT_SECONDS,
     ):
@@ -247,11 +273,26 @@ class WebUserInterface(BaseUserInterface):
             self._server = _bindServer(host, port, _makeRequestHandler(self))
             self._server.daemon_threads = True
             threading.Thread(target=self._server.serve_forever, daemon=True).start()
+            self._announceAddress()
 
     @property
     def address(self):
         """The (host, port) the server is bound to, or None if not started."""
         return self._server.server_address if self._server else None
+
+    def _announceAddress(self):
+        """Say where the game can be played, once it is actually being served.
+
+        Said from here rather than from the entry point that started the game
+        (examples/web_app.py) because building FishE starts this server and
+        then blocks in the save-file manager, so nothing gets control back
+        there to announce a bound address - and announcing one beforehand names
+        an address that a misspelled or already-taken port means will never
+        answer. The address named is the socket's own, so a caller that asked
+        for port 0 is told the port it actually got."""
+        boundHost, boundPort = self._server.server_address[:2]
+        print(f"FishE is being served at http://{boundHost}:{boundPort}/")
+        print("Open that URL in your browser to play. Press Ctrl+C here to stop.")
 
     # --- web rendezvous ---------------------------------------------------
     def get_state(self):

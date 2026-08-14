@@ -1,5 +1,3 @@
-import os
-
 from ui.enum.uiType import UIType
 from ui.consoleUserInterface import ConsoleUserInterface
 from prompt.prompt import Prompt
@@ -33,21 +31,16 @@ class UserInterfaceFactory:
             return PygameUserInterface(currentPrompt, timeService, player)
         elif ui_type == UIType.WEB:
             # Imported lazily so other modes don't start the HTTP machinery.
-            from ui.webUserInterface import WebUserInterface
+            from ui.webUserInterface import (
+                WebUserInterface,
+                resolveAddressFromEnvironment,
+            )
 
-            # WebUserInterface itself defaults to 127.0.0.1:8000 (unreachable
-            # from outside its own host/container). Let FISHE_WEB_HOST/
-            # FISHE_WEB_PORT override that — e.g. FISHE_WEB_HOST=0.0.0.0 so a
-            # container's port mapping/reverse proxy can actually reach it —
-            # while leaving the default unchanged for anyone not setting them.
-            host = os.environ.get("FISHE_WEB_HOST", "127.0.0.1")
-            port_str = os.environ.get("FISHE_WEB_PORT", "8000")
-            try:
-                port = int(port_str)
-            except ValueError:
-                raise ValueError(
-                    f"FISHE_WEB_PORT must be an integer, got: {port_str!r}"
-                )
+            # The default (127.0.0.1:8000, unreachable from outside its own
+            # host/container) and the FISHE_WEB_HOST/FISHE_WEB_PORT overrides
+            # that move it both live beside the server, so this branch does not
+            # keep a second copy of either.
+            host, port = resolveAddressFromEnvironment()
             return WebUserInterface(
                 currentPrompt, timeService, player, host=host, port=port
             )

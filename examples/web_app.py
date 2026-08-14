@@ -14,10 +14,11 @@ Run it and open the printed URL:
     python3 examples/web_app.py
 
 The whole game (save-file manager, fishing, shop, bank, tavern, dialogue) then
-plays in the browser. The server binds 127.0.0.1:8000 by default; set
-FISHE_WEB_HOST/FISHE_WEB_PORT (read by UserInterfaceFactory's WEB branch) to
-change that — e.g. FISHE_WEB_HOST=0.0.0.0 so it's reachable from outside its
-own host, such as from inside a container.
+plays in the browser. The server binds 127.0.0.1:8000 by default (the default
+and the two variables that move it live in WebUserInterface); set
+FISHE_WEB_HOST/FISHE_WEB_PORT to change that — e.g. FISHE_WEB_HOST=0.0.0.0 so
+it's reachable from outside its own host, such as from inside a container. The
+URL is printed once the server is bound, so what it names is always served.
 """
 
 import os
@@ -31,12 +32,12 @@ from fishE import FishE  # noqa: E402
 
 
 def main():
-    host = os.environ.get("FISHE_WEB_HOST", "127.0.0.1")
-    port = os.environ.get("FISHE_WEB_PORT", "8000")
-    print(f"FishE web app is starting at http://{host}:{port}")
-    print("Open that URL in your browser to play. Press Ctrl+C here to stop.")
     # Building FishE starts the web server and then waits (in the save-file
     # manager) for the browser to interact, so play happens entirely in-browser.
+    # The URL is announced by the front-end once that server is bound, rather
+    # than from here beforehand: control never comes back to this function to
+    # say what was bound, and a port that is misspelled or already taken would
+    # otherwise be preceded by an address that will never answer.
     game = FishE(interfaceType=UIType.WEB)
     game.play()
 

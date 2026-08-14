@@ -412,3 +412,76 @@ def test_taken_port_is_explained_rather_than_traced():
     assert "FISHE_WEB_PORT" in message
     assert "already listening" in message
     assert str(port) in message
+
+
+def test_bound_address_is_announced_once_the_server_is_listening(capsys):
+    # The entry point cannot say this: building FishE starts the server and
+    # then blocks in the save-file manager, so the announcement has to come
+    # from here - and it has to name the port the socket actually got, which
+    # a caller that asked for an ephemeral one could not have known.
+    ui = makeWebUI(start_server=True)
+    try:
+        boundPort = ui.address[1]
+    finally:
+        ui.cleanup()
+
+    printed = capsys.readouterr().out
+    assert f"http://127.0.0.1:{boundPort}/" in printed
+    assert "Open that URL in your browser to play" in printed
+
+
+def test_nothing_is_announced_when_no_server_was_started(capsys):
+    # check - the Pyodide front-end subclasses this one with start_server=False
+    # and has no address to announce; a URL there would name nothing at all
+    makeWebUI(start_server=False)
+
+    assert capsys.readouterr().out == ""
+
+
+def test_nothing_is_announced_when_the_port_is_already_taken(capsys):
+    # check - a bind that fails is not preceded by an address that will never
+    # answer, which is what announcing before binding used to produce
+    running = makeWebUI(start_server=True)
+    port = running.address[1]
+    capsys.readouterr()  # discard the running server's own announcement
+    try:
+        with pytest.raises(OSError):
+            makeWebUI(start_server=True, port=port)
+    finally:
+        running.cleanup()
+
+    assert "http://" not in capsys.readouterr().out
+
+
+def test_address_defaults_to_loopback_and_the_documented_port(monkeypatch):
+    # check - with neither variable set, the resolver hands back the one
+    # default that the constructor and the factory branch both use
+    monkeypatch.delenv("FISHE_WEB_HOST", raising=False)
+    monkeypatch.delenv("FISHE_WEB_PORT", raising=False)
+
+    assert webUserInterface.resolveAddressFromEnvironment() == (
+        webUserInterface.DEFAULT_HOST,
+        webUserInterface.DEFAULT_PORT,
+    )
+    assert (webUserInterface.DEFAULT_HOST, webUserInterface.DEFAULT_PORT) == (
+        "127.0.0.1",
+        8000,
+    )
+
+
+def test_address_is_taken_from_the_environment_when_set(monkeypatch):
+    # check - FISHE_WEB_HOST=0.0.0.0 is how the game is reached from outside
+    # its own container, and the port arrives as an int ready to bind
+    monkeypatch.setenv("FISHE_WEB_HOST", "0.0.0.0")
+    monkeypatch.setenv("FISHE_WEB_PORT", "9123")
+
+    assert webUserInterface.resolveAddressFromEnvironment() == ("0.0.0.0", 9123)
+
+
+def test_misspelled_port_names_the_variable_it_came_from(monkeypatch):
+    # check - the value is converted before anything is printed or bound, and
+    # the complaint names what the player would have to change
+    monkeypatch.setenv("FISHE_WEB_PORT", "80801x")
+
+    with pytest.raises(ValueError, match="FISHE_WEB_PORT"):
+        webUserInterface.resolveAddressFromEnvironment()
