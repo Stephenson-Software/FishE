@@ -435,6 +435,8 @@ def runDailyProduction(player, stats=None):
         "lostAtSea": [],
         "plunder": 0,
         "raidDays": 0,
+        "haulingDays": 0,
+        "transportDays": 0,
     }
     if not player.boats or player.workers <= 0:
         return summary
@@ -477,6 +479,8 @@ def runDailyProduction(player, stats=None):
         stats.crewLostToPiracy += len(summary["lostAtSea"])
         stats.totalRaids += summary["raidDays"]
         stats.totalPlunder += summary["plunder"]
+        stats.totalHaulingContracts += summary["haulingDays"]
+        stats.totalTransportRuns += summary["transportDays"]
     return summary
 
 
@@ -490,10 +494,18 @@ def _runFishingDay(player, boat, summary):
 
 
 def _runHonestDay(player, boat, summary):
-    """Hauling and transport: money in, nothing at risk."""
+    """Hauling and transport: money in, nothing at risk.
+
+    Each day's work is counted under its own role, the way _runPiracyDay counts
+    raidDays, so freight and passenger work leave a record in the player's
+    career ledger instead of piracy being the only role that does."""
     earned = dailyIncome(boat)
     player.money += earned
     summary["earned"] += earned
+    if boat["role"] == ROLE_HAULING:
+        summary["haulingDays"] += 1
+    elif boat["role"] == ROLE_TRANSPORT:
+        summary["transportDays"] += 1
 
 
 def _runPiracyDay(player, boat, summary):

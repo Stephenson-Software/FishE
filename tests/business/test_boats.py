@@ -1178,3 +1178,92 @@ def test_describeDay_says_where_to_repair_a_damaged_boat():
 
     # check - the report says what to do about it, not just what happened
     assert "Manage Fleet to repair her" in " ".join(boats.describeDay(summary))
+
+
+def test_a_hauling_boats_working_day_is_counted():
+    # prepare - one freight boat with a hand aboard
+    player = crewedFleet(roles=(boats.ROLE_HAULING,))
+    stats = Stats()
+
+    # call
+    summary = boats.runDailyProduction(player, stats)
+
+    # check - the day is recorded under hauling and nothing else
+    assert summary["haulingDays"] == 1
+    assert summary["transportDays"] == 0
+    assert stats.totalHaulingContracts == 1
+    assert stats.totalTransportRuns == 0
+
+    # a second day accumulates rather than resets
+    boats.runDailyProduction(player, stats)
+    assert stats.totalHaulingContracts == 2
+
+
+def test_a_transport_boats_working_day_is_counted():
+    # prepare - one passenger boat with a hand aboard
+    player = crewedFleet(roles=(boats.ROLE_TRANSPORT,))
+    stats = Stats()
+
+    # call
+    summary = boats.runDailyProduction(player, stats)
+
+    # check
+    assert summary["transportDays"] == 1
+    assert summary["haulingDays"] == 0
+    assert stats.totalTransportRuns == 1
+    assert stats.totalHaulingContracts == 0
+
+
+def test_each_honest_boat_counts_her_own_day():
+    # prepare - two freight boats and one passenger boat, all crewed
+    player = crewedFleet(
+        roles=(boats.ROLE_HAULING, boats.ROLE_HAULING, boats.ROLE_TRANSPORT)
+    )
+    stats = Stats()
+
+    # call
+    summary = boats.runDailyProduction(player, stats)
+
+    # check - a day is counted per working boat, not per fleet
+    assert summary["haulingDays"] == 2
+    assert summary["transportDays"] == 1
+    assert stats.totalHaulingContracts == 2
+    assert stats.totalTransportRuns == 1
+
+
+def test_fishing_and_piracy_days_are_not_counted_as_honest_work():
+    # prepare - the two roles that are handled elsewhere
+    player = crewedFleet(roles=(boats.ROLE_FISHING, boats.ROLE_PIRACY))
+    stats = Stats()
+
+    # call - the raid's randomness is pinned so no hull damage or fatality
+    # can perturb the fleet mid-day
+    with patch("src.business.boats.random.random", return_value=0.99), patch(
+        "src.business.boats.random.randint", return_value=0
+    ):
+        summary = boats.runDailyProduction(player, stats)
+
+    # check - piracy is already recorded as raidDays; neither role adds to the
+    # freight or passenger totals
+    assert summary["raidDays"] == 1
+    assert summary["haulingDays"] == 0
+    assert summary["transportDays"] == 0
+    assert stats.totalHaulingContracts == 0
+    assert stats.totalTransportRuns == 0
+
+
+def test_a_boat_with_no_crew_runs_no_freight_day():
+    # prepare - a freight boat nobody is aboard, plus a crewed passenger boat
+    player = crewedFleet(roles=(boats.ROLE_HAULING, boats.ROLE_TRANSPORT))
+    haulier = player.boats[0]
+    boats.unassignCrew(player, haulier["id"], haulier["crew"][0])
+    stats = Stats()
+
+    # call
+    summary = boats.runDailyProduction(player, stats)
+
+    # check - an empty hull does no work, so there is no day to count for her
+    assert summary["haulingDays"] == 0
+    assert summary["transportDays"] == 1
+    assert stats.totalHaulingContracts == 0
+    assert stats.totalTransportRuns == 1

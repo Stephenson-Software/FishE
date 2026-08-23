@@ -181,15 +181,37 @@ class Home:
                 self.currentPrompt.text = "What would you like to do?"
                 return
 
+    def _careerBlock(self, heading, entries):
+        """A headed block of the ledger, built from (label, value, format)
+        entries.
+
+        A zero entry is left out and a block with nothing left in it is dropped
+        altogether, so the ledger only ever names the parts of the game the
+        player has actually played - the same way the business and investment
+        blocks only appear once there is something to say."""
+        block = [
+            "%s: %s" % (label, valueFormat % value)
+            for label, value, valueFormat in entries
+            if value
+        ]
+        if not block:
+            return []
+        return ["", heading] + block
+
     def _statsLines(self):
         lines = [
             "Total Fish Caught: %d" % self.stats.totalFishCaught,
-            "Total Money Made: %d" % self.stats.totalMoneyMade,
+            # Exports pay a fractional multiplier (see business/export.py), so
+            # lifetime earnings are a float and whole dollars would drop the
+            # cents the status header shows.
+            "Total Money Made: %.2f" % self.stats.totalMoneyMade,
             "Hours Spent Fishing: %d" % self.stats.hoursSpentFishing,
             "Money Made From Interest: %d" % self.stats.moneyMadeFromInterest,
             "Times Gotten Drunk: %d" % self.stats.timesGottenDrunk,
             "Money Lost Gambling: %d" % self.stats.moneyLostFromGambling,
         ]
+        if self.stats.moneyLostWhileDrunk:
+            lines.append("Money Lost While Drunk: %d" % self.stats.moneyLostWhileDrunk)
         homeTier = housing.currentTier(self.player)
         homeInfo = housing.tierInfo(homeTier)
         lines += [
@@ -198,7 +220,10 @@ class Home:
         ]
         if self.stats.totalRentPaid:
             lines.append("Lifetime Rent Paid: %d" % self.stats.totalRentPaid)
-        if self.player.hasBoat:
+        # Gated on ever having run a business, not on owning a boat today: the
+        # wage bill below is what the Fleet block's takings were earned against,
+        # and showing one without the other would flatter a sold-off fleet.
+        if self.player.hasBoat or self.stats.daysInBusiness:
             lines += [
                 "",
                 "Business: %s" % (self.player.businessName or "Unnamed Fishing Co."),
@@ -207,6 +232,37 @@ class Home:
                 "Fish Caught by Crew: %d" % self.stats.totalFishCaughtByCrew,
                 "Wages Paid: %d" % self.stats.totalWagesPaid,
             ]
+        # What the boats did, and what shipping the surplus out was worth.
+        # Both are gated on the lifetime totals rather than on what the player
+        # owns today, so a career that ended in a sold-off fleet still shows
+        # the fleet's record.
+        lines += self._careerBlock(
+            "Fleet:",
+            [
+                ("Boats Owned (lifetime)", self.stats.boatsOwned, "%d"),
+                # Every role's takings together - the fleet's own working days
+                # and the voyages the player captained (see stats.Stats).
+                ("Money From Boat Work", self.stats.totalMoneyFromVoyages, "%d"),
+                ("Freight Days Run", self.stats.totalHaulingContracts, "%d"),
+                ("Passenger Runs", self.stats.totalTransportRuns, "%d"),
+                ("Days Spent Raiding", self.stats.totalRaids, "%d"),
+                ("Plunder Taken", self.stats.totalPlunder, "%d"),
+                ("Voyages Captained", self.stats.totalVoyagesCaptained, "%d"),
+                ("Voyages Foundered", self.stats.totalVoyagesFoundered, "%d"),
+                ("Crew Lost at Sea", self.stats.crewLostToPiracy, "%d"),
+            ],
+        )
+        lines += self._careerBlock(
+            "Exports:",
+            [
+                ("Fish Exported", self.stats.totalFishExported, "%d"),
+                # Gross, before the freight below - the same way Total Money
+                # Made counts gross sales (see stats.Stats). Fractional,
+                # because a market pays a multiplier of the village price.
+                ("Money From Exports", self.stats.totalMoneyFromExports, "%.2f"),
+                ("Freight Paid", self.stats.totalShippingPaid, "%d"),
+            ],
+        )
         if self.player.rentalProperties:
             lines += [
                 "",

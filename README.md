@@ -120,6 +120,8 @@ Cast a line at the docks to spend a random 1-10 hours fishing (10 energy per hou
 ### Milestones
 Lifetime stats — fish caught, money earned, hours spent fishing, crew hired, fish exported, raids run, voyages captained, homes owned, and more — unlock milestones as you reach their thresholds, from your very first catch up to owning the finest home in the village. Each milestone is announced once, the first time you reach it, even across save reloads.
 
+**See Stats** at home is where those running totals live, under the milestone checklist itself: what you've caught and earned, what your business has paid out in wages, what the fleet has been paid and taken as plunder, what you've shipped out and what the freight cost, and what your nights at the tavern have cost you. The business, fleet, export and property parts of the ledger each appear only once you've done the thing they count, so it fills out as your career does rather than opening as a wall of zeroes — and a total you've built up stays on the ledger even after you've sold what earned it. Retiring shows you the same summary one last time.
+
 ### Selling Fish
 Sell your catch at the shop. The shop has a limited amount of money each day that refills overnight, so a very large haul may sell out the shop and need to be finished the next day — sell regularly, and park your earnings in the bank or reinvest them in gear and your crew. Once you outgrow the shop entirely, a big enough boat lets you ship the surplus out to other villages instead (see Exporting to Other Villages above).
 
