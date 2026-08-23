@@ -220,7 +220,10 @@ class Home:
         ]
         if self.stats.totalRentPaid:
             lines.append("Lifetime Rent Paid: %d" % self.stats.totalRentPaid)
-        if self.player.hasBoat:
+        # Gated on ever having run a business, not on owning a boat today: the
+        # wage bill below is what the Fleet block's takings were earned against,
+        # and showing one without the other would flatter a sold-off fleet.
+        if self.player.hasBoat or self.stats.daysInBusiness:
             lines += [
                 "",
                 "Business: %s" % (self.player.businessName or "Unnamed Fishing Co."),
