@@ -568,3 +568,162 @@ def test_sleep_reports_what_the_fleet_did_overnight():
         "You sleep until the next morning"
     )
     assert "The Marauder landed 12 fish." in homeInstance.currentPrompt.text
+
+
+def test_displayStats_shows_total_money_made_to_the_cent():
+    # prepare - an export multiplier leaves lifetime earnings fractional
+    homeInstance = createHome()
+    homeInstance.stats.totalMoneyMade = 748.8
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - the cents are kept, matching the $%.2f the status header shows
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Total Money Made: 748.80" in shownText
+
+
+def test_displayStats_omits_the_fleet_and_export_blocks_for_a_fresh_player():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - a player who has never owned a boat is not shown headings for
+    # parts of the game they have not reached
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Fleet:" not in shownText
+    assert "Exports:" not in shownText
+    assert "Money Lost While Drunk" not in shownText
+
+
+def test_displayStats_includes_the_fleet_block_once_the_boats_have_worked():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.stats.boatsOwned = 3
+    homeInstance.stats.totalMoneyFromVoyages = 4200
+    homeInstance.stats.totalHaulingContracts = 12
+    homeInstance.stats.totalTransportRuns = 7
+    homeInstance.stats.totalRaids = 4
+    homeInstance.stats.totalPlunder = 5100
+    homeInstance.stats.crewLostToPiracy = 2
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - every role the fleet worked is on the ledger
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Fleet:" in shownText
+    assert "Boats Owned (lifetime): 3" in shownText
+    assert "Money From Boat Work: 4200" in shownText
+    assert "Freight Days Run: 12" in shownText
+    assert "Passenger Runs: 7" in shownText
+    assert "Days Spent Raiding: 4" in shownText
+    assert "Plunder Taken: 5100" in shownText
+    assert "Crew Lost at Sea: 2" in shownText
+
+
+def test_displayStats_fleet_block_omits_the_roles_never_worked():
+    # prepare - a fleet that only ever fished, so no role total but the boat
+    # count has anything to say
+    homeInstance = createHome()
+    homeInstance.stats.boatsOwned = 1
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - the block appears, but a role the player never used is left out
+    # rather than listed as a zero
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Boats Owned (lifetime): 1" in shownText
+    assert "Days Spent Raiding" not in shownText
+    assert "Freight Days Run" not in shownText
+    assert "Voyages Foundered" not in shownText
+
+
+def test_displayStats_keeps_the_fleet_record_after_every_boat_is_sold():
+    # prepare - a lifetime of piracy, but nothing owned today
+    homeInstance = createHome()
+    homeInstance.player.boats = []
+    homeInstance.stats.totalPlunder = 900
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - the career ledger is about the career, not the current fleet
+    assert not homeInstance.player.hasBoat
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Plunder Taken: 900" in shownText
+
+
+def test_displayStats_includes_captained_voyages_in_the_fleet_block():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.stats.totalVoyagesCaptained = 11
+    homeInstance.stats.totalVoyagesFoundered = 2
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - progress toward the ten-voyage milestone is visible, not just
+    # its unticked box
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Voyages Captained: 11" in shownText
+    assert "Voyages Foundered: 2" in shownText
+
+
+def test_displayStats_includes_the_export_block_once_fish_have_shipped():
+    # prepare - a market multiplier leaves the gross fractional
+    homeInstance = createHome()
+    homeInstance.stats.totalFishExported = 1250
+    homeInstance.stats.totalMoneyFromExports = 3612.5
+    homeInstance.stats.totalShippingPaid = 275
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - the gross keeps its cents, the freight is shown beside it
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Exports:" in shownText
+    assert "Fish Exported: 1250" in shownText
+    assert "Money From Exports: 3612.50" in shownText
+    assert "Freight Paid: 275" in shownText
+
+
+def test_displayStats_includes_money_lost_while_drunk_when_nonzero():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.stats.moneyLostWhileDrunk = 65
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - it sits with the other night-at-the-tavern lines
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Money Lost While Drunk: 65" in shownText
+
+
+def test_retire_summary_shows_the_fleet_and_export_record():
+    # prepare - retire reuses the ledger, so the closing summary gets the
+    # same blocks
+    homeInstance = createHome()
+    homeInstance.stats.totalPlunder = 5000
+    homeInstance.stats.totalFishExported = 400
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.retire()
+
+    # check
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Plunder Taken: 5000" in shownText
+    assert "Fish Exported: 400" in shownText
