@@ -727,3 +727,38 @@ def test_retire_summary_shows_the_fleet_and_export_record():
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
     assert "Plunder Taken: 5000" in shownText
     assert "Fish Exported: 400" in shownText
+
+
+def test_displayStats_keeps_the_wage_bill_beside_a_sold_off_fleets_takings():
+    # prepare - a business that ran for a while and was then sold off entirely
+    homeInstance = createHome()
+    homeInstance.player.boats = []
+    homeInstance.stats.daysInBusiness = 30
+    homeInstance.stats.totalWagesPaid = 600
+    homeInstance.stats.totalMoneyFromVoyages = 2400
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - the takings are not shown without the wages they were earned
+    # against, which would flatter the fleet's record
+    assert not homeInstance.player.hasBoat
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Money From Boat Work: 2400" in shownText
+    assert "Wages Paid: 600" in shownText
+    assert "Days in Business: 30" in shownText
+
+
+def test_displayStats_omits_the_business_block_for_a_player_who_never_had_one():
+    # prepare
+    homeInstance = createHome()
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - nothing changes for a player who never bought a boat
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Days in Business" not in shownText
+    assert "Wages Paid" not in shownText
