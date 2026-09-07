@@ -725,6 +725,27 @@ def test_selectSaveFile_loads_existing_slot():
     game.saveFileManager.select_save_slot.assert_called_once_with(2)
 
 
+def test_selectSaveFile_lists_a_slots_money_to_the_cent():
+    # prepare - export proceeds and bank withdrawals are fractional, so a
+    # saved balance really can carry cents
+    game = fishE.FishE.__new__(fishE.FishE)
+    game.saveFileManager = MagicMock()
+    game.saveFileManager.list_save_files.return_value = [
+        {"slot": 1, "metadata": {"day": 12, "money": 1234.99, "fishCount": 8}}
+    ]
+    game.saveFileManager.get_next_available_slot.return_value = 2
+    game.userInterface = MagicMock()
+    game.userInterface.showOptions.return_value = "1"
+
+    # call
+    game._selectSaveFile()
+
+    # check - the snapshot matches the $%.2f the status header shows on load,
+    # rather than dropping most of a dollar to whole dollars
+    options = game.userInterface.showOptions.call_args[0][1]
+    assert options[0] == "Load Slot 1 (Day 12, $1234.99, 8 fish)"
+
+
 def test_selectSaveFile_shows_a_damaged_slot_as_unpickable():
     # prepare - slot 1 will not parse, slot 2 is fine
     game = fishE.FishE.__new__(fishE.FishE)
@@ -749,7 +770,7 @@ def test_selectSaveFile_shows_a_damaged_slot_as_unpickable():
     assert 1 in unavailable
     assert "delete" in unavailable[1].lower()
     # the intact slot is untouched by any of that
-    assert options[1] == "Load Slot 2 (Day 3, $100, 5 fish)"
+    assert options[1] == "Load Slot 2 (Day 3, $100.00, 5 fish)"
     assert 2 not in unavailable
     game.saveFileManager.select_save_slot.assert_called_once_with(2)
 

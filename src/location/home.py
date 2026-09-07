@@ -199,19 +199,22 @@ class Home:
         return ["", heading] + block
 
     def _statsLines(self):
+        # Every dollar total on the ledger carries a $, the same way money is
+        # written everywhere else in the game - without it a row of takings
+        # reads as a tally, indistinguishable from the counts beside it.
         lines = [
             "Total Fish Caught: %d" % self.stats.totalFishCaught,
             # Exports pay a fractional multiplier (see business/export.py), so
             # lifetime earnings are a float and whole dollars would drop the
             # cents the status header shows.
-            "Total Money Made: %.2f" % self.stats.totalMoneyMade,
+            "Total Money Made: $%.2f" % self.stats.totalMoneyMade,
             "Hours Spent Fishing: %d" % self.stats.hoursSpentFishing,
-            "Money Made From Interest: %d" % self.stats.moneyMadeFromInterest,
+            "Money Made From Interest: $%d" % self.stats.moneyMadeFromInterest,
             "Times Gotten Drunk: %d" % self.stats.timesGottenDrunk,
-            "Money Lost Gambling: %d" % self.stats.moneyLostFromGambling,
+            "Money Lost Gambling: $%d" % self.stats.moneyLostFromGambling,
         ]
         if self.stats.moneyLostWhileDrunk:
-            lines.append("Money Lost While Drunk: %d" % self.stats.moneyLostWhileDrunk)
+            lines.append("Money Lost While Drunk: $%d" % self.stats.moneyLostWhileDrunk)
         homeTier = housing.currentTier(self.player)
         homeInfo = housing.tierInfo(homeTier)
         lines += [
@@ -219,7 +222,7 @@ class Home:
             "Home: %s" % homeInfo["name"],
         ]
         if self.stats.totalRentPaid:
-            lines.append("Lifetime Rent Paid: %d" % self.stats.totalRentPaid)
+            lines.append("Lifetime Rent Paid: $%d" % self.stats.totalRentPaid)
         # Gated on ever having run a business, not on owning a boat today: the
         # wage bill below is what the Fleet block's takings were earned against,
         # and showing one without the other would flatter a sold-off fleet.
@@ -230,7 +233,7 @@ class Home:
                 "Days in Business: %d" % self.stats.daysInBusiness,
                 "Crew Hired (lifetime): %d" % self.stats.totalWorkersHired,
                 "Fish Caught by Crew: %d" % self.stats.totalFishCaughtByCrew,
-                "Wages Paid: %d" % self.stats.totalWagesPaid,
+                "Wages Paid: $%d" % self.stats.totalWagesPaid,
             ]
         # What the boats did, and what shipping the surplus out was worth.
         # Both are gated on the lifetime totals rather than on what the player
@@ -242,11 +245,11 @@ class Home:
                 ("Boats Owned (lifetime)", self.stats.boatsOwned, "%d"),
                 # Every role's takings together - the fleet's own working days
                 # and the voyages the player captained (see stats.Stats).
-                ("Money From Boat Work", self.stats.totalMoneyFromVoyages, "%d"),
+                ("Money From Boat Work", self.stats.totalMoneyFromVoyages, "$%d"),
                 ("Freight Days Run", self.stats.totalHaulingContracts, "%d"),
                 ("Passenger Runs", self.stats.totalTransportRuns, "%d"),
                 ("Days Spent Raiding", self.stats.totalRaids, "%d"),
-                ("Plunder Taken", self.stats.totalPlunder, "%d"),
+                ("Plunder Taken", self.stats.totalPlunder, "$%d"),
                 ("Voyages Captained", self.stats.totalVoyagesCaptained, "%d"),
                 ("Voyages Foundered", self.stats.totalVoyagesFoundered, "%d"),
                 ("Crew Lost at Sea", self.stats.crewLostToPiracy, "%d"),
@@ -259,15 +262,15 @@ class Home:
                 # Gross, before the freight below - the same way Total Money
                 # Made counts gross sales (see stats.Stats). Fractional,
                 # because a market pays a multiplier of the village price.
-                ("Money From Exports", self.stats.totalMoneyFromExports, "%.2f"),
-                ("Freight Paid", self.stats.totalShippingPaid, "%d"),
+                ("Money From Exports", self.stats.totalMoneyFromExports, "$%.2f"),
+                ("Freight Paid", self.stats.totalShippingPaid, "$%d"),
             ],
         )
         if self.player.rentalProperties:
             lines += [
                 "",
                 "Investment Properties: %d owned" % len(self.player.rentalProperties),
-                "Lifetime Rental Income: %d" % self.stats.totalRentalIncome,
+                "Lifetime Rental Income: $%d" % self.stats.totalRentalIncome,
             ]
         lines += [
             "",
