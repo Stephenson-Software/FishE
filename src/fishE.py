@@ -193,8 +193,13 @@ class FishE:
                     reason = "can't be read - delete it to reuse the slot"
                     unavailable[len(options)] = reason
                     continue
+                # Money to the cent, like the status header the slot opens on.
+                # Exports pay a multiplier of the village price and bank
+                # withdrawals are parsed as floats, so a balance really can
+                # carry cents - whole dollars here dropped up to a dollar off
+                # the snapshot of the save the player is about to load.
                 options.append(
-                    "Load Slot %d (Day %d, $%d, %d fish)"
+                    "Load Slot %d (Day %d, $%.2f, %d fish)"
                     % (
                         save["slot"],
                         metadata.get("day", 1),
