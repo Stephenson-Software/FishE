@@ -270,7 +270,7 @@ def test_displayStats_includes_rent_paid_when_nonzero():
 
     # check
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Lifetime Rent Paid: 40" in shownText
+    assert "Lifetime Rent Paid: $40" in shownText
 
 
 def test_displayStats_includes_investment_block_when_owned():
@@ -286,7 +286,7 @@ def test_displayStats_includes_investment_block_when_owned():
     # check
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
     assert "Investment Properties: 2 owned" in shownText
-    assert "Lifetime Rental Income: 30" in shownText
+    assert "Lifetime Rental Income: $30" in shownText
 
 
 def test_manageHome_rented_room_option_discloses_daily_rent():
@@ -581,7 +581,51 @@ def test_displayStats_shows_total_money_made_to_the_cent():
 
     # check - the cents are kept, matching the $%.2f the status header shows
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Total Money Made: 748.80" in shownText
+    assert "Total Money Made: $748.80" in shownText
+
+
+def test_displayStats_marks_every_money_total_with_a_dollar_sign():
+    # prepare - a career that has touched every part of the ledger, each money
+    # total given a distinct value so a row cannot pass on another's text
+    homeInstance = createHome()
+    homeInstance.stats.totalMoneyMade = 748.8
+    homeInstance.stats.moneyMadeFromInterest = 210
+    homeInstance.stats.moneyLostFromGambling = 150
+    homeInstance.stats.moneyLostWhileDrunk = 65
+    homeInstance.stats.totalRentPaid = 40
+    homeInstance.stats.daysInBusiness = 30
+    homeInstance.stats.totalWagesPaid = 600
+    homeInstance.stats.totalMoneyFromVoyages = 2400
+    homeInstance.stats.totalPlunder = 5000
+    homeInstance.stats.totalMoneyFromExports = 3612.5
+    homeInstance.stats.totalShippingPaid = 275
+    homeInstance.stats.totalRentalIncome = 30
+    homeInstance.player.rentalProperties = [1]
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - dollars read as dollars here the same way they do everywhere else
+    # in the game, so a total of takings is never mistaken for a tally
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    for row in [
+        "Total Money Made: $748.80",
+        "Money Made From Interest: $210",
+        "Money Lost Gambling: $150",
+        "Money Lost While Drunk: $65",
+        "Lifetime Rent Paid: $40",
+        "Wages Paid: $600",
+        "Money From Boat Work: $2400",
+        "Plunder Taken: $5000",
+        "Money From Exports: $3612.50",
+        "Freight Paid: $275",
+        "Lifetime Rental Income: $30",
+    ]:
+        assert row in shownText
+    # the counts beside them are untouched - only money carries the marker
+    assert "Times Gotten Drunk: 0" in shownText
+    assert "Investment Properties: 1 owned" in shownText
 
 
 def test_displayStats_omits_the_fleet_and_export_blocks_for_a_fresh_player():
@@ -619,11 +663,11 @@ def test_displayStats_includes_the_fleet_block_once_the_boats_have_worked():
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
     assert "Fleet:" in shownText
     assert "Boats Owned (lifetime): 3" in shownText
-    assert "Money From Boat Work: 4200" in shownText
+    assert "Money From Boat Work: $4200" in shownText
     assert "Freight Days Run: 12" in shownText
     assert "Passenger Runs: 7" in shownText
     assert "Days Spent Raiding: 4" in shownText
-    assert "Plunder Taken: 5100" in shownText
+    assert "Plunder Taken: $5100" in shownText
     assert "Crew Lost at Sea: 2" in shownText
 
 
@@ -659,7 +703,7 @@ def test_displayStats_keeps_the_fleet_record_after_every_boat_is_sold():
     # check - the career ledger is about the career, not the current fleet
     assert not homeInstance.player.hasBoat
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Plunder Taken: 900" in shownText
+    assert "Plunder Taken: $900" in shownText
 
 
 def test_displayStats_includes_captained_voyages_in_the_fleet_block():
@@ -694,8 +738,8 @@ def test_displayStats_includes_the_export_block_once_fish_have_shipped():
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
     assert "Exports:" in shownText
     assert "Fish Exported: 1250" in shownText
-    assert "Money From Exports: 3612.50" in shownText
-    assert "Freight Paid: 275" in shownText
+    assert "Money From Exports: $3612.50" in shownText
+    assert "Freight Paid: $275" in shownText
 
 
 def test_displayStats_includes_money_lost_while_drunk_when_nonzero():
@@ -709,7 +753,7 @@ def test_displayStats_includes_money_lost_while_drunk_when_nonzero():
 
     # check - it sits with the other night-at-the-tavern lines
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Money Lost While Drunk: 65" in shownText
+    assert "Money Lost While Drunk: $65" in shownText
 
 
 def test_retire_summary_shows_the_fleet_and_export_record():
@@ -725,7 +769,7 @@ def test_retire_summary_shows_the_fleet_and_export_record():
 
     # check
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Plunder Taken: 5000" in shownText
+    assert "Plunder Taken: $5000" in shownText
     assert "Fish Exported: 400" in shownText
 
 
@@ -745,8 +789,8 @@ def test_displayStats_keeps_the_wage_bill_beside_a_sold_off_fleets_takings():
     # against, which would flatter the fleet's record
     assert not homeInstance.player.hasBoat
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
-    assert "Money From Boat Work: 2400" in shownText
-    assert "Wages Paid: 600" in shownText
+    assert "Money From Boat Work: $2400" in shownText
+    assert "Wages Paid: $600" in shownText
     assert "Days in Business: 30" in shownText
 
 
