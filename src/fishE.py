@@ -313,7 +313,13 @@ class FishE:
             # a player on their first cast is working toward filling a bucket,
             # not toward $10,000, and an empty string hides the line.
             if progression.isUnlocked(self.stats, progression.GOAL):
-                self.userInterface.goalProgress = "$%d / $%d" % (
+                # Wealth to the cent, like the money figure every front-end
+                # prints beside it: exports pay a multiplier of a per-fish
+                # price, bank amounts are parsed as floats and moneyInBank
+                # starts at a cent, so a fortune really is fractional and
+                # whole dollars understated it by up to a dollar. The target
+                # is the integer GOAL_AMOUNT and stays whole.
+                self.userInterface.goalProgress = "$%.2f / $%d" % (
                     self.getTotalWealth(),
                     GOAL_AMOUNT,
                 )

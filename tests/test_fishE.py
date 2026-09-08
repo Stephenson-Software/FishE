@@ -1048,7 +1048,24 @@ def test_play_shows_the_goal_line_once_it_is_unlocked():
     game.play()
 
     # check
-    assert game.userInterface.goalProgress == "$15 / $%d" % fishE.GOAL_AMOUNT
+    assert game.userInterface.goalProgress == "$15.00 / $%d" % fishE.GOAL_AMOUNT
+
+
+def test_play_shows_the_goal_line_wealth_to_the_cent():
+    # prepare - a fortune that carries cents, the way an export run or a bank
+    # withdrawal leaves it (and the way moneyInBank starts out)
+    game = createGameForPlay()
+    game.locations[LocationType.HOME].run.return_value = LocationType.NONE
+    game.player.money = 1234.55
+    game.player.moneyInBank = 0.44
+    progression.unlockAll(game.stats)
+
+    # call
+    game.play()
+
+    # check - the cents are shown, matching the money figure the front-ends
+    # print beside this line, rather than being dropped
+    assert game.userInterface.goalProgress == "$1234.99 / $%d" % fishE.GOAL_AMOUNT
 
 
 def test_play_announces_a_newly_unlocked_feature_with_its_reason():
