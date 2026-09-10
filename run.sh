@@ -42,7 +42,16 @@ checkDependencies() {
 runTests() {
     # run tests
     echo "Running tests"
-    python3 -m pytest
+    # pygame is installed above whichever front-end is actually going to be
+    # played, so its tests always run - and they open a real display unless SDL
+    # is pointed at its dummy drivers. Without these, a machine with no display
+    # fails 40 tests and the abort below refuses to start a console game that
+    # never needed one. The CI workflow sets the same two.
+    #
+    # Set on this command only: startProgram launches the game further down, and
+    # a dummy video driver exported for the whole script would draw the pygame
+    # front-end to nowhere for anyone who has switched INTERFACE_TYPE to it.
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python3 -m pytest
     testExitCode=$?
     echo ""
     if [ $testExitCode -ne 0 ]; then
