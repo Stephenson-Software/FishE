@@ -153,3 +153,9 @@ This project uses a simple, trunk-based branching model:
 - Once CI is green and the change is reviewed, merge into `main` and delete the feature branch.
 
 There is no `develop` branch — work flows directly off of and back into `main`.
+
+Run the suite locally with `./test.sh` (or `./run.sh`, which runs it before starting the game). Both point SDL at its dummy drivers, the same way CI does, so the pygame front-end's tests run without a display. Calling `python3 -m pytest` yourself on a machine with no display needs the same treatment, or those tests fail on the missing display rather than on anything you changed:
+
+```bash
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python3 -m pytest
+```
