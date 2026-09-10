@@ -37,32 +37,27 @@ def pytestCommands(script):
     return commands
 
 
-def test_test_sh_runs_pytest_under_the_dummy_sdl_drivers():
-    # prepare
-    script = readRepositoryFile("test.sh")
+def assertRunsPytestHeadlessly(scriptName):
+    """Every pytest invocation in the named script carries both drivers - and
+    there is at least one, so a script that stopped running the suite at all
+    can't pass by having nothing left to check."""
+    commands = pytestCommands(readRepositoryFile(scriptName))
 
-    # call
-    commands = pytestCommands(script)
-
-    # check
-    assert commands
+    assert commands, "%s no longer runs pytest" % scriptName
     for command in commands:
         for driver in DUMMY_DRIVERS:
-            assert driver in command
+            assert driver in command, "%s runs pytest without %s" % (
+                scriptName,
+                driver,
+            )
+
+
+def test_test_sh_runs_pytest_under_the_dummy_sdl_drivers():
+    assertRunsPytestHeadlessly("test.sh")
 
 
 def test_run_sh_runs_pytest_under_the_dummy_sdl_drivers():
-    # prepare
-    script = readRepositoryFile("run.sh")
-
-    # call
-    commands = pytestCommands(script)
-
-    # check
-    assert commands
-    for command in commands:
-        for driver in DUMMY_DRIVERS:
-            assert driver in command
+    assertRunsPytestHeadlessly("run.sh")
 
 
 def test_run_sh_does_not_leave_the_dummy_drivers_set_for_the_game():
