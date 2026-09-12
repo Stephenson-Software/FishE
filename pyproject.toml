@@ -1,0 +1,12 @@
+[tool.black]
+# src/trace_client.py and tests/test_trace_client.py are vendored byte-for-byte
+# from https://github.com/Stephenson-Software/trace-client-python (apart from
+# one docstring note and one import line), and are kept that way so they stay
+# diffable against upstream. format.sh runs black over src and tests, so they
+# are excluded here rather than reformatted.
+force-exclude = '''
+/(
+    src/trace_client\.py
+  | tests/test_trace_client\.py
+)$
+'''

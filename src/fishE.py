@@ -20,6 +20,8 @@ from achievements import achievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
 from progression import progression
 from config.config import Config
+from trace_client import TraceClient
+import usageReporting
 
 # Which front-end the game runs. Swap to UIType.PYGAME (or a future web type)
 # here to change the interface — the rest of the game is front-end agnostic.
@@ -31,7 +33,12 @@ class FishE:
     def __init__(self, interfaceType=INTERFACE_TYPE):
         self.running = True
 
+        # Usage reporting starts disabled so nothing below can depend on it
+        # before the settings are read; start() replaces it once they are.
+        self.usageReporting = TraceClient.disabled()
+
         self.config = Config()
+        self.usageReporting = usageReporting.start(self.config)
         self.playerJsonReaderWriter = PlayerJsonReaderWriter()
         self.timeServiceJsonReaderWriter = TimeServiceJsonReaderWriter()
         self.statsJsonReaderWriter = StatsJsonReaderWriter()
@@ -66,6 +73,10 @@ class FishE:
         # so construction stops here and play() returns immediately.
         if not self.running:
             return
+
+        # A slot was created or opened: the one usage event besides startup.
+        # Nothing about the slot goes with it (see usageReporting).
+        self.usageReporting.report("save-loaded", tags=usageReporting.versionTags())
 
         # Load the chosen slot over the defaults if it has data.
         #
@@ -304,6 +315,9 @@ class FishE:
             self._runGameLoop()
         finally:
             self.userInterface.cleanup()
+            # Stops the reporting thread. A report still in flight is given a
+            # few seconds; anything only queued is dropped, never retried.
+            self.usageReporting.close()
 
     def _runGameLoop(self):
         while self.running:

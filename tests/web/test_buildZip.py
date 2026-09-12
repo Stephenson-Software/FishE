@@ -25,6 +25,16 @@ def test_bundle_carries_the_game(tmp_path, monkeypatch):
     assert os.path.join("src", "browserSaveSync.py") in names
 
 
+def test_bundle_carries_the_usage_reporting_modules(tmp_path, monkeypatch):
+    # fishE.py imports both at module level, so a bundle without them fails
+    # to start at all - even though the browser build never reports.
+    names = buildBundle(tmp_path, monkeypatch)
+
+    assert os.path.join("src", "usageReporting.py") in names
+    assert os.path.join("src", "trace_client.py") in names
+    assert "version.txt" in names
+
+
 def test_bundle_carries_the_schemas_the_save_readers_validate_against(
     tmp_path, monkeypatch
 ):
