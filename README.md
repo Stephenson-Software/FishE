@@ -143,6 +143,26 @@ Damage the menu can't see ahead of time — a save that parses but fails validat
 
 When you play in your own browser (the Pyodide front-end above), those same slots are written to your browser's IndexedDB instead of to disk — creating, saving and deleting a slot all take effect there, so your progress is waiting for you when you come back to the tab. They belong to that browser on that machine: clearing the site's data clears them, and they don't follow you to another browser or another device.
 
+## Usage Reporting
+
+FishE reports that it was used to [trace](https://github.com/Stephenson-Software/trace), a small usage-counting service, so the number of installs actually being played can be seen. It sends a `startup` event once per launch and a `save-loaded` event each time a save slot is created or opened. Each carries the program name (`FishE`) and the version from `version.txt` — and nothing else: no username, hostname, address, path, slot number, or anything about your run. Reporting never gets in the game's way: it happens on a background thread, never raises into the game, and a server that is down or slow costs a dropped event, not a wait.
+
+It is on by default. The first time an install reports, one line saying so is printed on the console (above the save-file menu), and a `usage-reporting-notice-shown` marker is left in the save directory so it is not printed again. To turn it off, set the variable in the environment the game runs in:
+
+```bash
+FISHE_USAGE_REPORTING_ENABLED=false python3 src/fishE.py
+```
+
+| Variable | Default | What it does |
+|---|---|---|
+| `FISHE_USAGE_REPORTING_ENABLED` | `true` | `false`, `0`, `no` or `off` turns reporting off. |
+| `FISHE_USAGE_REPORTING_ENDPOINT` | `https://trace.danielstephenson.dev` | Where events are sent — a self-hosted trace, or a local stub. |
+| `FISHE_USAGE_REPORTING_KEY` | the key issued to FishE | The program key sent with each event. |
+
+The in-browser front-end (`UIType.PYODIDE`) never reports: the game runs in your tab, where the client's background thread cannot exist, and nothing is sent from there. The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either.
+
+The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python); the wiring is `src/usageReporting.py`.
+
 ## Contributing
 
 This project uses a simple, trunk-based branching model:

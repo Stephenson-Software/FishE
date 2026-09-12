@@ -942,6 +942,7 @@ def createGameForPlay():
     game.stats = Stats()
     game.prompt = Prompt("What would you like to do?")
     game.userInterface = MagicMock()
+    game.usageReporting = MagicMock()
     game.timeService = MagicMock()
     game.timeService.increaseTime.return_value = {"evicted": False}
     game.locations = {
