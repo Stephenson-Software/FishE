@@ -143,11 +143,17 @@ Damage the menu can't see ahead of time — a save that parses but fails validat
 
 When you play in your own browser (the Pyodide front-end above), those same slots are written to your browser's IndexedDB instead of to disk — creating, saving and deleting a slot all take effect there, so your progress is waiting for you when you come back to the tab. They belong to that browser on that machine: clearing the site's data clears them, and they don't follow you to another browser or another device.
 
-## Usage Reporting
+## Usage reporting
 
-FishE reports that it was used to [trace](https://github.com/Stephenson-Software/trace), a small usage-counting service, so the number of installs actually being played can be seen. It sends a `startup` event once per launch and a `save-loaded` event each time a save slot is created or opened. Each carries the program name (`FishE`) and the version from `version.txt` — and nothing else: no username, hostname, address, path, slot number, or anything about your run. Reporting never gets in the game's way: it happens on a background thread, never raises into the game, and a server that is down or slow costs a dropped event, not a wait.
+Usage reporting is on by default: FishE sends a `startup` event once per launch and a `save-loaded` event each time a save slot is created or opened to [trace](https://github.com/Stephenson-Software/trace) at `https://trace.danielstephenson.dev`, each carrying only the program name (`FishE`) and the version from `version.txt`. Nothing about you or your run is sent — no username, hostname, IP address, path, slot number or save contents. The in-browser front-end (`UIType.PYODIDE`) is silent: the game runs in your tab, where the client's background thread cannot exist, and nothing is sent from there.
 
-It is on by default. The first time an install reports, one line saying so is printed on the console (above the save-file menu), and a `usage-reporting-notice-shown` marker is left in the save directory so it is not printed again. To turn it off, set the variable in the environment the game runs in:
+The first time an install reports, one line saying so is printed on the console (above the save-file menu) and a `usage-reporting-notice-shown` marker is left in the save directory so it is not printed again. Reporting never gets in the game's way: it happens on a background thread, never raises into the game, and a server that is down or slow costs a dropped event, not a wait.
+
+To turn it off, set any of these in the environment the game runs in:
+
+- `FISHE_USAGE_REPORTING_ENABLED=false` (also `0`, `no`, `off`) — FishE's own switch
+- `TRACE_USAGE_REPORTING=off` (also `false`, `0`, `no`) — turns off every program that reports to trace
+- `DO_NOT_TRACK=1` (also `true`, `yes`) — the [console DNT convention](https://consoledonottrack.com), honoured the same way
 
 ```bash
 FISHE_USAGE_REPORTING_ENABLED=false python3 src/fishE.py
@@ -158,10 +164,12 @@ FISHE_USAGE_REPORTING_ENABLED=false python3 src/fishE.py
 | `FISHE_USAGE_REPORTING_ENABLED` | `true` | `false`, `0`, `no` or `off` turns reporting off. |
 | `FISHE_USAGE_REPORTING_ENDPOINT` | `https://trace.danielstephenson.dev` | Where events are sent — a self-hosted trace, or a local stub. |
 | `FISHE_USAGE_REPORTING_KEY` | the key issued to FishE | The program key sent with each event. |
+| `TRACE_USAGE_REPORTING` | unset | `off`, `false`, `0` or `no` turns reporting off, for FishE and every other trace client. |
+| `DO_NOT_TRACK` | unset | `1`, `true` or `yes` turns reporting off the same way. |
 
-The in-browser front-end (`UIType.PYODIDE`) never reports: the game runs in your tab, where the client's background thread cannot exist, and nothing is sent from there. The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either.
+The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either. The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python) (0.2.0); the wiring is `src/usageReporting.py`.
 
-The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python); the wiring is `src/usageReporting.py`.
+Details: https://github.com/Stephenson-Software/trace#usage-reporting
 
 ## Contributing
 

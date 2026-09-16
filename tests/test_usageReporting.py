@@ -143,7 +143,36 @@ def test_the_opt_out_yields_a_client_that_does_nothing(monkeypatch, reportingOn)
 def test_an_empty_key_yields_a_client_that_does_nothing(reportingOn):
     reportingOn.usageReportingKey = ""
 
-    assert not usageReporting.createClient(reportingOn).enabled
+    client = usageReporting.createClient(reportingOn)
+    assert not client.enabled
+    assert client.disabled_reason == "no key"
+
+
+@pytest.mark.parametrize(
+    "variable, value",
+    [
+        ("TRACE_USAGE_REPORTING", "off"),
+        ("TRACE_USAGE_REPORTING", "FALSE"),
+        ("TRACE_USAGE_REPORTING", "0"),
+        ("DO_NOT_TRACK", "1"),
+        ("DO_NOT_TRACK", "true"),
+    ],
+)
+def test_the_environment_wins_over_fishe_saying_on(
+    monkeypatch, reportingOn, stub, variable, value
+):
+    # FishE's own setting says on and a key is present; the client-wide
+    # variables still switch reporting off, silently, and nothing is sent.
+    monkeypatch.setenv(variable, value)
+    output = io.StringIO()
+
+    client = usageReporting.start(reportingOn, output)
+
+    assert not client.enabled
+    assert client.disabled_reason == "environment"
+    assert output.getvalue() == ""
+    assert not os.path.exists(usageReporting.noticeMarkerPath(reportingOn))
+    assert not stub.waitFor(1, timeout=0.5)
 
 
 def test_the_browser_build_never_reports(monkeypatch, reportingOn):
@@ -174,11 +203,13 @@ def test_the_notice_is_printed_once_and_then_never_again(reportingOn):
     assert third.getvalue() == ""
 
 
-def test_the_notice_names_the_program_what_is_sent_and_the_opt_out():
+def test_the_notice_names_the_program_what_is_sent_the_opt_outs_and_the_details():
     assert usageReporting.NOTICE == (
         "Usage reporting is on: FishE sends a startup event and a save-loaded "
         "event (program name and version only) to trace.danielstephenson.dev. "
-        "Turn it off with FISHE_USAGE_REPORTING_ENABLED=false in the environment."
+        "Turn it off with FISHE_USAGE_REPORTING_ENABLED=false or "
+        "TRACE_USAGE_REPORTING=off in the environment. "
+        "Details: https://github.com/Stephenson-Software/trace#usage-reporting"
     )
     assert "\n" not in usageReporting.NOTICE
 
@@ -332,6 +363,18 @@ def test_the_game_starts_with_a_disabled_client_before_settings_are_read(
     game = createFishE(lambda self: None)
 
     assert not game.usageReporting.enabled
+    assert not stub.waitFor(1, timeout=0.5)
+
+
+def test_the_environment_wins_inside_the_game_too(monkeypatch, reportingOn, stub):
+    # Reporting on, key present, stub listening - and DO_NOT_TRACK set. The
+    # game builds a client that reports nothing and prints no notice.
+    monkeypatch.setenv("DO_NOT_TRACK", "1")
+
+    game = createFishE(lambda self: None)
+
+    assert not game.usageReporting.enabled
+    assert game.usageReporting.disabled_reason == "environment"
     assert not stub.waitFor(1, timeout=0.5)
 
 

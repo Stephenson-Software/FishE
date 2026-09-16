@@ -9,9 +9,13 @@ hostname, address, path, slot number or anything about the run.
 
 Reporting is on by default and switched off with
 ``FISHE_USAGE_REPORTING_ENABLED=false`` in the environment (see
-config.Config). The first time an install reports, one line saying so is
-printed on the console and a marker file is left in the save directory so it
-is not printed again.
+config.Config), or with the two variables every trace client honours,
+``TRACE_USAGE_REPORTING=off`` and ``DO_NOT_TRACK=1``. Those two are checked by
+the client itself, in its constructor, before FishE's own setting - so they
+win even when the setting says on. The first time an install reports, one
+line saying so is printed on the console and a marker file is left in the
+save directory so it is not printed again. What is sent and how to turn it
+off is written up at https://github.com/Stephenson-Software/trace#usage-reporting.
 
 The client never gets in the game's way: every report returns immediately (the
 HTTP call happens on a daemon thread the client owns), never raises, and at
@@ -37,12 +41,18 @@ PROGRAM_NAME = "FishE"
 # is. SaveFileManager ignores it: only slot_N directories are save slots.
 NOTICE_MARKER_FILENAME = "usage-reporting-notice-shown"
 
-OPT_OUT_INSTRUCTION = "FISHE_USAGE_REPORTING_ENABLED=false in the environment"
+OPT_OUT_INSTRUCTION = (
+    "FISHE_USAGE_REPORTING_ENABLED=false or TRACE_USAGE_REPORTING=off "
+    "in the environment"
+)
+
+DETAILS_URL = "https://github.com/Stephenson-Software/trace#usage-reporting"
 
 NOTICE = (
     "Usage reporting is on: %s sends a startup event and a save-loaded event "
     "(program name and version only) to trace.danielstephenson.dev. "
-    "Turn it off with %s." % (PROGRAM_NAME, OPT_OUT_INSTRUCTION)
+    "Turn it off with %s. Details: %s"
+    % (PROGRAM_NAME, OPT_OUT_INSTRUCTION, DETAILS_URL)
 )
 
 VERSION_FILE = os.path.join(
@@ -79,17 +89,18 @@ def versionTags():
 def createClient(config):
     """Build the client the settings in config ask for.
 
-    A disabled setting, an empty key, or the browser build all yield
-    TraceClient.disabled(), which reports nothing and starts no thread."""
-    if isBrowserBuild() or not config.usageReportingEnabled:
-        return TraceClient.disabled()
-    if not config.usageReportingKey:
+    The browser build yields TraceClient.disabled() outright. Everything else
+    goes through the client's constructor, which decides in this order:
+    TRACE_USAGE_REPORTING / DO_NOT_TRACK in the environment, then FishE's own
+    setting, then whether there is a key. A client switched off by any of
+    them reports nothing, starts no thread, and says why in disabled_reason."""
+    if isBrowserBuild():
         return TraceClient.disabled()
     return TraceClient(
         config.usageReportingEndpoint,
         PROGRAM_NAME,
         key=config.usageReportingKey,
-        enabled=True,
+        enabled=config.usageReportingEnabled,
     )
 
 
