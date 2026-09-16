@@ -12,3 +12,8 @@ def usageReportingOff(monkeypatch):
     reporting itself switch it back on and point the endpoint at a loopback
     stub server (see tests/test_usageReporting.py)."""
     monkeypatch.setenv("FISHE_USAGE_REPORTING_ENABLED", "false")
+    # The machine running the tests may itself have opted out through the
+    # client-wide variables; a test that turns reporting back on must start
+    # from a clean slate, so both are cleared here.
+    monkeypatch.delenv("TRACE_USAGE_REPORTING", raising=False)
+    monkeypatch.delenv("DO_NOT_TRACK", raising=False)
