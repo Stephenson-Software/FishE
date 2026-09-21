@@ -10,12 +10,12 @@ This game allows you to explore a fishing village and perform actions in it.
 pip install -r requirements.txt
 ```
 
-The game itself depends on `jsonschema` (it validates save files on every load and save), so this step is required before running any front-end from a local Python interpreter — console or the server-backed web front-end (`python3 examples/web_app.py`). `run.sh` runs this for you. The pygame front-end (`UIType.PYGAME`) additionally needs `pip install pygame`, kept out of `requirements.txt` since it's only imported lazily when that front-end is selected.
+The game depends on [tak](https://github.com/Stephenson-Software/tak) — the text-adventure kit that was extracted from FishE and that FishE now runs on: the user-interface contract and its console, server-web and in-browser front-ends, the save slots, the unlock engine and NPC dialogue — and on `jsonschema` (it validates save files on every load and save). Installing tak needs `git` on your PATH. This step is required before running any front-end from a local Python interpreter — console or the server-backed web front-end (`python3 examples/web_app.py`). `run.sh` runs this for you. The pygame front-end (`UIType.PYGAME`) additionally needs `pip install pygame`, kept out of `requirements.txt` since it's only imported lazily when that front-end is selected.
 
 ## Features
 
 ### Play in your browser
-FishE runs behind a single user-interface contract, so it supports multiple front-ends: the default text/console interface, a pygame window, and two browser-based ones. The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dialogue — plays in the browser either way, and both render from the same client (`web/client.js`), so they look and behave identically. Adding a new front-end means implementing `BaseUserInterface` and adding a `UIType` + factory branch.
+FishE runs behind a single user-interface contract, so it supports multiple front-ends: the default text/console interface, a pygame window, and two browser-based ones. The entire game — save-file manager, fishing, shop, bank, tavern, and NPC dialogue — plays in the browser either way, and both render from the same client (tak's `client.js`, served at `/tak/`), so they look and behave identically. Adding a new front-end means implementing tak's `BaseUserInterface` (FishE's subclass in `src/ui/baseUserInterface.py` supplies the village's header) and adding a `UIType` + factory branch.
 
 **In your own browser (`UIType.PYODIDE`)** — the game itself runs in your tab, under [Pyodide](https://pyodide.org). Nothing is sent to a server, every tab is its own game, and your **save files live in your browser's IndexedDB**, so they survive a reload and stay on your machine. This is how the game is deployed:
 
@@ -36,7 +36,7 @@ python3 examples/web_app.py
 # then open http://127.0.0.1:8000
 ```
 
-Both need `jsonschema` (see Setup above) — the Pyodide front-end loads it into the browser sandbox automatically when the page opens, while the server-backed front-end runs on your local Python and needs it installed first.
+Both need the Setup step above: the browser build copies the installed tak into `web/game.zip` and loads `jsonschema` into the browser sandbox when the page opens, while the server-backed front-end runs on your local Python and needs both installed first. Rebuild `web/game.zip` after upgrading tak.
 
 ### One Thing at a Time
 A new game opens on the docks with a rod, a bucket, and exactly one thing to do: **fish**. Everything else in the village arrives later, one option at a time, as you earn it — and each arrival tells you why it's there:
