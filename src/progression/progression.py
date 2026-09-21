@@ -21,6 +21,13 @@
 # Unlocks are permanent. The set of already-granted ids lives on
 # Stats (stats.unlockedFeatures) so it is saved, and a feature is announced
 # exactly once across the whole run.
+#
+# The engine - one unlock per call, catch-up on load, the granted list as the
+# announced flag - now lives in tak (tak.progression.Progression). This module
+# keeps FishE's table and its (player, stats) calling convention, and adapts
+# the two-argument conditions to the kit's single state argument.
+
+from tak import Progression
 
 # Feature ids. Each is referenced by the location that owns the menu entry.
 SHOP = "shop"
@@ -140,12 +147,22 @@ UNLOCKS = [
     },
 ]
 
-ALL_FEATURE_IDS = [unlock["id"] for unlock in UNLOCKS]
+
+def _adapt(condition):
+    """The kit passes one state object; FishE's conditions take (player, stats)."""
+    return lambda state: condition(state[0], state[1])
+
+
+_kit = Progression(
+    [dict(unlock, condition=_adapt(unlock["condition"])) for unlock in UNLOCKS]
+)
+
+ALL_FEATURE_IDS = _kit.allFeatureIds
 
 
 def isUnlocked(stats, featureId):
     """Whether the player has been shown the given feature yet."""
-    return featureId in stats.unlockedFeatures
+    return _kit.isUnlocked(stats.unlockedFeatures, featureId)
 
 
 def getNextUnlock(player, stats):
@@ -159,16 +176,8 @@ def getNextUnlock(player, stats):
     per action, so the game always unfolds a button at a time.
 
     The granted id is appended to stats.unlockedFeatures (which is saved), so a
-    feature is announced once and then stays available for good - the same "the
-    persisted list doubles as the already-announced flag" approach used for
-    milestones in src/achievements."""
-    for unlock in UNLOCKS:
-        if unlock["id"] in stats.unlockedFeatures:
-            continue
-        if unlock["condition"](player, stats):
-            stats.unlockedFeatures.append(unlock["id"])
-            return unlock
-    return None
+    feature is announced once and then stays available for good."""
+    return _kit.getNextUnlock((player, stats), stats.unlockedFeatures)
 
 
 def catchUp(player, stats):
@@ -178,16 +187,14 @@ def catchUp(player, stats):
     file written before this module existed has no unlockedFeatures at all, and
     its player may already own a fleet and a manor - re-locking the village
     around them would be a bug, and handing it back one button per action would
-    be worse. A save that does have the list is unaffected, and a brand new
-    game meets no conditions, so this grants nothing there either."""
-    while getNextUnlock(player, stats) is not None:
-        pass
+    be worse."""
+    _kit.catchUp((player, stats), stats.unlockedFeatures)
 
 
 def unlockAll(stats):
     """Grant every feature at once. For tests and for anything that needs the
     full menu without playing through to it."""
-    stats.unlockedFeatures = list(ALL_FEATURE_IDS)
+    _kit.unlockAll(stats.unlockedFeatures)
 
 
 def isFreshStart(stats):
