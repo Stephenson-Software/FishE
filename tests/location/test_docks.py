@@ -1504,10 +1504,17 @@ def test_a_voyage_that_founders_ends_early():
     docksInstance.userInterface.showDialogue = MagicMock()
     startingDay = docksInstance.timeService.day
 
-    # call - every damage roll at its worst
-    with patch("src.business.adventures.random.randint", return_value=99):
-        with patch("src.business.adventures.random.random", return_value=0.0):
-            docksInstance.takeTheHelm()
+    # call - every leg presents the leak, whose first choice always damages,
+    # and every damage roll is at its worst. rollEvent draws from the role's
+    # pool with random.choice, which the two patches below never covered:
+    # a run that drew driftwood, calm water or good grounds every leg took
+    # no damage and never foundered, and the test failed about one run in
+    # forty (#200).
+    leak = next(event for event in adventures.EVENTS if event["id"] == "leak")
+    with patch("src.business.adventures.rollEvent", return_value=leak):
+        with patch("src.business.adventures.random.randint", return_value=99):
+            with patch("src.business.adventures.random.random", return_value=0.0):
+                docksInstance.takeTheHelm()
 
     # check - she came home early with nothing, but she came home
     assert docksInstance.timeService.day < startingDay + plan["legs"]
