@@ -94,7 +94,7 @@ def test_showBusy_is_inherited_and_only_waits():
     ui = RecordingUserInterface(prompt, timeService, player, choices=[])
 
     # call
-    with patch("ui.baseUserInterface.time.sleep") as sleep:
+    with patch("tak.ui.base.time.sleep") as sleep:
         ui.showBusy("Fishing...", 2)
 
     # check - the pause happens and nothing is shown or acknowledged

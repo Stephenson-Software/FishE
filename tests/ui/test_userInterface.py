@@ -3,6 +3,7 @@ from src.player.player import Player
 from src.prompt.prompt import Prompt
 from src.stats.stats import Stats
 from src.ui import userInterface
+from tak.ui import console as consoleModule  # where print/input/time are looked up now
 from src.world.timeService import TimeService
 from unittest.mock import MagicMock, patch
 
@@ -31,32 +32,32 @@ def test_initialization():
 def test_lotsOfSpace():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
+    consoleModule.print = MagicMock()
 
     # call
     userInterfaceInstance.lotsOfSpace()
 
     # check
-    userInterface.print.assert_called_with("\n" * 20)
+    consoleModule.print.assert_called_with("\n" * 20)
 
 
 def test_divider():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
+    consoleModule.print = MagicMock()
 
     # call
     userInterfaceInstance.divider()
 
     # check
-    assert userInterface.print.call_count == 3
+    assert consoleModule.print.call_count == 3
 
 
 def test_showOptions():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="1")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="1")
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
 
@@ -64,10 +65,10 @@ def test_showOptions():
     userInterfaceInstance.showOptions("descriptor", ["option1", "option2"])
 
     # check
-    assert userInterface.print.call_count == 9
+    assert consoleModule.print.call_count == 9
     userInterfaceInstance.lotsOfSpace.assert_called()
     assert userInterfaceInstance.divider.call_count == 3
-    userInterface.input.assert_called_with("\n> ")
+    consoleModule.input.assert_called_with("\n> ")
 
     # check - the energy line shows the current tier's cap, not just the
     # raw value, so the housing energy-cap benefit is always visible
@@ -75,7 +76,7 @@ def test_showOptions():
         userInterfaceInstance.player.energy,
         housing.maxEnergy(userInterfaceInstance.player),
     )
-    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
     assert expectedEnergyLine in printedLines
 
 
@@ -83,8 +84,8 @@ def test_showOptions_includes_location_when_set():
     # setup
     userInterfaceInstance = createUserInterface()
     userInterfaceInstance.currentLocationName = "Docks"
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="1")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="1")
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
 
@@ -92,7 +93,7 @@ def test_showOptions_includes_location_when_set():
     userInterfaceInstance.showOptions("descriptor", ["option1"])
 
     # check - the header shows the current location
-    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
     assert " | Location: Docks" in printedLines
 
 
@@ -100,8 +101,8 @@ def test_showOptions_includes_goal_progress_when_set():
     # setup
     userInterfaceInstance = createUserInterface()
     userInterfaceInstance.goalProgress = "$1200 / $10000"
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="1")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="1")
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
 
@@ -109,15 +110,15 @@ def test_showOptions_includes_goal_progress_when_set():
     userInterfaceInstance.showOptions("descriptor", ["option1"])
 
     # check
-    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
     assert " | Goal: $1200 / $10000" in printedLines
 
 
 def test_showOptions_omits_location_when_unset():
     # setup
     userInterfaceInstance = createUserInterface()  # currentLocationName defaults to ""
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="1")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="1")
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
 
@@ -125,15 +126,15 @@ def test_showOptions_omits_location_when_unset():
     userInterfaceInstance.showOptions("descriptor", ["option1"])
 
     # check - no Location line is printed when none is set
-    printedLines = [call.args[0] for call in userInterface.print.call_args_list]
+    printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
     assert not any(line.startswith(" | Location:") for line in printedLines)
 
 
 def test_showDialogue():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="")
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
 
@@ -143,8 +144,8 @@ def test_showDialogue():
     # check
     userInterfaceInstance.lotsOfSpace.assert_called_once()
     assert userInterfaceInstance.divider.call_count == 2
-    userInterface.print.assert_called_with("Test dialogue text")
-    userInterface.input.assert_called_with(" [ CONTINUE ]")
+    consoleModule.print.assert_called_with("Test dialogue text")
+    consoleModule.input.assert_called_with(" [ CONTINUE ]")
     assert userInterfaceInstance.currentPrompt.text == "What would you like to do?"
 
 
@@ -153,8 +154,8 @@ def test_showInteractiveDialogue_with_no_options():
     from src.npc.npc import NPC
 
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="")
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
     npc = NPC("Test NPC", "A test character")
@@ -165,7 +166,7 @@ def test_showInteractiveDialogue_with_no_options():
     # check - should fallback to simple introduction
     userInterfaceInstance.lotsOfSpace.assert_called_once()
     assert userInterfaceInstance.divider.call_count == 3
-    userInterface.input.assert_called_with(" [ CONTINUE ]")
+    consoleModule.input.assert_called_with(" [ CONTINUE ]")
     assert userInterfaceInstance.currentPrompt.text == "What would you like to do?"
 
 
@@ -174,9 +175,9 @@ def test_showInteractiveDialogue_select_option():
     from src.npc.npc import NPC
 
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
+    consoleModule.print = MagicMock()
     # First input selects option 1, second input continues, third input selects Back
-    userInterface.input = MagicMock(side_effect=["1", "", "2"])
+    consoleModule.input = MagicMock(side_effect=["1", "", "2"])
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
 
@@ -187,7 +188,7 @@ def test_showInteractiveDialogue_select_option():
     userInterfaceInstance.showInteractiveDialogue(npc)
 
     # check - should have shown menu, response, and back option
-    assert userInterface.input.call_count == 3
+    assert consoleModule.input.call_count == 3
     assert userInterfaceInstance.currentPrompt.text == "What would you like to do?"
 
 
@@ -196,9 +197,9 @@ def test_showInteractiveDialogue_invalid_choice():
     from src.npc.npc import NPC
 
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
+    consoleModule.print = MagicMock()
     # First input is invalid, second continues error message, third selects Back
-    userInterface.input = MagicMock(side_effect=["99", "", "2"])
+    consoleModule.input = MagicMock(side_effect=["99", "", "2"])
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
 
@@ -209,9 +210,9 @@ def test_showInteractiveDialogue_invalid_choice():
     userInterfaceInstance.showInteractiveDialogue(npc)
 
     # check - should have handled invalid input
-    assert userInterface.input.call_count == 3
+    assert consoleModule.input.call_count == 3
     # Should have printed "Invalid choice" message
-    print_calls = [str(call) for call in userInterface.print.call_args_list]
+    print_calls = [str(call) for call in consoleModule.print.call_args_list]
     assert any("Invalid choice" in str(call) for call in print_calls)
 
 
@@ -220,16 +221,16 @@ def test_promptForText_returns_entered_line():
     userInterfaceInstance = createUserInterface()
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="42")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="42")
 
     # call
     result = userInterfaceInstance.promptForText("How much?")
 
     # check - the prompt is shown and the typed line is returned
     assert result == "42"
-    userInterface.input.assert_called_with("> ")
-    printed = [str(call) for call in userInterface.print.call_args_list]
+    consoleModule.input.assert_called_with("> ")
+    printed = [str(call) for call in consoleModule.print.call_args_list]
     assert any("How much?" in call for call in printed)
 
 
@@ -238,23 +239,23 @@ def test_promptForNumber_parses_console_input():
     userInterfaceInstance = createUserInterface()
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
-    userInterface.print = MagicMock()
+    consoleModule.print = MagicMock()
 
     # check - numeric input parses; non-numeric returns None
-    userInterface.input = MagicMock(return_value="10.5")
+    consoleModule.input = MagicMock(return_value="10.5")
     assert userInterfaceInstance.promptForNumber("Amount?") == 10.5
-    userInterface.input = MagicMock(return_value="oops")
+    consoleModule.input = MagicMock(return_value="oops")
     assert userInterfaceInstance.promptForNumber("Amount?") is None
 
 
 def test_timedKeyPress_returns_reaction_seconds():
     # setup
     userInterfaceInstance = createUserInterface()
-    userInterface.print = MagicMock()
-    userInterface.input = MagicMock(return_value="")
+    consoleModule.print = MagicMock()
+    consoleModule.input = MagicMock(return_value="")
 
     # call - start at t=0, key pressed at t=1.5
-    with patch("src.ui.userInterface.time.time", side_effect=[0.0, 1.5]):
+    with patch("tak.ui.console.time.time", side_effect=[0.0, 1.5]):
         reaction = userInterfaceInstance.timedKeyPress("React!")
 
     # check
@@ -267,10 +268,10 @@ def test_showBusy_prints_the_message_and_waits():
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
     printed = []
-    userInterface.print = MagicMock(side_effect=lambda text: printed.append(text))
+    consoleModule.print = MagicMock(side_effect=lambda text: printed.append(text))
 
     # call - a 3 second pause, without actually spending 3 seconds
-    with patch("src.ui.userInterface.time.sleep") as sleep:
+    with patch("tak.ui.console.time.sleep") as sleep:
         userInterfaceInstance.showBusy("Fishing...", 3)
 
     # check - the message is shown, then one dot row per second waited
@@ -284,10 +285,10 @@ def test_showBusy_waits_a_fractional_second_in_one_step():
     userInterfaceInstance = createUserInterface()
     userInterfaceInstance.lotsOfSpace = MagicMock()
     userInterfaceInstance.divider = MagicMock()
-    userInterface.print = MagicMock()
+    consoleModule.print = MagicMock()
 
     # call
-    with patch("src.ui.userInterface.time.sleep") as sleep:
+    with patch("tak.ui.console.time.sleep") as sleep:
         userInterfaceInstance.showBusy("Fishing...", 0.5)
 
     # check - a sub-second wait isn't rounded up into a full second
@@ -317,8 +318,8 @@ def test_showInteractiveDialogue_shows_only_unlocked_options():
     userInterfaceInstance.divider = MagicMock()
 
     # call - while locked, "2" is [Back]
-    with patch.object(userInterface, "print", create=True) as printed:
-        userInterface.input = MagicMock(side_effect=["2"])
+    with patch.object(consoleModule, "print", create=True) as printed:
+        consoleModule.input = MagicMock(side_effect=["2"])
         userInterfaceInstance.showInteractiveDialogue(npc)
 
     # check - the locked question was never offered
@@ -328,8 +329,8 @@ def test_showInteractiveDialogue_shows_only_unlocked_options():
 
     # call - unlocking it offers the question and shows its response
     unlocked.append(1)
-    with patch.object(userInterface, "print", create=True) as printed:
-        userInterface.input = MagicMock(side_effect=["2", "", "3"])
+    with patch.object(consoleModule, "print", create=True) as printed:
+        consoleModule.input = MagicMock(side_effect=["2", "", "3"])
         userInterfaceInstance.showInteractiveDialogue(npc)
 
     # check
@@ -346,8 +347,8 @@ def test_showOptions_tags_an_unavailable_row_and_refuses_it():
     userInterfaceInstance.divider = MagicMock()
 
     # call
-    with patch.object(userInterface, "print", create=True) as printed:
-        userInterface.input = MagicMock(side_effect=["1", "2"])
+    with patch.object(consoleModule, "print", create=True) as printed:
+        consoleModule.input = MagicMock(side_effect=["1", "2"])
         choice = userInterfaceInstance.showOptions(
             "The docks", ["Fish", "Go Home"], {1: "needs 10 energy - sleep at home"}
         )
@@ -371,8 +372,8 @@ def test_showOptions_still_rejects_a_number_that_is_not_on_the_menu():
     userInterfaceInstance.divider = MagicMock()
 
     # call
-    with patch.object(userInterface, "print", create=True):
-        userInterface.input = MagicMock(side_effect=["9", "1"])
+    with patch.object(consoleModule, "print", create=True):
+        consoleModule.input = MagicMock(side_effect=["9", "1"])
         choice = userInterfaceInstance.showOptions("The docks", ["Fish"], {})
 
     # check
