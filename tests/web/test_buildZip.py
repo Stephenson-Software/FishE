@@ -1,70 +1,62 @@
+"""web/build_zip.py is a thin call into tak.web.bundle; these tests pin what
+FishE puts in the bundle."""
+
 import os
 import zipfile
 
-from web.build_zip import build
+from tak.web.bundle import build
 
-REPOSITORY_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+from web.build_zip import REPOSITORY_ROOT
 
 
-def buildBundle(tmp_path, monkeypatch):
-    # The bundle stores repo-relative paths, so it has to be built from the
-    # repository root - that is what makes the unpacked tree in the browser
-    # match a checkout.
-    monkeypatch.chdir(REPOSITORY_ROOT)
+def buildBundle(tmp_path):
     outputPath = tmp_path / "game.zip"
-    build(outputPath=str(outputPath))
+    build(
+        REPOSITORY_ROOT,
+        outputPath=str(outputPath),
+        extraFiles=("version.txt", "web/pyodide_main.py"),
+    )
     with zipfile.ZipFile(outputPath) as bundle:
-        return bundle.namelist()
+        return set(bundle.namelist())
 
 
-def test_bundle_carries_the_game(tmp_path, monkeypatch):
-    names = buildBundle(tmp_path, monkeypatch)
-
-    assert os.path.join("src", "fishE.py") in names
-    assert os.path.join("src", "ui", "pyodideUserInterface.py") in names
-    assert os.path.join("src", "browserSaveSync.py") in names
+def test_bundle_carries_the_game(tmp_path):
+    names = buildBundle(tmp_path)
+    assert "src/fishE.py" in names
+    assert "src/location/docks.py" in names
 
 
-def test_bundle_carries_the_usage_reporting_modules(tmp_path, monkeypatch):
-    # fishE.py imports both at module level, so a bundle without them fails
-    # to start at all - even though the browser build never reports.
-    names = buildBundle(tmp_path, monkeypatch)
+def test_bundle_carries_the_usage_reporting_modules(tmp_path):
+    names = buildBundle(tmp_path)
+    assert "src/usageReporting.py" in names
+    assert "src/trace_client.py" in names
 
-    assert os.path.join("src", "usageReporting.py") in names
-    assert os.path.join("src", "trace_client.py") in names
+
+def test_bundle_carries_the_schemas_the_save_readers_validate_against(tmp_path):
+    names = buildBundle(tmp_path)
+    for schema in ("player.json", "stats.json", "timeService.json"):
+        assert "schemas/" + schema in names, schema
+
+
+def test_bundle_carries_the_worker_entry_point_and_version(tmp_path):
+    names = buildBundle(tmp_path)
+    assert "web/pyodide_main.py" in names
     assert "version.txt" in names
 
 
-def test_bundle_carries_the_schemas_the_save_readers_validate_against(
-    tmp_path, monkeypatch
-):
-    # The *JsonReaderWriter modules resolve these paths relative to the cwd the
-    # Worker chdir's into, so a bundle without them fails every save load.
-    names = buildBundle(tmp_path, monkeypatch)
-
-    for schema in ("player.json", "stats.json", "timeService.json"):
-        assert os.path.join("schemas", schema) in names
-
-
-def test_bundle_carries_the_worker_entry_point(tmp_path, monkeypatch):
-    names = buildBundle(tmp_path, monkeypatch)
-
-    assert os.path.join("web", "pyodide_main.py") in names
+def test_bundle_carries_the_kit_under_src(tmp_path):
+    # One sys.path entry (/game/src) covers the game and the kit it imports.
+    names = buildBundle(tmp_path)
+    for module in (
+        "__init__.py",
+        "ui/pyodide.py",
+        "saves/manager.py",
+        "progression.py",
+    ):
+        assert "src/tak/" + module in names, module
 
 
-def test_bundle_carries_the_shared_browser_client(tmp_path, monkeypatch):
-    # The page fetches these over HTTP, so the browser does not need them from
-    # the bundle - but webUserInterface reads them from the filesystem, and the
-    # Pyodide front-end subclasses it. Shipping them means that read can never
-    # be the thing that fails inside the Worker.
-    names = buildBundle(tmp_path, monkeypatch)
-
-    assert os.path.join("web", "client.js") in names
-    assert os.path.join("web", "client.css") in names
-
-
-def test_bundle_excludes_build_artifacts(tmp_path, monkeypatch):
-    names = buildBundle(tmp_path, monkeypatch)
-
-    assert not [name for name in names if "__pycache__" in name]
-    assert not [name for name in names if name.endswith(".pyc")]
+def test_bundle_excludes_build_artifacts(tmp_path):
+    names = buildBundle(tmp_path)
+    assert not any(name.endswith(".pyc") or "__pycache__" in name for name in names)
+    assert "web/game.zip" not in names

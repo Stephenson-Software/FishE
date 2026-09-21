@@ -1,428 +1,62 @@
-import errno
-import json
-import os
-import queue
-import threading
-import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+# @author Daniel McCoy Stephenson
+"""The server-backed browser front-end: the game runs here, the browser is a
+terminal for it. The server, the rendezvous and every screen now live in tak
+(tak.ui.web.WebUserInterface); this module is FishE's adapter - the
+(currentPrompt, timeService, player) constructor, FishE's page copy, and the
+FISHE_WEB_HOST / FISHE_WEB_PORT variables.
+"""
+
+from tak.ui import web as kitWeb
+from tak.ui.web import DEFAULT_HOST, DEFAULT_PORT  # noqa: F401 - re-exported
+from tak.ui.web import ENDED_SCREEN_DELIVERY_TIMEOUT_SECONDS
 
 from ui.baseUserInterface import BaseUserInterface
-from prompt.prompt import Prompt
-from player.player import Player
-from world.timeService import TimeService
-from housing import housing
+
+TITLE = "FishE"
+TAGLINE = "fish a seaside village and build a fortune of $10,000"
+TIP = "Tip: click an option or press its number key (1-9). Enter or Space continues."
+ENV_PREFIX = "FISHE"
 
 
-# The browser client (renderer + styles) is shared verbatim with the Pyodide
-# front-end, which serves the same two files from web/. Keeping one copy is what
-# stops a screen type from being handled in one web front-end but not the other.
-# They are inlined into the page below rather than served as separate routes so
-# the server stays a two-route affair and the page needs a single request.
-WEB_ASSET_DIRECTORY = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web")
-)
-
-# How long cleanup() gives the browser to collect the ended screen before it
-# closes the server, and how often it checks whether that has happened.
-#
-# The client only discovers a new screen on its next poll, so shutting the
-# socket the instant the ended screen is published closes it before the screen
-# can be fetched: a player who had just retired was shown "Lost connection"
-# instead of the end of their run. The wait ends as soon as the screen has
-# actually gone out (typically within one poll interval), so the timeout is
-# only ever paid when nobody is listening - a closed tab, or a game driven by
-# something other than a browser.
-ENDED_SCREEN_DELIVERY_TIMEOUT_SECONDS = 2.0
-ENDED_SCREEN_DELIVERY_POLL_SECONDS = 0.02
-
-
-def _readWebAsset(name):
-    """Read a shared browser-client file from web/, or explain why it could not."""
-    path = os.path.join(WEB_ASSET_DIRECTORY, name)
-    try:
-        with open(path, "r", encoding="utf-8") as assetFile:
-            return assetFile.read()
-    except OSError as e:
-        raise RuntimeError(
-            f"FishE's web front-end could not read its browser client "
-            f"'{name}' (looked in {path}): {e}. That file ships in the "
-            f"repository's web/ directory, alongside src/. Run the game from a "
-            f"complete checkout, or — if this is a container image — make sure "
-            f"the image copies web/ in as well as src/."
-        ) from e
-
-
-# Read on first use rather than at import, and cached after. This module is
-# imported by the Pyodide front-end too (PyodideUserInterface subclasses the
-# class below), and there these files are NOT on the filesystem: the browser
-# fetches them over HTTP, so only the server-backed front-end has any reason to
-# read them. Reading them at import time made merely importing this module fail
-# inside the Worker.
-_clientAssetCache = {}
-_pageCache = {}
-
-
-def _clientAsset(name):
-    if name not in _clientAssetCache:
-        _clientAssetCache[name] = _readWebAsset(name)
-    return _clientAssetCache[name]
+def resolveAddressFromEnvironment():
+    """The (host, port) to serve on, from FISHE_WEB_HOST / FISHE_WEB_PORT, or a
+    ValueError naming the variable that is wrong."""
+    return kitWeb.resolveAddressFromEnvironment(ENV_PREFIX)
 
 
 def htmlPage():
-    """The single-page client, built on first use.
-
-    It polls /state and renders whatever screen the game is currently waiting
-    on, posting the player's response to /input. Served as-is (no templating);
-    it talks to the server via relative URLs.
-    """
-    if "page" in _pageCache:
-        return _pageCache["page"]
-    page = (
-        """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FishE</title>
-<style>
-"""
-        + _clientAsset("client.css")
-        + """</style>
-</head>
-<body>
-<h2>FishE <span class="tagline">— fish a seaside village and build a fortune of $10,000</span></h2>
-<div id="app">Connecting&hellip;</div>
-<p class="controls">Tip: click an option or press its number key (1-9). Enter or Space continues.</p>
-<script>
-"""
-        + _clientAsset("client.js")
-        + """
-// Transport: this front-end runs the game on a server, so responses are POSTed
-// and new screens are discovered by polling. (The Pyodide front-end swaps this
-// block for a Worker/SharedArrayBuffer transport and shares everything above.)
-FisheClient.init(function (value) {
-  fetch("/input", { method: "POST", body: JSON.stringify({ value: value }) });
-});
-let version = -1;
-let failures = 0;
-async function poll() {
-  try {
-    const response = await fetch("/state");
-    const state = await response.json();
-    const recovered = failures >= 5;
-    failures = 0;
-    if (recovered) version = -1;  // force a re-render to clear the disconnect banner
-    if (state.version !== version) { version = state.version; FisheClient.render(state.screen); }
-    // The game shuts its server down once this screen has gone out, so there
-    // is nothing left to poll for: stop, rather than spend the rest of the
-    // tab's life failing to reach a process that has finished.
-    if (state.screen && state.screen.type === "ended") { return; }
-  } catch (e) {
-    failures++;
-    // Don't clobber the intentional "game ended" screen with a scary banner.
-    const screen = FisheClient.getCurrentScreen();
-    if (failures === 5 && !(screen && screen.type === "ended")) {
-      FisheClient.renderDisconnected();
-    }
-  }
-  setTimeout(poll, 300);
-}
-poll();
-</script>
-</body>
-</html>
-"""
-    )
-    _pageCache["page"] = page
-    return page
+    """The single-page client with FishE's heading, built on first use."""
+    return kitWeb.htmlPage(TITLE, TAGLINE, TIP)
 
 
 def __getattr__(name):
-    """Keep HTML_PAGE readable as a module attribute; the page is built lazily
-    so a missing web/ directory doesn't break import."""
+    """Keep HTML_PAGE readable as a module attribute."""
     if name == "HTML_PAGE":
         return htmlPage()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-# The address this front-end serves on when nothing says otherwise. Stated
-# here, beside the server that binds it, so the factory branch that reads the
-# environment and the constructor below share one copy of the default rather
-# than each carrying their own - a copy elsewhere would keep announcing the old
-# value if this one ever moved, with nothing failing to say so. (web/serve.py
-# deliberately keeps a different default of its own; see the comment there.)
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8000
-
-
-def resolveAddressFromEnvironment():
-    """The (host, port) to serve on, or a ValueError naming the variable that is
-    wrong.
-
-    FISHE_WEB_HOST/FISHE_WEB_PORT are how a player moves the game off the
-    default loopback address - e.g. FISHE_WEB_HOST=0.0.0.0 so a container's
-    port mapping or reverse proxy can reach it."""
-    host = os.environ.get("FISHE_WEB_HOST", DEFAULT_HOST)
-    portText = os.environ.get("FISHE_WEB_PORT", str(DEFAULT_PORT))
-    try:
-        port = int(portText)
-    except ValueError:
-        raise ValueError(f"FISHE_WEB_PORT must be an integer, got: {portText!r}")
-    return host, port
-
-
-def _bindServer(host, port, handler):
-    """Start the game's HTTP server, turning a refused address into a sentence.
-
-    The front-end does not exist yet at this point, so there is no showDialogue
-    to say it through: a port that is already listening - a second copy of the
-    game, most often - would otherwise reach the player as an errno raised from
-    inside http.server, naming neither FishE nor FISHE_WEB_PORT, which is what
-    they would have to change."""
-    try:
-        return ThreadingHTTPServer((host, port), handler)
-    except OSError as e:
-        if e.errno == errno.EADDRINUSE:
-            reason = "something else is already listening there"
-        elif e.errno == errno.EACCES:
-            reason = "this process is not allowed to use that port"
-        else:
-            reason = str(e)
-        raise OSError(
-            f"FishE's web front-end could not be served at http://{host}:{port}/: "
-            f"{reason}. Set FISHE_WEB_PORT to a free port (or FISHE_WEB_HOST to "
-            f"an address this machine can bind) and start the game again."
-        ) from e
-
-
-def _makeRequestHandler(ui):
-    """Build a request handler bound to a specific WebUserInterface instance."""
-
-    class _Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            if self.path in ("/", "/index.html"):
-                self._send(200, "text/html; charset=utf-8", htmlPage().encode("utf-8"))
-            elif self.path.startswith("/state"):
-                state = ui.get_state()
-                self._send(200, "application/json", json.dumps(state).encode("utf-8"))
-                # Recorded only once the bytes are on the wire, so cleanup()
-                # cannot close the server out from under a response it is
-                # still writing (see record_state_delivered).
-                ui.record_state_delivered(state["version"])
-            else:
-                self._send(404, "text/plain", b"Not found")
-
-        def do_POST(self):
-            if self.path.startswith("/input"):
-                length = int(self.headers.get("Content-Length", 0))
-                raw = self.rfile.read(length) if length else b"{}"
-                try:
-                    value = json.loads(raw or b"{}").get("value", "")
-                except (ValueError, TypeError):
-                    value = ""
-                ui.submit_input(value)
-                self._send(200, "application/json", b"{}")
-            else:
-                self._send(404, "text/plain", b"Not found")
-
-        def _send(self, status, contentType, body):
-            self.send_response(status)
-            self.send_header("Content-Type", contentType)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, *args):
-            pass  # keep the game's stdout clean
-
-    return _Handler
-
-
-# @author Daniel McCoy Stephenson
-class WebUserInterface(BaseUserInterface):
-    """A browser-based front-end for FishE.
-
-    The synchronous game loop is unchanged: each input primitive publishes the
-    current screen and blocks until the browser submits a response, coordinated
-    through a thread-safe rendezvous. A small stdlib HTTP server (run in a daemon
-    thread) serves the screen state (GET /state) and the page (GET /), and
-    accepts the player's response (POST /input)."""
-
+class WebUserInterface(BaseUserInterface, kitWeb.WebUserInterface):
     def __init__(
         self,
-        currentPrompt: Prompt,
-        timeService: TimeService,
-        player: Player,
+        currentPrompt,
+        timeService,
+        player,
         host=DEFAULT_HOST,
         port=DEFAULT_PORT,
         start_server=True,
         endedScreenTimeoutSeconds=ENDED_SCREEN_DELIVERY_TIMEOUT_SECONDS,
     ):
-        super().__init__(currentPrompt, timeService, player)
-        self._lock = threading.Lock()
-        self._screen = {"type": "loading"}
-        self._version = 0
-        # The newest screen version the browser has been handed. Starts below
-        # the first version so "nothing has been collected yet" is a state
-        # cleanup() can tell apart from "the current screen has been seen".
-        self._deliveredVersion = -1
-        self._endedScreenTimeoutSeconds = endedScreenTimeoutSeconds
-        self._inputQueue = queue.Queue()
-        self._server = None
-        if start_server:
-            self._server = _bindServer(host, port, _makeRequestHandler(self))
-            self._server.daemon_threads = True
-            threading.Thread(target=self._server.serve_forever, daemon=True).start()
-            self._announceAddress()
-
-    @property
-    def address(self):
-        """The (host, port) the server is bound to, or None if not started."""
-        return self._server.server_address if self._server else None
-
-    def _announceAddress(self):
-        """Say where the game can be played, once it is actually being served.
-
-        Said from here rather than from the entry point that started the game
-        (examples/web_app.py) because building FishE starts this server and
-        then blocks in the save-file manager, so nothing gets control back
-        there to announce a bound address - and announcing one beforehand names
-        an address that a misspelled or already-taken port means will never
-        answer. The address named is the socket's own, so a caller that asked
-        for port 0 is told the port it actually got."""
-        boundHost, boundPort = self._server.server_address[:2]
-        print(f"FishE is being served at http://{boundHost}:{boundPort}/")
-        print("Open that URL in your browser to play. Press Ctrl+C here to stop.")
-
-    # --- web rendezvous ---------------------------------------------------
-    def get_state(self):
-        """Snapshot of the current screen for the browser to render."""
-        with self._lock:
-            return {"version": self._version, "screen": self._screen}
-
-    def submit_input(self, value):
-        """Deliver the player's browser response to the waiting game thread."""
-        self._inputQueue.put(value)
-
-    def record_state_delivered(self, version):
-        """Note that the browser has been sent the screen at this version.
-
-        Only cleanup() reads this, to know the ended screen reached the page
-        before the server is closed. Kept as the highest version seen so an
-        overlapping poll that finishes late cannot walk it backwards."""
-        with self._lock:
-            self._deliveredVersion = max(self._deliveredVersion, version)
-
-    def _awaitScreenDelivery(self, timeout):
-        """Block until the current screen has been sent to the browser.
-
-        Returns True if it went out, False if the timeout ran out first -
-        which is the ordinary outcome when no page is polling."""
-        deadline = time.monotonic() + timeout
-        while True:
-            with self._lock:
-                if self._deliveredVersion >= self._version:
-                    return True
-            if time.monotonic() >= deadline:
-                return False
-            time.sleep(ENDED_SCREEN_DELIVERY_POLL_SECONDS)
-
-    # --- transport seams ---------------------------------------------------
-    # Every screen below is built once and shared by both web front-ends; only
-    # how a screen reaches the browser (_present) and how the response comes
-    # back (_awaitInput) differ. PyodideUserInterface overrides just these two,
-    # so a new screen type never has to be written twice.
-    def _present(self, screen):
-        with self._lock:
-            self._screen = screen
-            self._version += 1
-
-    def _awaitInput(self):
-        """Block until the browser submits a response, and return it."""
-        return self._inputQueue.get()
-
-    def _header(self):
-        return {
-            "day": self.timeService.day,
-            "time": self.times[self.timeService.time],
-            "money": float(self.player.money),
-            "fish": self.player.fishCount,
-            "energy": self.player.energy,
-            "maxEnergy": housing.maxEnergy(self.player),
-            "location": self.currentLocationName,
-            "goal": self.goalProgress,
-            "operator": self.player.operatorMode,
-        }
-
-    # --- BaseUserInterface primitives ------------------------------------
-    def lotsOfSpace(self):
-        # The browser renders a fresh screen each time; nothing to clear.
-        pass
-
-    def divider(self):
-        pass
-
-    def showOptions(self, descriptor, optionList, unavailableOptions=None):
-        # "unavailable" is a list parallel to "options" - the reason each one
-        # can't be picked, or null. The browser greys those buttons out and
-        # shows the reason on the row; sending the reason as data rather than
-        # baked into the label is what lets it be styled apart from the option.
-        reasons = self.unavailableReasons(optionList, unavailableOptions)
-        self._present(
-            {
-                "type": "options",
-                "descriptor": descriptor,
-                "prompt": self.currentPrompt.text,
-                "options": list(optionList),
-                "unavailable": reasons,
-                "header": self._header(),
-            }
+        super().__init__(
+            currentPrompt,
+            timeService,
+            player,
+            title=TITLE,
+            tagline=TAGLINE,
+            tip=TIP,
+            envPrefix=ENV_PREFIX,
+            host=host,
+            port=port,
+            start_server=start_server,
+            endedScreenTimeoutSeconds=endedScreenTimeoutSeconds,
         )
-        valid = self.selectableNumbers(reasons)
-        while True:
-            choice = str(self._awaitInput())
-            if choice in valid:
-                return choice
-            # ignore anything that isn't a selectable option and keep waiting
-
-    def showDialogue(self, text):
-        self._present({"type": "dialogue", "text": text})
-        self._awaitInput()
-        self.currentPrompt.text = "What would you like to do?"
-
-    def promptForText(self, promptText):
-        self._present({"type": "prompt", "text": promptText})
-        return str(self._awaitInput())
-
-    def promptForNumber(self, promptText):
-        # Flag the prompt as numeric so the browser can offer a numeric keyboard
-        # and block submission of non-numbers (the base default can't say so).
-        self._present({"type": "prompt", "text": promptText, "numeric": True})
-        try:
-            return float(self._awaitInput())
-        except (ValueError, TypeError):
-            return None
-
-    def showBusy(self, message, seconds=1.0):
-        # Published as its own screen type so the browser shows the message
-        # instead of sitting on the previous screen. No input is consumed —
-        # whatever the game presents next supersedes it.
-        self._present({"type": "busy", "message": message})
-        time.sleep(seconds)
-
-    def timedKeyPress(self, message):
-        self._present({"type": "timed", "message": message})
-        startTime = time.time()
-        self._awaitInput()
-        return time.time() - startTime
-
-    def cleanup(self):
-        self._present({"type": "ended"})
-        if self._server is not None:
-            # Hold the server open until the page has the ended screen;
-            # otherwise the run's last screen is never fetched and the browser
-            # reports a lost connection instead.
-            self._awaitScreenDelivery(self._endedScreenTimeoutSeconds)
-            self._server.shutdown()
-            self._server.server_close()
-            self._server = None

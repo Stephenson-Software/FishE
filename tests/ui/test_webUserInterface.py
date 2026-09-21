@@ -42,7 +42,9 @@ def makeWebUI(start_server=False, port=0, endedScreenTimeoutSeconds=0.1):
 
 def runInThread(fn):
     box = {}
-    thread = threading.Thread(target=lambda: box.__setitem__("result", fn()))
+    thread = threading.Thread(
+        target=lambda: box.__setitem__("result", fn()), daemon=True
+    )
     thread.start()
     return thread, box
 
@@ -64,12 +66,19 @@ def test_web_ui_implements_interface():
 
 
 def test_header_includes_max_energy():
-    # check - the header exposes the current tier's cap alongside the raw
-    # energy value, so the client can always show "X/Y" instead of just "X"
+    # check - the header shows the current tier's cap alongside the raw
+    # energy value, so the client can always show "X/Y" instead of just "X".
+    # The header is chips now (tak's contract): text the console prints, plus
+    # a class the browser styles - "low" once the player is too tired to fish.
     ui = makeWebUI()
-    header = ui._header()
-    assert header["energy"] == ui.player.energy
-    assert header["maxEnergy"] == housing.maxEnergy(ui.player)
+    chips = ui.header()["chips"]
+    energy = "Energy: %d/%d" % (ui.player.energy, housing.maxEnergy(ui.player))
+    assert {"text": energy, "class": ""} in chips
+    ui.player.energy = 3
+    assert {
+        "text": "Energy: 3/%d" % housing.maxEnergy(ui.player),
+        "class": "low",
+    } in ui.header()["chips"]
 
 
 def test_showOptions_round_trips_a_choice():
@@ -79,7 +88,7 @@ def test_showOptions_round_trips_a_choice():
     waitForScreen(ui, "options")
     screen = ui.get_state()["screen"]
     assert screen["options"] == ["Apple", "Banana"]
-    assert "header" in screen and "day" in screen["header"]
+    assert screen["header"]["chips"][0]["text"] == "Day %d" % ui.timeService.day
 
     ui.submit_input("2")
     thread.join(timeout=2)
