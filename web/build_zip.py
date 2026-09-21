@@ -3,13 +3,17 @@
 """Build web/game.zip — the bundle the browser's Pyodide Worker downloads.
 
 Everything the game needs to run in a tab goes in: the Python source tree, the
-JSON Schemas the save readers validate against, and the Worker's entry point.
+JSON Schemas the save readers validate against, the Worker's entry point, and
+the tak package the game imports from - placed under src/tak so the Worker's
+single sys.path entry (/game/src) covers both.
 Run from the repository root (the Dockerfile does this at build time):
 
     python3 web/build_zip.py
 """
 import os
 import zipfile
+
+import tak
 
 OUTPUT_PATH = "web/game.zip"
 
@@ -43,6 +47,19 @@ def build(outputPath=OUTPUT_PATH):
         for path in EXTRA_FILES:
             if os.path.exists(path):
                 bundle.write(path, path)
+        # The installed tak package, so the browser runs exactly the kit
+        # version this checkout was built against (requirements.txt's pin).
+        takDirectory = os.path.dirname(os.path.abspath(tak.__file__))
+        for root, dirs, files in os.walk(takDirectory):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for name in files:
+                if name.endswith(".pyc"):
+                    continue
+                path = os.path.join(root, name)
+                archiveName = os.path.join(
+                    "src", "tak", os.path.relpath(path, takDirectory)
+                ).replace(os.sep, "/")
+                bundle.write(path, archiveName)
     print(f"Built {outputPath}")
 
 
