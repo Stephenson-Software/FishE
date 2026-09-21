@@ -326,7 +326,7 @@ def test_delete_save_slot_flushes_browser_storage():
         with open(os.path.join(slot_path, "player.json"), "w") as f:
             json.dump({"money": 100}, f)
 
-        with patch("src.saveFileManager.syncBrowserSaves") as sync:
+        with patch("tak.saves.manager.syncBrowserSaves") as sync:
             assert manager.delete_save_slot(1) is True
 
         sync.assert_called_once()
@@ -339,7 +339,7 @@ def test_delete_of_a_missing_slot_does_not_flush_browser_storage():
     try:
         manager = SaveFileManager(temp_dir)
 
-        with patch("src.saveFileManager.syncBrowserSaves") as sync:
+        with patch("tak.saves.manager.syncBrowserSaves") as sync:
             assert manager.delete_save_slot(7) is False
 
         sync.assert_not_called()

@@ -15,6 +15,7 @@ from stats.stats import Stats
 from ui.userInterfaceFactory import UserInterfaceFactory
 from ui.enum.uiType import UIType
 from saveFileManager import SaveFileManager
+from tak.saves import chooseSlot, deleteSlot
 from browserSaveSync import syncBrowserSaves
 from achievements import achievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
@@ -26,6 +27,17 @@ import usageReporting
 # Which front-end the game runs. Swap to UIType.PYGAME (or a future web type)
 # here to change the interface — the rest of the game is front-end agnostic.
 INTERFACE_TYPE = UIType.CONSOLE
+
+
+def describeSlot(metadata):
+    """The save menu's summary of a slot. Money to the cent, like the status
+    header the slot opens on: export proceeds and bank withdrawals are
+    fractional, so a balance really can carry cents."""
+    return "Day %d, $%.2f, %d fish" % (
+        metadata.get("day", 1),
+        metadata.get("money", 0),
+        metadata.get("fishCount", 0),
+    )
 
 
 # @author Daniel McCoy Stephenson
@@ -171,135 +183,27 @@ class FishE:
     def _selectSaveFile(self):
         """Display the save-file menu through the UI and let the player choose.
 
-        Slots and actions are presented as numbered options (so the menu renders
-        and reads input through the active front-end — console or pygame).
-
-        Returns once a slot is selected, or with self.running cleared if the
-        player chose "Quit" without picking one."""
-        while True:  # loop instead of recursion to avoid stack overflow
-            save_files = self.saveFileManager.list_save_files()
-
-            # Build the option list, tracking what each option does in parallel.
-            options = []
-            actions = []  # (kind, arg) for the option at the same index
-            unavailable = {}  # {optionNumber: reason} for rows that can't be picked
-            for save in save_files:
-                metadata = save["metadata"]
-                if metadata.get("unreadable"):
-                    # Shown rather than hidden, and unpickable rather than
-                    # loadable. Hiding it is what let the slot be handed back as
-                    # "Create New Save" and overwritten (see
-                    # SaveFileManager._unreadable_save_metadata); offering it as
-                    # a save would promise a run that cannot be read. Deleting
-                    # it is how the slot gets reclaimed, so the reason says so.
-                    # The action is only here to keep actions[] aligned with
-                    # options[] - showOptions will not return this number.
-                    # The label only identifies the slot; the blocker lives in
-                    # the reason, the same way every other unusable option in
-                    # the game is built. Spelling "damaged, cannot be loaded"
-                    # into the label as well reads as a stutter once a
-                    # front-end appends the reason to the row.
-                    options.append("Slot %d (damaged)" % save["slot"])
-                    actions.append(("damaged", save["slot"]))
-                    reason = "can't be read - delete it to reuse the slot"
-                    unavailable[len(options)] = reason
-                    continue
-                # Money to the cent, like the status header the slot opens on.
-                # Exports pay a multiplier of the village price and bank
-                # withdrawals are parsed as floats, so a balance really can
-                # carry cents - whole dollars here dropped up to a dollar off
-                # the snapshot of the save the player is about to load.
-                options.append(
-                    "Load Slot %d (Day %d, $%.2f, %d fish)"
-                    % (
-                        save["slot"],
-                        metadata.get("day", 1),
-                        metadata.get("money", 0),
-                        metadata.get("fishCount", 0),
-                    )
-                )
-                actions.append(("load", save["slot"]))
-
-            next_slot = self.saveFileManager.get_next_available_slot()
-            if next_slot is not None:
-                options.append("Create New Save (Slot %d)" % next_slot)
-                actions.append(("new", next_slot))
-            if save_files:
-                options.append("Delete a Save File")
-                actions.append(("delete", None))
-            options.append("Quit")
-            actions.append(("quit", None))
-
-            choice = int(
-                self.userInterface.showOptions(
-                    "FishE - Save File Manager", options, unavailable
-                )
-            )
-            kind, arg = actions[choice - 1]
-
-            if kind == "load" or kind == "new":
-                self.saveFileManager.select_save_slot(arg)
-                return
-            elif kind == "delete":
-                self._deleteSaveFile(save_files)
-                # loop to show the refreshed menu either way
-            elif kind == "quit":
-                # Ending the run rather than the process. exit(0) killed the
-                # interpreter from inside __init__, so cleanup() was never
-                # reached: the pygame window vanished without pygame.quit(),
-                # and both browser front-ends left the tab on the save-file
-                # menu with no ended screen (the Pyodide entry point had to
-                # catch SystemExit and post one itself). __init__ returns
-                # early on a cleared running flag, and play() then does
-                # nothing but clean up - one exit path for every front-end.
-                self.running = False
-                return
-            elif kind == "damaged":
-                # A conforming front-end refuses to return an unavailable
-                # option's number, so this should be unreachable. It is handled
-                # anyway because the alternative is falling out of this
-                # if-chain and silently re-rendering the same menu forever,
-                # which is an unexplained hang rather than a visible bug - and
-                # a new front-end is exactly the thing that would get this
-                # wrong (see the parity note on BaseUserInterface.showOptions).
-                self.userInterface.showDialogue(
-                    "Slot %d can't be loaded: its player.json could not be "
-                    "read.\n\nIt has been left alone rather than overwritten, "
-                    "so you can still copy the folder somewhere safe. To use "
-                    "the slot again, choose 'Delete a Save File'." % arg
-                )
+        The menu itself is tak's (tak.saves.chooseSlot): load, new, delete,
+        quit, with a damaged slot listed but unpickable. "Quit" clears running
+        rather than ending the process, so the front-end still gets its
+        cleanup() (see play()); __init__ returns early on a cleared flag."""
+        chosen = chooseSlot(
+            self.userInterface,
+            self.saveFileManager,
+            "FishE - Save File Manager",
+            describeSlot,
+        )
+        if chosen is None:
+            self.running = False
 
     def _deleteSaveFile(self, save_files):
         """Delete a save file. Returns True if a file was deleted, False if cancelled."""
-        # A damaged slot is tagged here too: this menu is the only way to
-        # reclaim it, so the player has to be able to tell which row is the
-        # unreadable one they came here to clear.
-        options = []
-        for save in save_files:
-            damaged = " (damaged)" if save["metadata"].get("unreadable") else ""
-            options.append("Delete Slot %d%s" % (save["slot"], damaged))
-        options.append("Cancel")
-
-        choice = int(self.userInterface.showOptions("Delete a Save File", options))
-        if choice == len(options):  # Cancel
-            return False
-
-        slot_num = save_files[choice - 1]["slot"]
-        confirm = int(
-            self.userInterface.showOptions(
-                "Permanently delete Slot %d?" % slot_num,
-                ["Yes, delete it", "No, keep it"],
-            )
+        return deleteSlot(
+            self.userInterface,
+            self.saveFileManager,
+            "FishE - Save File Manager",
+            save_files,
         )
-        if confirm != 1:
-            return False
-
-        if self.saveFileManager.delete_save_slot(slot_num):
-            self.userInterface.showDialogue("Slot %d deleted." % slot_num)
-            return True
-
-        self.userInterface.showDialogue("Failed to delete Slot %d." % slot_num)
-        return False
 
     def play(self):
         """Run the game loop, releasing the front-end however it ends.
