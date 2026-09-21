@@ -27,8 +27,12 @@ LOW_ENERGY = 10
 
 
 class BaseUserInterface(KitBaseUserInterface):
-    def __init__(self, currentPrompt: Prompt, timeService: TimeService, player: Player):
-        super().__init__(currentPrompt, header=self._buildHeader)
+    def __init__(
+        self, currentPrompt: Prompt, timeService: TimeService, player: Player, **kwargs
+    ):
+        # kwargs travel on to the next kit class in the MRO: the web front-end
+        # takes its title, address and server switches through here.
+        super().__init__(currentPrompt, header=self._buildHeader, **kwargs)
         self.timeService = timeService
         self.player = player
 

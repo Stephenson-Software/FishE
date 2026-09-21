@@ -1,8 +1,8 @@
 # @author Daniel McCoy Stephenson
 """Pyodide entry point — runs inside the Web Worker once game.zip is unpacked.
 
-By the time this file is exec()'d, web/game-worker.js has already:
-  - put /game/src on sys.path and chdir'd to /game, so the schema paths the
+By the time this file is exec()'d, tak's game-worker.js has already:
+  - put /game/src on sys.path (the bundle carries tak there too) and chdir'd to /game, so the schema paths the
     save readers validate against ("schemas/player.json") resolve
   - created /saves, restored it from IndexedDB, and pointed FISHE_SAVE_DIR at it
   - installed the JavaScript globals the front-end needs: sendToMain, Atomics,

@@ -122,9 +122,12 @@ def lastScreen(js):
 def test_pyodide_ui_implements_interface(fakeJs):
     ui = makePyodideUI(fakeJs)
     assert isinstance(ui, BaseUserInterface)
-    # It shares WebUserInterface's screens rather than redefining them, which
-    # is what keeps the two web front-ends from drifting apart.
-    assert isinstance(ui, WebUserInterface)
+    # It shares the kit's WebUserInterface screens rather than redefining
+    # them, which is what keeps the two web front-ends from drifting apart.
+    # (FishE's WebUserInterface is a sibling adapter, not an ancestor.)
+    from tak.ui.web import WebUserInterface as KitWebUserInterface
+
+    assert isinstance(ui, KitWebUserInterface)
 
 
 def test_no_http_server_is_started(fakeJs):
@@ -154,8 +157,9 @@ def test_posted_screens_carry_the_shared_header(fakeJs):
     ui.showOptions("The Docks", ["Fish"])
 
     header = lastScreen(fakeJs)["header"]
-    assert header["day"] == ui.timeService.day
-    assert header["maxEnergy"] >= header["energy"]
+    assert header["chips"][0]["text"] == "Day %d" % ui.timeService.day
+    assert any(chip["text"].startswith("Energy: ") for chip in header["chips"])
+    assert header["title"].startswith("FishE - Day")
 
 
 def test_present_still_updates_the_state_snapshot(fakeJs):
@@ -242,39 +246,23 @@ def test_ring_wraps_around_without_losing_a_message(fakeJs):
 # --- independence from the server-backed front-end's files ---------------
 
 
-def test_the_front_end_works_with_no_web_directory_on_disk(fakeJs, monkeypatch):
-    """Regression: the Worker's filesystem has src/ but not web/client.*.
+def test_the_front_end_never_builds_the_server_backed_page(fakeJs, monkeypatch):
+    """Regression: the Worker's filesystem has the game but not the page
+    assets (the browser fetches those over HTTP from /tak/). Nothing on this
+    front-end's path may read them - the kit guards the read itself; here we
+    pin that FishE's adapter does not trigger it."""
+    import tak.web
+    from tak.ui import web as kitWeb
 
-    web/client.js and web/client.css reach the browser over HTTP, so they are
-    not on the filesystem the Python game sees. WebUserInterface reads them to
-    build its own page, and PyodideUserInterface subclasses it — so reading
-    them at import time made the game fail to start in a real browser with
-    FileNotFoundError on /game/web/client.css. Nothing on this front-end's path
-    may touch them.
-    """
-    from ui import webUserInterface
-
-    monkeypatch.setattr(webUserInterface, "WEB_ASSET_DIRECTORY", "/no/such/directory")
-    monkeypatch.setattr(webUserInterface, "_clientAssetCache", {})
-    monkeypatch.setattr(webUserInterface, "_pageCache", {})
+    monkeypatch.setattr(tak.web, "ASSET_DIRECTORY", "/no/such/directory")
+    monkeypatch.setattr(kitWeb, "_clientAssetCache", {})
 
     ui = makePyodideUI(fakeJs)
     fakeJs.writePlayerInput("1")
 
     assert ui.showOptions("The Docks", ["Fish", "Leave"]) == "1"
     assert lastScreen(fakeJs)["options"] == ["Fish", "Leave"]
-
-
-def test_the_server_backed_page_is_not_built_unless_it_is_asked_for(fakeJs):
-    # The page is what needs those files; building it eagerly is what put the
-    # read on every importer's path.
-    from ui import webUserInterface
-
-    webUserInterface._pageCache.clear()
-
-    makePyodideUI(fakeJs)
-
-    assert webUserInterface._pageCache == {}
+    assert ui._pageCache is None
 
 
 # --- construction errors -------------------------------------------------

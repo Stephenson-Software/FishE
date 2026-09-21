@@ -1,67 +1,25 @@
 #!/usr/bin/env python3
 # @author Daniel McCoy Stephenson
-"""Build web/game.zip — the bundle the browser's Pyodide Worker downloads.
-
-Everything the game needs to run in a tab goes in: the Python source tree, the
-JSON Schemas the save readers validate against, the Worker's entry point, and
-the tak package the game imports from - placed under src/tak so the Worker's
-single sys.path entry (/game/src) covers both.
-Run from the repository root (the Dockerfile does this at build time):
+"""Build web/game.zip - the bundle the browser's Pyodide Worker downloads.
 
     python3 web/build_zip.py
+
+Puts src/ and schemas/ in, plus version.txt and the Worker's entry point, and
+the tak package itself under src/tak (see tak.web.bundle). The browser client
+is no longer bundled: the page fetches it from the kit's assets at /tak/.
 """
 import os
-import zipfile
 
-import tak
+from tak.web.bundle import build
 
-OUTPUT_PATH = "web/game.zip"
-
-# Paths are stored repo-relative so the Worker can unpack into /game and get a
-# tree that matches a checkout — which is what makes the cwd-relative schema
-# paths in the *JsonReaderWriter modules resolve there.
-SOURCE_DIRECTORIES = ("src", "schemas")
-# client.js/client.css are fetched over HTTP by the page, so the browser does
-# not need them from the bundle — they are included anyway because
-# webUserInterface reads them from the filesystem, and PyodideUserInterface
-# subclasses it. Belt and braces: the read is lazy so it never happens in the
-# browser, and if a future change makes it happen, the files are there.
-EXTRA_FILES = (
-    "version.txt",
-    "web/pyodide_main.py",
-    "web/client.js",
-    "web/client.css",
+REPOSITORY_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 )
-
-
-def build(outputPath=OUTPUT_PATH):
-    with zipfile.ZipFile(outputPath, "w", zipfile.ZIP_DEFLATED) as bundle:
-        for directory in SOURCE_DIRECTORIES:
-            for root, dirs, files in os.walk(directory):
-                dirs[:] = [d for d in dirs if d != "__pycache__"]
-                for name in files:
-                    if name.endswith(".pyc"):
-                        continue
-                    path = os.path.join(root, name)
-                    bundle.write(path, path)
-        for path in EXTRA_FILES:
-            if os.path.exists(path):
-                bundle.write(path, path)
-        # The installed tak package, so the browser runs exactly the kit
-        # version this checkout was built against (requirements.txt's pin).
-        takDirectory = os.path.dirname(os.path.abspath(tak.__file__))
-        for root, dirs, files in os.walk(takDirectory):
-            dirs[:] = [d for d in dirs if d != "__pycache__"]
-            for name in files:
-                if name.endswith(".pyc"):
-                    continue
-                path = os.path.join(root, name)
-                archiveName = os.path.join(
-                    "src", "tak", os.path.relpath(path, takDirectory)
-                ).replace(os.sep, "/")
-                bundle.write(path, archiveName)
-    print(f"Built {outputPath}")
-
+OUTPUT_PATH = os.path.join("web", "game.zip")
 
 if __name__ == "__main__":
-    build()
+    build(
+        REPOSITORY_ROOT,
+        outputPath=OUTPUT_PATH,
+        extraFiles=("version.txt", "web/pyodide_main.py"),
+    )
