@@ -1495,7 +1495,6 @@ def test_a_voyage_that_founders_ends_early():
     boat["damage"] = boats.MAX_DAMAGE - 5  # damaged but still just seaworthy
     boats.repairBoat(docksInstance.player, boat["id"])
     boats.damageBoat(boat, boats.UNSEAWORTHY_DAMAGE - 1)
-    plan = adventures.VOYAGE_PLANS[2]
     docksInstance.userInterface.showOptions = MagicMock(
         side_effect=voyageChooser(
             "Marauder", "The far water", "Full stores", then="first"
@@ -1506,18 +1505,28 @@ def test_a_voyage_that_founders_ends_early():
 
     # call - every leg presents the leak, whose first choice always damages,
     # and every damage roll is at its worst. rollEvent draws from the role's
-    # pool with random.choice, which the two patches below never covered:
-    # a run that drew driftwood, calm water or good grounds every leg took
-    # no damage and never foundered, and the test failed about one run in
-    # forty (#200).
-    leak = next(event for event in adventures.EVENTS if event["id"] == "leak")
-    with patch("src.business.adventures.rollEvent", return_value=leak):
+    # pool with random.choice, which the two random patches below never
+    # covered: a run that drew driftwood, calm water or good grounds every
+    # leg took no damage and never foundered, and the test failed about one
+    # run in forty (#200).
+    #
+    # The roll is pinned on the module docks actually calls into. pytest.ini
+    # puts both `.` and `src` on the path, so `from business import
+    # adventures` (docks) and `from src.business import adventures` (this
+    # file) load two separate module objects - a patch on the `src.`-prefixed
+    # one never reaches docks, and the flake survived #201 that way. The
+    # random patches are unaffected because `random` is one shared module
+    # whichever way adventures was imported.
+    sailedAdventures = docks.adventures
+    leak = next(event for event in sailedAdventures.EVENTS if event["id"] == "leak")
+    with patch.object(sailedAdventures, "rollEvent", return_value=leak):
         with patch("src.business.adventures.random.randint", return_value=99):
             with patch("src.business.adventures.random.random", return_value=0.0):
                 docksInstance.takeTheHelm()
 
-    # check - she came home early with nothing, but she came home
-    assert docksInstance.timeService.day < startingDay + plan["legs"]
+    # check - she came home early with nothing, but she came home. With 51%
+    # of hull and a 99-point leak she goes down on the first leg, exactly.
+    assert docksInstance.timeService.day == startingDay + 1
     assert docksInstance.stats.totalVoyagesFoundered == 1
     assert boat in docksInstance.player.boats
     assert boats.isAtSea(boat) is False
