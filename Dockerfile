@@ -7,11 +7,12 @@ WORKDIR /app
 # game in the player's own tab, with that tab's IndexedDB holding the saves.
 #
 # Two consequences worth spelling out:
-#   - The only pip install is tak, the kit the game imports from: it is
-#     installed so web/build_zip.py can copy it into the bundle (and it is
-#     what the browser runs), not because the server needs it. jsonschema is
-#     loaded browser-side by web/game-worker.js, and the server here is pure
-#     stdlib. git is needed for that one install and removed afterwards.
+#   - The only pip install is tak, the kit the game imports from: web/serve.py
+#     is tak's static server (tak.web.serve), which also hands out the kit's
+#     page assets and Worker at /tak/, and web/build_zip.py copies tak into
+#     the bundle the browser runs. jsonschema is loaded browser-side by tak's
+#     game-worker.js, so the server never imports it. git is needed for that
+#     one install and removed afterwards.
 #   - No save directory, and no volume to persist. Every visitor gets their own
 #     game and their own save slots, which is exactly what the server-backed
 #     front-end (examples/web_app.py) could not give them.
