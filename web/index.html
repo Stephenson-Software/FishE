@@ -13,6 +13,9 @@
   /* Boot progress, shown until the first screen arrives. */
   .status { color: #7fb0d0; margin: 1rem 0; }
   .status.error { color: #ff8a8a; }
+  /* A small credit line under the tip, outside #app so it never covers play. */
+  .credit { font-size: .7rem; color: #6a8aa0; margin-top: .5rem; }
+  .credit a { color: #7fb0d0; }
 </style>
 </head>
 <body>
@@ -20,6 +23,7 @@
 <div id="status" class="status">Starting&hellip;</div>
 <div id="app"></div>
 <p class="controls">Tip: click an option or press its number key (1-9). Enter or Space continues. Your saved games live in this browser.</p>
+<footer class="credit">More by Daniel Stephenson &rarr; <a href="https://danielstephenson.dev">danielstephenson.dev</a></footer>
 <script src="/tak/client.js"></script>
 <script src="/tak/boot.js"></script>
 <script>
