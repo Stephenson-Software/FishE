@@ -12,6 +12,20 @@ pip install -r requirements.txt
 
 The game depends on [tak](https://github.com/Stephenson-Software/tak) — the text-adventure kit that was extracted from FishE and that FishE now runs on: the user-interface contract and its console, server-web and in-browser front-ends, the save slots, the unlock engine and NPC dialogue — and on `jsonschema` (it validates save files on every load and save). Installing tak needs `git` on your PATH. This step is required before running any front-end from a local Python interpreter — console or the server-backed web front-end (`python3 examples/web_app.py`). `run.sh` runs this for you. The pygame front-end (`UIType.PYGAME`) additionally needs `pip install pygame`, kept out of `requirements.txt` since it's only imported lazily when that front-end is selected.
 
+## Running the game
+
+The default front-end is the console. From the repository root:
+
+```bash
+python3 src/fishE.py
+```
+
+Or use `./run.sh`, which also does a `git pull`, installs the dependencies (pygame and pytest included), and runs the test suite, then starts the game only if the tests pass.
+
+To play in a pygame window instead, install pygame and change `INTERFACE_TYPE` near the top of `src/fishE.py` from `UIType.CONSOLE` to `UIType.PYGAME`. The two browser front-ends are started differently; see [Play in your browser](#play-in-your-browser) below.
+
+On a Debian-based machine, `install.sh` (run as root) clones the game into `/usr/games/FishE` and adds a `fishe` command that runs `./run.sh` there; `uninstall.sh` removes both.
+
 ## Features
 
 ### Play in your browser
@@ -24,6 +38,8 @@ python3 web/build_zip.py    # bundle the game for the browser (once, and after a
 python3 web/serve.py
 # then open http://127.0.0.1:8080
 ```
+
+The `Dockerfile` packages exactly this: it builds `web/game.zip` into the image and runs `web/serve.py` on port 8080, listening on all interfaces (`docker build -t fishe . && docker run -p 8080:8080 fishe`). The container only serves files, so it needs no volume; saves stay in each player's browser.
 
 Set `FISHE_WEB_PORT` to serve on a different port (and `FISHE_WEB_HOST`, e.g. `0.0.0.0`, to be reachable from outside the machine); both entry points name that variable if the port they were given is misspelled or already taken.
 

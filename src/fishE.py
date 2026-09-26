@@ -24,8 +24,10 @@ from config.config import Config
 from trace_client import TraceClient
 import usageReporting
 
-# Which front-end the game runs. Swap to UIType.PYGAME (or a future web type)
-# here to change the interface — the rest of the game is front-end agnostic.
+# Which front-end `python3 src/fishE.py` runs. Swap to UIType.PYGAME here to
+# change the interface — the rest of the game is front-end agnostic. The two
+# browser front-ends have their own entry points (examples/web_app.py for
+# UIType.WEB, web/pyodide_main.py for UIType.PYODIDE).
 INTERFACE_TYPE = UIType.CONSOLE
 
 
