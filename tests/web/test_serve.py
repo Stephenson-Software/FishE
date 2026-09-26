@@ -53,6 +53,13 @@ def test_the_page_keeps_the_saves_database_name():
     assert 'entry: "web/pyodide_main.py"' in html
 
 
+def test_the_page_credits_the_author_outside_the_game_area(server):
+    body = get(server, "/").read().decode("utf-8")
+    credit = '<a href="https://danielstephenson.dev">danielstephenson.dev</a>'
+    assert "More by Daniel Stephenson &rarr; " + credit in body
+    # After #app has closed, so the line sits below the game, not inside it.
+    assert body.index(credit) > body.index('<div id="app"></div>')
+
 def test_serves_the_kits_client_and_boot_script(server):
     assert b"window.TakClient" in get(server, "/tak/client.js").read()
     assert b"window.TakBoot" in get(server, "/tak/boot.js").read()
