@@ -28,7 +28,7 @@ class Config:
         # which deployments use to point the game somewhere other than a
         # cwd-relative "data" — a mounted volume for a server install, or the
         # Worker-side directory that the Pyodide front-end mirrors to the
-        # browser's IndexedDB (see browserSaveSync and web/game-worker.js).
+        # browser's IndexedDB (see browserSaveSync and tak's game-worker.js).
         self.dataDirectory = os.environ.get("FISHE_SAVE_DIR") or "data"
 
         # Initial player values. Starting energy isn't configured here - see

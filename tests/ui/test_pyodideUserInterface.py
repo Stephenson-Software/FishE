@@ -315,7 +315,7 @@ def test_a_game_played_in_the_browser_saves_into_browser_storage(fakeJs):
     """
     from fishE import FishE
 
-    # Mirror of makeSyncSaves() in web/game-worker.js: walk the save directory
+    # Mirror of makeSyncSaves() in tak's game-worker.js: walk the save directory
     # and hand the file map to the browser to store.
     browserStorage = {}
 
@@ -358,7 +358,7 @@ def test_a_game_played_in_the_browser_saves_into_browser_storage(fakeJs):
 def test_quitting_ends_the_page_instead_of_raising(fakeJs):
     # "Quit" calls exit(), which in a tab has no process to end: the Worker
     # would report it as an error rather than the game finishing. The entry
-    # point is exec'd here the same way web/game-worker.js runs it.
+    # point is exec'd here the same way tak's game-worker.js runs it.
     entryPoint = os.path.join(
         os.path.dirname(__file__), "..", "..", "web", "pyodide_main.py"
     )
