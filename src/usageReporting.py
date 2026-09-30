@@ -66,10 +66,7 @@ def isBrowserBuild():
 
 
 def readVersion(path=None):
-    """The version from version.txt (the one run.sh prints), or None.
-
-    None rather than a placeholder: an event without a version tag says
-    "unknown" more honestly than a made-up string would."""
+    """The version from version.txt (the one run.sh prints), or None."""
     try:
         with open(path or VERSION_FILE, encoding="utf-8") as versionFile:
             version = versionFile.read().strip()
@@ -78,12 +75,11 @@ def readVersion(path=None):
     return version or None
 
 
-def versionTags():
-    """The tags every event carries: the version, when there is one."""
-    version = readVersion()
-    if version is None:
-        return None
-    return {"version": version}
+def programVersion():
+    """The version the client tags every event with: version.txt's, or
+    "unknown" when it cannot be read, so a missing file never stops the game
+    from starting (the client refuses a blank version)."""
+    return readVersion() or "unknown"
 
 
 def createClient(config):
@@ -99,6 +95,7 @@ def createClient(config):
     return TraceClient(
         config.usageReportingEndpoint,
         PROGRAM_NAME,
+        programVersion(),
         key=config.usageReportingKey,
         enabled=config.usageReportingEnabled,
     )
@@ -140,5 +137,5 @@ def start(config, output=None):
     client = createClient(config)
     if client.enabled:
         showNoticeOnce(config, output)
-        client.report("startup", tags=versionTags())
+        client.report("startup")
     return client

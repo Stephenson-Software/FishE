@@ -90,7 +90,7 @@ class FishE:
 
         # A slot was created or opened: the one usage event besides startup.
         # Nothing about the slot goes with it (see usageReporting).
-        self.usageReporting.report("save-loaded", tags=usageReporting.versionTags())
+        self.usageReporting.report("save-loaded")
 
         # Load the chosen slot over the defaults if it has data.
         #
