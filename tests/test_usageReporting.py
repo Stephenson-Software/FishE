@@ -98,7 +98,7 @@ def test_the_version_tag_is_what_version_txt_says(monkeypatch, tmp_path):
     versionFile.write_text("9.9.9-TEST\n")
     monkeypatch.setattr(usageReporting, "VERSION_FILE", str(versionFile))
 
-    assert usageReporting.versionTags() == {"version": "9.9.9-TEST"}
+    assert usageReporting.programVersion() == "9.9.9-TEST"
 
 
 def test_the_repository_version_file_is_the_one_run_sh_prints():
@@ -111,7 +111,9 @@ def test_the_repository_version_file_is_the_one_run_sh_prints():
     assert usageReporting.readVersion() == repositoryVersion.strip()
 
 
-def test_a_missing_or_empty_version_file_means_no_version_tag(monkeypatch, tmp_path):
+def test_a_missing_or_empty_version_file_means_an_unknown_version(
+    monkeypatch, tmp_path
+):
     empty = tmp_path / "version.txt"
     empty.write_text("   \n")
     assert usageReporting.readVersion(str(tmp_path / "absent.txt")) is None
@@ -119,7 +121,7 @@ def test_a_missing_or_empty_version_file_means_no_version_tag(monkeypatch, tmp_p
 
     monkeypatch.setattr(usageReporting, "VERSION_FILE", str(tmp_path / "absent.txt"))
 
-    assert usageReporting.versionTags() is None
+    assert usageReporting.programVersion() == "unknown"
 
 
 # -- building the client ------------------------------------------------------
