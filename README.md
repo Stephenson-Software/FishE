@@ -24,7 +24,7 @@ Or use `./run.sh`, which also does a `git pull`, installs the dependencies (pyga
 
 To play in a pygame window instead, install pygame and change `INTERFACE_TYPE` near the top of `src/fishE.py` from `UIType.CONSOLE` to `UIType.PYGAME`. The two browser front-ends are started differently; see [Play in your browser](#play-in-your-browser) below.
 
-On a Debian-based machine, `install.sh` (run as root) clones the game into `/usr/games/FishE` and adds a `fishe` command that runs `./run.sh` there; `uninstall.sh` removes both.
+On a Debian-based machine, `install.sh` (run as root) clones the game into `/usr/games/FishE` and adds a `fishe` command that runs `./run.sh` there; `uninstall.sh` removes both. It runs without prompting and is safe to run again: a second run updates the existing clone with `git pull` rather than cloning over it.
 
 ## Features
 
