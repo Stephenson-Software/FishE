@@ -1,0 +1,43 @@
+# Deploys the browser build to arcade (https://github.com/Stephenson-Software/arcade,
+# RFC 0006), where it is served at https://fishe.play.danielstephenson.dev, and,
+# once the gateway routes the old hostname to arcade, at
+# https://fishe.danielstephenson.dev too. That is the same origin, so players'
+# saves are kept.
+#
+# A push to main deploys once the repository variable ARCADE_ENABLED is 'true'
+# (or by hand: Actions -> Run workflow). Each deploy is version.txt plus the
+# commit, so every push is a new, immutable arcade version; rollback is
+# arcade's POST /api/games/fishe/current.
+name: Deploy to arcade
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || vars.ARCADE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the game's dependencies (tak, jsonschema)
+        run: pip install -r requirements.txt pytest pygame
+      - name: Tests
+        run: python -m pytest -q
+      - name: Build the browser bundle
+        run: python3 web/build_zip.py
+      - name: Version this build (version.txt + commit)
+        run: echo "$(tr -d '[:space:]' < version.txt)+g${GITHUB_SHA::7}" > "$RUNNER_TEMP/arcade-version.txt"
+      - name: Deploy to arcade
+        uses: Stephenson-Software/arcade-deploy@v1
+        with:
+          slug: fishe
+          token: ${{ secrets.ARCADE_TOKEN }}
+          version-file: ${{ runner.temp }}/arcade-version.txt
