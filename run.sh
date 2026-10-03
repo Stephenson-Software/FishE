@@ -1,4 +1,4 @@
-# /bin/bash
+#!/bin/bash
 # Usage: ./run.sh
 
 getLatest() {
@@ -23,12 +23,12 @@ printVersion() {
 checkDependencies() {
     # check that dependencies are installed
     echo "Checking dependencies"
-    if ! command -v python3 &> /dev/null
+    if ! command -v python3 > /dev/null 2>&1
     then
         echo "Python could not be found. Download it from https://www.python.org/downloads/"
         exit 1
     fi
-    if ! command -v pip &> /dev/null
+    if ! command -v pip > /dev/null 2>&1
     then
         echo "Pip could not be found. Download it from https://pip.pypa.io/en/stable/installation/ or run 'python -m ensurepip' in a terminal"
         exit 1

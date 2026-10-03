@@ -1,4 +1,4 @@
-# /bin/bash
+#!/bin/bash
 # Usage: ./test.sh
 
 # The pygame front-end's tests open a real display unless SDL is pointed at its
