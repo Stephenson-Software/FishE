@@ -1,6 +1,7 @@
 # FishE
 
 [![Run Unit Tests](https://github.com/Stephenson-Software/FishE/actions/workflows/test.yml/badge.svg)](https://github.com/Stephenson-Software/FishE/actions/workflows/test.yml)
+[![Play in your browser](https://img.shields.io/badge/Play-in%20your%20browser-2ea44f)](https://danielstephenson.dev/play/fishe)
 
 This game allows you to explore a fishing village and perform actions in it.
 
