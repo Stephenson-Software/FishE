@@ -7,5 +7,5 @@
 # tak is the text-adventure kit extracted from this game
 # (https://github.com/Stephenson-Software/tak), which FishE now runs on.
 # Installing it needs git on the PATH.
-tak @ git+https://github.com/Stephenson-Software/tak@eedf89fe142221c430787837d43d29d3ccfa7f07
+tak @ git+https://github.com/Stephenson-Software/tak@963cd3c94c07a98eaeff31f6a9796b90bd023e64
 jsonschema>=4.0,<5.0

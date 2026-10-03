@@ -18,6 +18,7 @@ from saveFileManager import SaveFileManager
 from tak.saves import chooseSlot, deleteSlot
 from browserSaveSync import syncBrowserSaves
 from achievements import achievements
+from achievements import arcade as arcadeAchievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
 from progression import progression
 from config.config import Config
@@ -175,6 +176,10 @@ class FishE:
         # player (see progression.catchUp).
         progression.catchUp(self.player, self.stats)
 
+        # Re-assert on arcade the achievements this save has already earned
+        # (fire-and-forget; reads stats.earnedMilestones, writes nothing).
+        arcadeAchievements.catchUp(self.stats)
+
         # The game opens on the docks, with fishing as the only thing on the
         # menu. Everywhere else in the village is revealed as it is earned -
         # see src/progression.
@@ -259,6 +264,7 @@ class FishE:
             newlyEarned = achievements.getNewlyEarned(self.stats)
             for milestone in newlyEarned:
                 self.prompt.text += "  [Milestone unlocked: %s!]" % milestone["name"]
+            arcadeAchievements.milestonesEarned(newlyEarned)
 
             # announce the one thing the player has just opened up, with the
             # reason they opened it, so the newly-appeared menu entry is
@@ -301,6 +307,7 @@ class FishE:
                 "  [GOAL REACHED! You've built your fortune of $%d! "
                 "Keep fishing, or retire from the Home menu.]" % GOAL_AMOUNT
             )
+            arcadeAchievements.nameEarned(GOAL_MILESTONE_NAME)
             return True
         return False
 
