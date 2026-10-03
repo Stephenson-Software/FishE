@@ -162,9 +162,9 @@ When you play in your own browser (the Pyodide front-end above), those same slot
 
 ## Usage reporting
 
-Usage reporting is on by default: FishE sends a `startup` event once per launch and a `save-loaded` event each time a save slot is created or opened to [trace](https://github.com/Stephenson-Software/trace) at `https://trace.danielstephenson.dev`, each carrying only the program name (`FishE`) and the version from `version.txt`. Nothing about you or your run is sent — no username, hostname, IP address, path, slot number or save contents. The in-browser front-end (`UIType.PYODIDE`) is silent: the game runs in your tab, where the client's background thread cannot exist, and nothing is sent from there.
+Usage reporting is on by default: FishE sends a `startup` event once per launch and a `save-loaded` event each time a save slot is created or opened to [trace](https://github.com/Stephenson-Software/trace) at `https://trace.danielstephenson.dev`, each carrying only the program name (`FishE`), the version from `version.txt` and a random installation ID (the tag `install`, so installations can be counted rather than launches). Nothing about you or your run is sent — no username, hostname, IP address, path, slot number or save contents. The in-browser front-end (`UIType.PYODIDE`) is silent: the game runs in your tab, where the client's background thread cannot exist, and nothing is sent from there.
 
-The first time an install reports, one line saying so is printed on the console (above the save-file menu) and a `usage-reporting-notice-shown` marker is left in the save directory so it is not printed again. Reporting never gets in the game's way: it happens on a background thread, never raises into the game, and a server that is down or slow costs a dropped event, not a wait.
+The first time an install reports, one line saying so is printed on the console (above the save-file menu) and a `usage-reporting-notice-shown` marker is left in the save directory so it is not printed again. The installation ID is a random UUID kept next to it, in `trace-install-id` in the save directory (`data/`, or `FISHE_SAVE_DIR`); it identifies no person, account or address, and deleting the file gives a new one. It is only created while reporting is on, so every opt-out below also stops it, and the in-browser front-end makes none. Reporting never gets in the game's way: it happens on a background thread, never raises into the game, and a server that is down or slow costs a dropped event, not a wait.
 
 To turn it off, set any of these in the environment the game runs in:
 
@@ -183,8 +183,9 @@ FISHE_USAGE_REPORTING_ENABLED=false python3 src/fishE.py
 | `FISHE_USAGE_REPORTING_KEY` | the key issued to FishE | The program key sent with each event. |
 | `TRACE_USAGE_REPORTING` | unset | `off`, `false`, `0` or `no` turns reporting off, for FishE and every other trace client. |
 | `DO_NOT_TRACK` | unset | `1`, `true` or `yes` turns reporting off the same way. |
+| `TRACE_INSTALL_ID` | unset | Sent as the installation ID instead of the one in `trace-install-id`, which is then left alone — to pin one for a container or service. |
 
-The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either. The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python) (0.3.0); the wiring is `src/usageReporting.py`.
+The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either. The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python) (0.4.0); the wiring is `src/usageReporting.py`.
 
 Details: https://github.com/Stephenson-Software/trace#usage-reporting
 

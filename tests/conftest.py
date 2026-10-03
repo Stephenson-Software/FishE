@@ -17,3 +17,4 @@ def usageReportingOff(monkeypatch):
     # from a clean slate, so both are cleared here.
     monkeypatch.delenv("TRACE_USAGE_REPORTING", raising=False)
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)
+    monkeypatch.delenv("TRACE_INSTALL_ID", raising=False)
