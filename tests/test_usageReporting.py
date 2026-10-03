@@ -174,6 +174,7 @@ def test_the_environment_wins_over_fishe_saying_on(
     assert client.disabled_reason == "environment"
     assert output.getvalue() == ""
     assert not os.path.exists(usageReporting.noticeMarkerPath(reportingOn))
+    assert not os.path.exists(usageReporting.installIdPath(reportingOn))
     assert not stub.waitFor(1, timeout=0.5)
 
 
@@ -208,7 +209,8 @@ def test_the_notice_is_printed_once_and_then_never_again(reportingOn):
 def test_the_notice_names_the_program_what_is_sent_the_opt_outs_and_the_details():
     assert usageReporting.NOTICE == (
         "Usage reporting is on: FishE sends a startup event and a save-loaded "
-        "event (program name and version only) to trace.danielstephenson.dev. "
+        "event (program name, version and a random installation ID only) to "
+        "trace.danielstephenson.dev. "
         "Turn it off with FISHE_USAGE_REPORTING_ENABLED=false or "
         "TRACE_USAGE_REPORTING=off in the environment. "
         "Details: https://github.com/Stephenson-Software/trace#usage-reporting"
@@ -262,7 +264,10 @@ def test_start_prints_the_notice_and_reports_startup_with_the_version(
     assert request["body"] == {
         "application": "FishE",
         "name": "startup",
-        "tags": {"version": usageReporting.readVersion()},
+        "tags": {
+            "version": usageReporting.readVersion(),
+            "install": client.install_id,
+        },
     }
     client.close()
 
@@ -278,6 +283,7 @@ def test_start_says_nothing_and_sends_nothing_when_reporting_is_off(
     assert not client.enabled
     assert output.getvalue() == ""
     assert not os.path.exists(usageReporting.noticeMarkerPath(reportingOn))
+    assert not os.path.exists(usageReporting.installIdPath(reportingOn))
     assert not stub.waitFor(1, timeout=0.5)
 
 
@@ -293,6 +299,40 @@ def test_the_second_start_reports_startup_again_but_stays_quiet(reportingOn, stu
 
     assert [r["body"]["name"] for r in stub.requests] == ["startup", "startup"]
     assert quiet.getvalue() == ""
+    # the same installation both times
+    assert first.install_id and second.install_id == first.install_id
+    assert {r["body"]["tags"]["install"] for r in stub.requests} == {first.install_id}
+
+
+# -- the installation ID ------------------------------------------------------
+
+
+def test_the_installation_id_lives_in_the_save_directory(reportingOn):
+    client = usageReporting.createClient(reportingOn)
+    client.close()
+
+    path = os.path.join(reportingOn.dataDirectory, "trace-install-id")
+    assert usageReporting.installIdPath(reportingOn) == path
+    assert open(path).read().strip() == client.install_id
+
+
+def test_the_installation_id_does_not_read_as_a_save_slot(reportingOn):
+    from src.saveFileManager import SaveFileManager
+
+    usageReporting.createClient(reportingOn).close()
+
+    assert SaveFileManager(reportingOn.dataDirectory).list_save_files() == []
+    assert SaveFileManager(reportingOn.dataDirectory).get_next_available_slot() == 1
+
+
+def test_trace_install_id_wins_over_the_file(monkeypatch, reportingOn):
+    monkeypatch.setenv("TRACE_INSTALL_ID", "pinned-id")
+
+    client = usageReporting.createClient(reportingOn)
+    client.close()
+
+    assert client.install_id == "pinned-id"
+    assert not os.path.exists(usageReporting.installIdPath(reportingOn))
 
 
 # -- wiring into the game -----------------------------------------------------
@@ -333,9 +373,11 @@ def test_the_game_reports_startup_then_save_loaded(reportingOn, stub, capsys):
     game.play()
 
     version = usageReporting.readVersion()
+    install = open(usageReporting.installIdPath(reportingOn)).read().strip()
+    tags = {"version": version, "install": install}
     assert [r["body"] for r in stub.requests] == [
-        {"application": "FishE", "name": "startup", "tags": {"version": version}},
-        {"application": "FishE", "name": "save-loaded", "tags": {"version": version}},
+        {"application": "FishE", "name": "startup", "tags": tags},
+        {"application": "FishE", "name": "save-loaded", "tags": tags},
     ]
     assert capsys.readouterr().out == usageReporting.NOTICE + "\n"
     assert not game.usageReporting.enabled  # closed by play()
@@ -391,4 +433,5 @@ def test_nothing_identifying_is_sent(reportingOn, stub):
 
     for request in stub.requests:
         assert set(request["body"]) <= {"application", "name", "tags"}
-        assert set(request["body"]["tags"]) == {"version"}
+        # the installation ID is random, not derived from anything
+        assert set(request["body"]["tags"]) == {"version", "install"}

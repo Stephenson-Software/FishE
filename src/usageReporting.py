@@ -4,8 +4,12 @@
 FishE reports two events to https://trace.danielstephenson.dev through the
 vendored trace client (src/trace_client.py): ``startup`` once per launch and
 ``save-loaded`` each time a save slot is created or opened. Each carries the
-program name and the version from version.txt, and nothing else - no username,
-hostname, address, path, slot number or anything about the run.
+program name, the version from version.txt and a random installation ID (the
+tag ``install``, so installations can be counted rather than launches), and
+nothing else - no username, hostname, address, path, slot number or anything
+about the run. The ID is a UUID the client keeps in ``trace-install-id`` in the
+save directory (``TRACE_INSTALL_ID`` in the environment pins one instead); the
+client only reads or creates it when reporting is on.
 
 Reporting is on by default and switched off with
 ``FISHE_USAGE_REPORTING_ENABLED=false`` in the environment (see
@@ -41,6 +45,11 @@ PROGRAM_NAME = "FishE"
 # is. SaveFileManager ignores it: only slot_N directories are save slots.
 NOTICE_MARKER_FILENAME = "usage-reporting-notice-shown"
 
+# The file in the save directory the client keeps this installation's random
+# ID in (the tag ``install`` on every event). Deleting it resets the ID; like
+# the marker, SaveFileManager does not read it as a save slot.
+INSTALL_ID_FILENAME = "trace-install-id"
+
 OPT_OUT_INSTRUCTION = (
     "FISHE_USAGE_REPORTING_ENABLED=false or TRACE_USAGE_REPORTING=off "
     "in the environment"
@@ -50,7 +59,8 @@ DETAILS_URL = "https://github.com/Stephenson-Software/trace#usage-reporting"
 
 NOTICE = (
     "Usage reporting is on: %s sends a startup event and a save-loaded event "
-    "(program name and version only) to trace.danielstephenson.dev. "
+    "(program name, version and a random installation ID only) to "
+    "trace.danielstephenson.dev. "
     "Turn it off with %s. Details: %s"
     % (PROGRAM_NAME, OPT_OUT_INSTRUCTION, DETAILS_URL)
 )
@@ -89,7 +99,11 @@ def createClient(config):
     goes through the client's constructor, which decides in this order:
     TRACE_USAGE_REPORTING / DO_NOT_TRACK in the environment, then FishE's own
     setting, then whether there is a key. A client switched off by any of
-    them reports nothing, starts no thread, and says why in disabled_reason."""
+    them reports nothing, starts no thread, and says why in disabled_reason.
+
+    Only an enabled client resolves the installation ID: TRACE_INSTALL_ID
+    when set, otherwise the file at installIdPath(config), created on first
+    use - so no opt-out ever creates it."""
     if isBrowserBuild():
         return TraceClient.disabled()
     return TraceClient(
@@ -98,7 +112,13 @@ def createClient(config):
         programVersion(),
         key=config.usageReportingKey,
         enabled=config.usageReportingEnabled,
+        install_id=os.environ.get("TRACE_INSTALL_ID"),
+        install_id_file=installIdPath(config),
     )
+
+
+def installIdPath(config):
+    return os.path.join(config.dataDirectory, INSTALL_ID_FILENAME)
 
 
 def noticeMarkerPath(config):
