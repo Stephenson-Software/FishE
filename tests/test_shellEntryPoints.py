@@ -10,6 +10,11 @@ agreement itself rather than any particular test's behaviour.
 run.sh has the additional constraint that the drivers must be scoped to the
 pytest command: it goes on to launch the game, and a dummy video driver
 exported for the whole script would draw the pygame front-end to nowhere.
+
+Both scripts also have to say which shell runs them. Without a shebang that
+choice falls to whoever launches the script - `sh run.sh`, or the /bin/fishe
+wrapper install.sh writes - and under dash a bash-only `&>` redirection is read
+as "background the command", which made run.sh report Python as missing.
 """
 
 import os
@@ -76,6 +81,29 @@ def test_run_sh_does_not_leave_the_dummy_drivers_set_for_the_game():
     for command in launchCommands:
         assert "SDL_VIDEODRIVER" not in command
     assert "export SDL_" not in script
+
+
+def test_test_sh_starts_with_a_bash_shebang():
+    assert readRepositoryFile("test.sh").startswith("#!/bin/bash\n")
+
+
+def test_run_sh_starts_with_a_bash_shebang():
+    assert readRepositoryFile("run.sh").startswith("#!/bin/bash\n")
+
+
+def test_run_sh_redirects_portably():
+    # prepare
+    script = readRepositoryFile("run.sh")
+
+    # call
+    bashOnlyRedirections = [
+        line.strip()
+        for line in script.splitlines()
+        if "&>" in line and not line.strip().startswith("#")
+    ]
+
+    # check
+    assert bashOnlyRedirections == []
 
 
 def test_ci_workflow_runs_pytest_under_the_same_dummy_sdl_drivers():
