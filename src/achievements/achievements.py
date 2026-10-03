@@ -13,9 +13,22 @@
 GOAL_AMOUNT = 10000
 GOAL_MILESTONE_NAME = "Reached Goal"
 
+# Achievements on arcade (https://danielstephenson.dev/play, Stephenson-Software
+# RFC 0014): a curated subset of the milestones below carries an "arcadeId",
+# plus the goal and the retirement that ends a run. The same ids are declared
+# for the game "fishe" in the gateway's config/play/boards.yaml, and are
+# permanent: never rename one. "arcadeHidden" marks one the arcade page lists
+# as "Hidden achievement" until it is earned. See achievements/arcade.py.
+GOAL_ARCADE_ID = "reached-goal"
+GOAL_DESCRIPTION = "Reach $10,000"
+RETIRED_ARCADE_ID = "retired"
+RETIRED_TITLE = "Retired"
+RETIRED_DESCRIPTION = "Retire with your fortune made"
+
 MILESTONES = [
     {
         "name": "First Catch",
+        "arcadeId": "first-catch",
         "stat": "totalFishCaught",
         "threshold": 1,
         "description": "Catch your first fish",
@@ -28,6 +41,7 @@ MILESTONES = [
     },
     {
         "name": "Master Fisher",
+        "arcadeId": "master-fisher",
         "stat": "totalFishCaught",
         "threshold": 1000,
         "description": "Catch 1,000 fish",
@@ -40,6 +54,7 @@ MILESTONES = [
     },
     {
         "name": "Big Earner",
+        "arcadeId": "big-earner",
         "stat": "totalMoneyMade",
         "threshold": 1000,
         "description": "Earn $1,000 total",
@@ -52,6 +67,7 @@ MILESTONES = [
     },
     {
         "name": "First Mate",
+        "arcadeId": "first-mate",
         "stat": "totalWorkersHired",
         "threshold": 1,
         "description": "Hire your first crew member",
@@ -70,6 +86,7 @@ MILESTONES = [
     },
     {
         "name": "Took the Helm",
+        "arcadeId": "took-the-helm",
         "stat": "totalVoyagesCaptained",
         "threshold": 1,
         "description": "Captain a voyage yourself",
@@ -82,6 +99,8 @@ MILESTONES = [
     },
     {
         "name": "Letter of Marque",
+        "arcadeId": "letter-of-marque",
+        "arcadeHidden": True,
         "stat": "totalRaids",
         "threshold": 1,
         "description": "Put a boat to piracy for a day",
@@ -100,6 +119,7 @@ MILESTONES = [
     },
     {
         "name": "First Export",
+        "arcadeId": "first-export",
         "stat": "totalFishExported",
         "threshold": 1,
         "description": "Ship your first fish to another village",
@@ -118,12 +138,14 @@ MILESTONES = [
     },
     {
         "name": "Homeowner",
+        "arcadeId": "homeowner",
         "stat": "highestHomeTier",
         "threshold": 2,
         "description": "Buy your first home",
     },
     {
         "name": "Waterfront Manor",
+        "arcadeId": "waterfront-manor",
         "stat": "highestHomeTier",
         "threshold": 5,
         "description": "Own the finest home in the village",
@@ -136,6 +158,7 @@ MILESTONES = [
     },
     {
         "name": "Property Mogul",
+        "arcadeId": "property-mogul",
         "stat": "totalPropertiesBought",
         "threshold": 5,
         "description": "Buy 5 investment properties over your career",
@@ -168,3 +191,48 @@ def getNewlyEarned(stats):
             stats.earnedMilestones.append(milestone["name"])
             newly.append(milestone)
     return newly
+
+
+def arcadeIdForName(name):
+    """The arcade achievement id an earned milestone name stands for, or None.
+
+    Covers the goal too, which is recorded on stats.earnedMilestones under
+    GOAL_MILESTONE_NAME like any milestone."""
+    if name == GOAL_MILESTONE_NAME:
+        return GOAL_ARCADE_ID
+    for milestone in MILESTONES:
+        if milestone["name"] == name:
+            return milestone.get("arcadeId")
+    return None
+
+
+def arcadeDeclarations():
+    """Every arcade achievement the game can unlock, as the gateway's
+    boards.yaml declares them: [{id, title, description, hidden}], in order."""
+    declared = [
+        {
+            "id": milestone["arcadeId"],
+            "title": milestone["name"],
+            "description": milestone["description"],
+            "hidden": bool(milestone.get("arcadeHidden", False)),
+        }
+        for milestone in MILESTONES
+        if "arcadeId" in milestone
+    ]
+    declared.append(
+        {
+            "id": GOAL_ARCADE_ID,
+            "title": GOAL_MILESTONE_NAME,
+            "description": GOAL_DESCRIPTION,
+            "hidden": False,
+        }
+    )
+    declared.append(
+        {
+            "id": RETIRED_ARCADE_ID,
+            "title": RETIRED_TITLE,
+            "description": RETIRED_DESCRIPTION,
+            "hidden": False,
+        }
+    )
+    return declared

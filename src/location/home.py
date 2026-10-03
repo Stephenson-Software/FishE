@@ -5,6 +5,7 @@ from world.timeService import TimeService, appendDayReport
 from stats.stats import Stats
 from ui.userInterface import UserInterface
 from achievements import achievements
+from achievements import arcade as arcadeAchievements
 from housing import housing
 from progression import progression
 
@@ -295,4 +296,6 @@ class Home:
             "Here's how your career adds up:",
             "",
         ] + self._statsLines()
+        # The run's ending, reported to arcade as it happens.
+        arcadeAchievements.retired()
         self.userInterface.showDialogue("\n".join(lines))
