@@ -714,7 +714,8 @@ def test_migrate_old_save_files_partial():
 
 
 def test_migrate_old_save_files_slot1_exists():
-    """Test migration when slot_1 already exists"""
+    """A pre-slot save never replaces a save already in slot_1: it goes into
+    the next free slot, and slot_1 is left exactly as it was."""
     temp_dir = tempfile.mkdtemp()
     try:
         manager = SaveFileManager(temp_dir)
@@ -728,15 +729,66 @@ def test_migrate_old_save_files_slot1_exists():
         # Create old format files
         with open(os.path.join(temp_dir, "player.json"), "w") as f:
             json.dump({"money": 100}, f)
+        with open(os.path.join(temp_dir, "stats.json"), "w") as f:
+            json.dump({"totalFishCaught": 3}, f)
 
-        # Migration should still succeed (will overwrite)
         result = manager.migrate_old_save_files()
         assert result is True
 
-        # Check that old file was moved and overwrote existing
         with open(os.path.join(slot_1_path, "player.json"), "r") as f:
-            data = json.load(f)
-            assert data["money"] == 100  # Should be the migrated value
+            assert json.load(f)["money"] == 999  # untouched
+        assert not os.path.exists(os.path.join(slot_1_path, "stats.json"))
+        slot_2_path = os.path.join(temp_dir, "slot_2")
+        with open(os.path.join(slot_2_path, "player.json"), "r") as f:
+            assert json.load(f)["money"] == 100
+        with open(os.path.join(slot_2_path, "stats.json"), "r") as f:
+            assert json.load(f)["totalFishCaught"] == 3
+        assert not os.path.exists(os.path.join(temp_dir, "player.json"))
+        assert not os.path.exists(os.path.join(temp_dir, "stats.json"))
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_migrate_old_save_files_skips_a_slot_holding_any_file():
+    """A slot whose player.json is gone but whose other files survive is not
+    free either (the kit's rule): the old save goes past it."""
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+        os.makedirs(os.path.join(temp_dir, "slot_1"))
+        with open(os.path.join(temp_dir, "slot_1", "stats.json"), "w") as f:
+            f.write('{"totalFishCaught": 7}')
+        with open(os.path.join(temp_dir, "player.json"), "w") as f:
+            json.dump({"money": 5}, f)
+
+        assert manager.migrate_old_save_files() is True
+
+        assert not os.path.exists(os.path.join(temp_dir, "slot_1", "player.json"))
+        with open(os.path.join(temp_dir, "slot_1", "stats.json")) as f:
+            assert f.read() == '{"totalFishCaught": 7}'
+        assert os.path.exists(os.path.join(temp_dir, "slot_2", "player.json"))
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_migrate_old_save_files_every_slot_taken_moves_nothing():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        manager = SaveFileManager(temp_dir)
+        for n in range(1, 100):
+            os.makedirs(os.path.join(temp_dir, "slot_%d" % n))
+            with open(os.path.join(temp_dir, "slot_%d" % n, "player.json"), "w") as f:
+                json.dump({"money": n}, f)
+        with open(os.path.join(temp_dir, "player.json"), "w") as f:
+            json.dump({"money": 100}, f)
+
+        with patch("src.saveFileManager.syncBrowserSaves") as sync:
+            assert manager.migrate_old_save_files() is False
+        sync.assert_not_called()
+
+        assert os.path.exists(os.path.join(temp_dir, "player.json"))
+        with open(os.path.join(temp_dir, "slot_1", "player.json")) as f:
+            assert json.load(f)["money"] == 1
     finally:
         shutil.rmtree(temp_dir)
 

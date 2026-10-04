@@ -50,6 +50,8 @@ def test_the_page_keeps_the_saves_database_name():
         html = page.read()
     assert 'idbName: "fishe-saves"' in html
     assert 'saveDirEnv: "FISHE_SAVE_DIR"' in html
+    # Cloud saves (RFC 0016), only on arcade and only once a player turns them on.
+    assert "cloudSaves: true," in html
     assert 'entry: "web/pyodide_main.py"' in html
 
 
