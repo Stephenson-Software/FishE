@@ -43,28 +43,36 @@ class SaveFileManager(KitSaveFileManager):
         )
 
     def migrate_old_save_files(self):
-        """Migrate old save files (data/*.json) to slot_1 if they exist"""
+        """Move a pre-slot save (data/*.json) into a slot, if there is one.
+
+        The save goes into slot_1 when slot_1 is free, otherwise into the next
+        free slot: an existing slot is never written over. (Before cloud saves
+        that could only happen with a hand-copied file; now a save set brought
+        in from another device can hold both layouts, and the one already in
+        a slot must survive.) With every slot taken, nothing is moved and the
+        old files stay where they are."""
         old_player = os.path.join(self.data_directory, "player.json")
-        old_stats = os.path.join(self.data_directory, "stats.json")
-        old_time = os.path.join(self.data_directory, "timeService.json")
+        old_files = ["player.json", "stats.json", "timeService.json"]
 
         # Check if old save files exist
         if not os.path.exists(old_player):
             return False
 
-        # Create slot_1 directory
-        slot_1_path = os.path.join(self.data_directory, "slot_1")
-        if not os.path.exists(slot_1_path):
-            os.makedirs(slot_1_path, exist_ok=True)
+        # The kit's rule: the lowest slot whose directory holds no file.
+        slot_number = self.get_next_available_slot()
+        if slot_number is None:
+            return False
+        slot_path = os.path.join(self.data_directory, "slot_%d" % slot_number)
+        os.makedirs(slot_path, exist_ok=True)
 
-        # Move files to slot_1
+        # Move files into the slot. The slot held no file, so nothing in it is
+        # replaced; a name that is somehow there already is left alone.
         try:
-            if os.path.exists(old_player):
-                shutil.move(old_player, os.path.join(slot_1_path, "player.json"))
-            if os.path.exists(old_stats):
-                shutil.move(old_stats, os.path.join(slot_1_path, "stats.json"))
-            if os.path.exists(old_time):
-                shutil.move(old_time, os.path.join(slot_1_path, "timeService.json"))
+            for name in old_files:
+                source = os.path.join(self.data_directory, name)
+                target = os.path.join(slot_path, name)
+                if os.path.exists(source) and not os.path.exists(target):
+                    shutil.move(source, target)
             # The migration rewrote the save directory's layout; flush it so a
             # browser-storage player doesn't re-migrate on every page load.
             syncBrowserSaves()

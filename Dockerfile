@@ -18,7 +18,7 @@ WORKDIR /app
 #     front-end (examples/web_app.py) could not give them.
 COPY requirements.txt ./
 RUN apt-get update && apt-get install -y --no-install-recommends git \
-    && pip install --no-cache-dir "tak @ git+https://github.com/Stephenson-Software/tak@1bac386777d4b2468faeda00b31e960af8d57164" \
+    && pip install --no-cache-dir "tak @ git+https://github.com/Stephenson-Software/tak@9b539d8760e2c02cc262a7dcff6d0c541572ab71" \
     && apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 COPY src/ ./src/
