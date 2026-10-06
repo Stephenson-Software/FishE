@@ -19,7 +19,7 @@ the client itself, in its constructor, before FishE's own setting - so they
 win even when the setting says on. The first time an install reports, one
 line saying so is printed on the console and a marker file is left in the
 save directory so it is not printed again. What is sent and how to turn it
-off is written up at https://github.com/Stephenson-Software/trace#usage-reporting.
+off is written up at https://danielstephenson.dev/usage-reporting.
 
 The client never gets in the game's way: every report returns immediately (the
 HTTP call happens on a daemon thread the client owns), never raises, and at
@@ -55,7 +55,7 @@ OPT_OUT_INSTRUCTION = (
     "in the environment"
 )
 
-DETAILS_URL = "https://github.com/Stephenson-Software/trace#usage-reporting"
+DETAILS_URL = "https://danielstephenson.dev/usage-reporting"
 
 NOTICE = (
     "Usage reporting is on: %s sends a startup event and a save-loaded event "
