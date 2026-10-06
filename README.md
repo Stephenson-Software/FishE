@@ -185,7 +185,7 @@ FISHE_USAGE_REPORTING_ENABLED=false python3 src/fishE.py
 | `DO_NOT_TRACK` | unset | `1`, `true` or `yes` turns reporting off the same way. |
 | `TRACE_INSTALL_ID` | unset | Sent as the installation ID instead of the one in `trace-install-id`, which is then left alone — to pin one for a container or service. |
 
-The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either. The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python) (0.4.0); the wiring is `src/usageReporting.py`.
+The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either. The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python) (0.4.1); the wiring is `src/usageReporting.py`.
 
 Details: https://danielstephenson.dev/usage-reporting
 
