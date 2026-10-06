@@ -213,7 +213,7 @@ def test_the_notice_names_the_program_what_is_sent_the_opt_outs_and_the_details(
         "trace.danielstephenson.dev. "
         "Turn it off with FISHE_USAGE_REPORTING_ENABLED=false or "
         "TRACE_USAGE_REPORTING=off in the environment. "
-        "Details: https://github.com/Stephenson-Software/trace#usage-reporting"
+        "Details: https://danielstephenson.dev/usage-reporting"
     )
     assert "\n" not in usageReporting.NOTICE
 
