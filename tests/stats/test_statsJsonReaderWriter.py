@@ -374,3 +374,89 @@ def test_createStatsFromJson_missingUnlockedFeatures_defaultsToEmpty():
     # check - backward compatible default; FishE.__init__ then grants whatever
     # the player has already earned (see progression.catchUp)
     assert stats.unlockedFeatures == []
+
+
+def test_voyageStats_round_trip():
+    # prepare - distinct values per field so a swapped key would be caught
+    readerWriter = createStatsJsonReaderWriter()
+    stats = Stats()
+    stats.totalHaulingContracts = 3
+    stats.totalTransportRuns = 5
+    stats.totalRaids = 7
+    stats.totalPlunder = 812.75
+    stats.totalMoneyFromVoyages = 1940.25
+    stats.crewLostToPiracy = 2
+    stats.boatsOwned = 4
+    stats.totalVoyagesCaptained = 9
+    stats.totalVoyagesFoundered = 1
+
+    # call
+    statsJson = readerWriter.createJsonFromStats(stats)
+    loaded = readerWriter.createStatsFromJson(statsJson)
+
+    # check
+    validate(statsJson, getStatsSchema())
+    assert statsJson["totalRaids"] == 7
+    assert statsJson["totalPlunder"] == 812.75
+    assert loaded.totalHaulingContracts == 3
+    assert loaded.totalTransportRuns == 5
+    assert loaded.totalRaids == 7
+    assert loaded.totalPlunder == 812.75
+    assert loaded.totalMoneyFromVoyages == 1940.25
+    assert loaded.crewLostToPiracy == 2
+    assert loaded.boatsOwned == 4
+    assert loaded.totalVoyagesCaptained == 9
+    assert loaded.totalVoyagesFoundered == 1
+
+
+def test_save_without_voyageStats_loads_with_zeroes():
+    # prepare - a save written before boat voyages existed
+    readerWriter = createStatsJsonReaderWriter()
+    voyageFields = (
+        "totalHaulingContracts",
+        "totalTransportRuns",
+        "totalRaids",
+        "totalPlunder",
+        "totalMoneyFromVoyages",
+        "crewLostToPiracy",
+        "boatsOwned",
+        "totalVoyagesCaptained",
+        "totalVoyagesFoundered",
+    )
+    legacyJson = readerWriter.createJsonFromStats(Stats())
+    legacyJson["totalFishCaught"] = 42
+    for field in voyageFields:
+        del legacyJson[field]
+
+    # call
+    loaded = readerWriter.createStatsFromJson(legacyJson)
+
+    # check - the rest of the save is kept, the voyage totals start from zero
+    assert loaded.totalFishCaught == 42
+    for field in voyageFields:
+        assert getattr(loaded, field) == 0
+
+
+def test_createJsonFromStats_writesEveryStatsField():
+    # prepare
+    readerWriter = createStatsJsonReaderWriter()
+    stats = Stats()
+
+    # call
+    statsJson = readerWriter.createJsonFromStats(stats)
+
+    # check - a field added to Stats but not to the writer would silently be
+    # lost on save; one missing from the schema would go unvalidated
+    assert set(statsJson) == set(vars(stats))
+    assert set(statsJson) == set(getStatsSchema()["properties"])
+
+
+def test_createStatsFromJson_emptyJson_matchesEveryStatsDefault():
+    # prepare
+    readerWriter = createStatsJsonReaderWriter()
+
+    # call
+    loaded = readerWriter.createStatsFromJson({})
+
+    # check - every field, not just the core ones, falls back to its default
+    assert vars(loaded) == vars(Stats())
