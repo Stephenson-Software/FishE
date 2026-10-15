@@ -1086,6 +1086,189 @@ def test_dismissWorker_back_dismisses_nobody():
     assert docksInstance.player.hiredWorkers == ["Marta Kell"]
 
 
+def test_dismissWorker_lets_an_unnamed_hand_go():
+    # prepare - a named villager plus an unnamed hand from an older save, both
+    # aboard the same boat
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1, name="Salty Dawn")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.player.workers += 1
+    boat["hands"] = 1
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("An unnamed deckhand")
+    )
+
+    # call
+    docksInstance._dismissWorker()
+
+    # check - the unnamed hand goes, ashore and off the payroll; Marta stays
+    assert docksInstance.player.workers == 1
+    assert docksInstance.player.hiredWorkers == ["Marta Kell"]
+    assert boat["crew"] == ["Marta Kell"]
+    assert boat["hands"] == 0
+    assert docksInstance.currentPrompt.text == "You let an unnamed deckhand go."
+
+
+def test_assignCrew_puts_an_unassigned_villager_aboard():
+    # prepare - Marta is hired but ashore, and Marauder has berths free
+    docksInstance = createDocks()
+    first = boats.addBoat(docksInstance.player, 1, name="Salty Dawn")
+    second = boats.addBoat(docksInstance.player, 1, name="Marauder")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.unassignCrew(docksInstance.player, first["id"], "Marta Kell")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Marauder", "Put Marta Kell aboard")
+    )
+
+    # call
+    docksInstance._assignCrew()
+
+    # check
+    assert second["crew"] == ["Marta Kell"]
+    assert boats.unassignedNames(docksInstance.player) == []
+    assert docksInstance.currentPrompt.text == "Marta Kell joined Marauder."
+
+
+def test_assignCrew_puts_an_unnamed_hand_aboard():
+    # prepare - an older save's unnamed hand, hired but on no boat
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1, name="Salty Dawn")
+    docksInstance.player.workers = 1
+    assert boats.unassignedHands(docksInstance.player) == 1
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Salty Dawn", "Put an unnamed hand aboard")
+    )
+
+    # call
+    docksInstance._assignCrew()
+
+    # check
+    assert boat["hands"] == 1
+    assert boats.unassignedHands(docksInstance.player) == 0
+    assert docksInstance.currentPrompt.text == "A hand joined Salty Dawn."
+
+
+def test_assignCrew_takes_an_unnamed_hand_ashore():
+    # prepare - an older save's unnamed hand already aboard
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1, name="Salty Dawn")
+    docksInstance.player.workers = 1
+    boat["hands"] = 1
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Salty Dawn", "Take an unnamed hand off")
+    )
+
+    # call
+    docksInstance._assignCrew()
+
+    # check - ashore, but still hired
+    assert boat["hands"] == 0
+    assert docksInstance.player.workers == 1
+    assert boats.unassignedHands(docksInstance.player) == 1
+    assert docksInstance.currentPrompt.text == "A hand came ashore off Salty Dawn."
+
+
+def test_assignCrew_offers_nobody_aboard_a_full_boat():
+    # prepare - every berth taken, with one more villager waiting ashore
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1, name="Salty Dawn")
+    for villager in villagers.VILLAGERS[: boats.maxCrew(boat)]:
+        boats.hireWorker(docksInstance.player, villager["name"])
+    docksInstance.player.hiredWorkers.append("Some Old Hand")
+    docksInstance.player.workers += 1
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Salty Dawn")
+    )
+
+    # call - pick the boat, then Back out of the crew menu
+    docksInstance._assignCrew()
+
+    # check - only "Take ... off" entries and Back, and the reason is shown
+    descriptor, options = docksInstance.userInterface.showOptions.call_args[0][:2]
+    assert "Her berths are full." in descriptor
+    assert not [option for option in options if option.startswith("Put")]
+    assert len(options) == boats.maxCrew(boat) + 1
+    assert boat["crew"] == [
+        v["name"] for v in villagers.VILLAGERS[: boats.maxCrew(boat)]
+    ]
+
+
+def test_pickBoat_with_no_boats_asks_nothing():
+    # prepare - no fleet at all
+    docksInstance = createDocks()
+    docksInstance.userInterface.showOptions = MagicMock()
+
+    # call
+    boat = docksInstance._pickBoat("Which boat?")
+
+    # check
+    assert boat is None
+    docksInstance.userInterface.showOptions.assert_not_called()
+
+
+def test_fleet_actions_back_out_of_the_boat_chooser():
+    # prepare - one boat with a hand aboard; every chooser picks Back
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 2, name="Salty Dawn")
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.player.money = 0
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=fleetChooser())
+    docksInstance.userInterface.promptForText = MagicMock(return_value="Marauder")
+
+    # call
+    docksInstance._changeRole()
+    docksInstance._assignCrew()
+    docksInstance._renameBoat()
+    docksInstance._sellBoat()
+
+    # check - each asked which boat, then left everything as it was
+    assert docksInstance.userInterface.showOptions.call_count == 4
+    docksInstance.userInterface.promptForText.assert_not_called()
+    assert docksInstance.player.boats == [boat]
+    assert boat["name"] == "Salty Dawn"
+    assert boat["role"] == boats.ROLE_FISHING
+    assert boat["crew"] == ["Marta Kell"]
+    assert docksInstance.player.money == 0
+    assert docksInstance.currentPrompt.text == "What would you like to do?"
+
+
+def test_changeRole_back_keeps_the_current_role():
+    # prepare - pick the boat, then Back out of the role menu
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 2, name="Salty Dawn")
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Salty Dawn")
+    )
+
+    # call
+    docksInstance._changeRole()
+
+    # check - the role menu was shown, marking her current role, and nothing changed
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert options[-1] == "Back"
+    assert [option for option in options if option.endswith("(current)")] == [
+        options[boats.ROLE_ORDER.index(boats.ROLE_FISHING)]
+    ]
+    assert boat["role"] == boats.ROLE_FISHING
+    assert docksInstance.currentPrompt.text == "What would you like to do?"
+
+
+def test_hireVillager_back_hires_nobody():
+    # prepare - a boat with berths free, then Back out of the villager list
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=fleetChooser())
+
+    # call
+    docksInstance._hireVillager()
+
+    # check
+    assert docksInstance.player.workers == 0
+    assert docksInstance.player.hiredWorkers == []
+    assert docksInstance.stats.totalWorkersHired == 0
+    assert docksInstance.currentPrompt.text == "What would you like to do?"
+
+
 def createExportingDocks(tier=2, money=1000, fishCount=100):
     """Docks with a boat big enough to export and a hold worth shipping."""
     docksInstance = createDocks()
