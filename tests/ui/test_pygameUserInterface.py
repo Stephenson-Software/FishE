@@ -577,3 +577,177 @@ def test_draw_game_screen_draws_a_greyed_out_option():
         )
     finally:
         ui.cleanup()
+
+
+# --- window events (closing and resizing) inside every input loop ---
+import pytest  # noqa: E402
+
+
+def quitEvent():
+    return SimpleNamespace(type=pygame.QUIT)
+
+
+def resizeEvent(w, h):
+    return SimpleNamespace(type=pygame.VIDEORESIZE, w=w, h=h)
+
+
+@pytest.mark.parametrize(
+    "method, args",
+    [
+        ("showOptions", ("Pick", ["A", "B"])),
+        ("showDialogue", ("some text",)),
+        ("promptForText", ("Name?",)),
+        ("showBusy", ("Fishing...", 1)),
+        ("timedKeyPress", ("React!",)),
+    ],
+)
+def test_closing_the_window_cleans_up_and_exits(method, args):
+    # prepare - closing the window mid-prompt shuts pygame down and ends the
+    # program rather than leaving the loop waiting on a window that's gone
+    ui = makeUI()
+    try:
+        realCleanup = ui.cleanup
+        ui.cleanup = MagicMock()
+
+        # call
+        with patch(
+            "ui.pygameUserInterface.time.time", return_value=0.0
+        ), injected_events([quitEvent()]):
+            with pytest.raises(SystemExit):
+                getattr(ui, method)(*args)
+
+        # check
+        ui.cleanup.assert_called_once_with()
+    finally:
+        realCleanup()
+
+
+def test_showOptions_resizes_the_window_and_keeps_waiting():
+    # prepare
+    ui = makeUI()
+    try:
+        drawn = []
+        with patch.object(
+            ui, "_draw_game_screen", lambda *args: drawn.append(ui.width)
+        ), injected_event_frames([[resizeEvent(1000, 700)], [keydown(key=pygame.K_1)]]):
+            # call
+            choice = ui.showOptions("Pick", ["A", "B"])
+
+        # check - the resize isn't taken as a choice: the menu is redrawn at the
+        # new size and the next key still picks
+        assert (ui.width, ui.height) == (1000, 700)
+        assert drawn == [1000]
+        assert choice == "1"
+    finally:
+        ui.cleanup()
+
+
+def test_showOptions_up_from_the_first_option_wraps_to_the_last():
+    ui = makeUI()
+    try:
+        with injected_events([keydown(key=pygame.K_UP), keydown(key=pygame.K_RETURN)]):
+            choice = ui.showOptions("Pick", ["A", "B", "C"])
+        assert choice == "3"
+    finally:
+        ui.cleanup()
+
+
+def test_showDialogue_resize_rewraps_and_pulls_the_scroll_back_in_range():
+    # prepare - a block that overflows the default window but fits a tall one
+    ui = makeUI()
+    try:
+        text = "\n".join("Line %d" % i for i in range(30))
+        drawn = []
+        with patch.object(ui, "_draw_dialogue", lambda *args: drawn.append(args)):
+            with injected_event_frames(
+                [
+                    [keydown(key=pygame.K_DOWN)],
+                    [keydown(key=pygame.K_DOWN)],
+                    [resizeEvent(800, 2000)],
+                    [keydown()],
+                ]
+            ):
+                # call
+                ui.showDialogue(text)
+
+        # check - scrolled two lines in the small window, then back to the top
+        # once the taller window shows every line
+        assert [args[1] for args in drawn] == [1, 2, 0, 0]
+        assert drawn[-1][2] >= 30
+        assert ui.height == 2000
+    finally:
+        ui.cleanup()
+
+
+def test_promptForText_resize_keeps_what_was_typed():
+    ui = makeUI()
+    try:
+        events = [
+            keydown(unicode="a"),
+            resizeEvent(900, 650),
+            keydown(unicode="b"),
+            keydown(key=pygame.K_RETURN),
+        ]
+        with injected_events(events):
+            result = ui.promptForText("Name?")
+        assert result == "ab"
+        assert (ui.width, ui.height) == (900, 650)
+    finally:
+        ui.cleanup()
+
+
+def test_timedKeyPress_resize_is_not_taken_as_the_reaction():
+    # prepare - t=0 on entry, the key lands at t=2, the result is read at t=2
+    ui = makeUI()
+    try:
+        with patch(
+            "ui.pygameUserInterface.time.time", side_effect=[0.0, 2.0]
+        ), injected_event_frames([[resizeEvent(900, 650)], [keydown()]]):
+            # call
+            reaction = ui.timedKeyPress("React!")
+
+        # check - the loop ran past the resize frame and waited for the key
+        assert reaction == 2.0
+        assert (ui.width, ui.height) == (900, 650)
+    finally:
+        ui.cleanup()
+
+
+def test_showBusy_follows_a_resize_during_the_wait():
+    ui = makeUI()
+    try:
+        drawn = []
+        with patch(
+            "ui.pygameUserInterface.time.time", side_effect=[0.0, 0.0, 5.0]
+        ), patch.object(
+            ui, "_draw_busy", lambda message: drawn.append(ui.width)
+        ), injected_events(
+            [resizeEvent(1000, 700)]
+        ):
+            ui.showBusy("Fishing...", 1)
+        assert drawn == [1000]
+        assert ui.height == 700
+    finally:
+        ui.cleanup()
+
+
+def test_lotsOfSpace_clears_the_screen_to_black():
+    ui = makeUI()
+    try:
+        ui.screen = MagicMock()
+        ui.lotsOfSpace()
+        ui.screen.fill.assert_called_once_with(ui.BLACK)
+    finally:
+        ui.cleanup()
+
+
+def test_divider_draws_nothing_on_its_own():
+    # the game screen draws its own dividers, so the contract's divider() is a
+    # no-op here rather than a stray line drawn wherever the caller is
+    ui = makeUI()
+    try:
+        ui.screen = MagicMock()
+        ui.divider()
+        assert ui.screen.method_calls == []
+    finally:
+        ui.cleanup()
