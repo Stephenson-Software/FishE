@@ -1267,3 +1267,91 @@ def test_a_boat_with_no_crew_runs_no_freight_day():
     assert summary["transportDays"] == 1
     assert stats.totalHaulingContracts == 0
     assert stats.totalTransportRuns == 1
+
+
+def test_firstBoatWithRoom_skips_a_full_boat():
+    # prepare - a Rowboat filled to its berths, then a second, empty one
+    player = Player()
+    full = boats.addBoat(player, 1)
+    for _ in range(boats.maxCrew(full)):
+        boats.hireWorker(player)
+    empty = boats.addBoat(player, 1)
+
+    # call
+    berth = boats.firstBoatWithRoom(player)
+
+    # check
+    assert berth is empty
+
+
+def test_firstBoatWithRoom_is_None_when_every_berth_is_taken():
+    # prepare - one Rowboat filled to its berths
+    player = Player()
+    boat = boats.addBoat(player, 1)
+    for _ in range(boats.maxCrew(boat)):
+        boats.hireWorker(player)
+
+    # call
+    berth = boats.firstBoatWithRoom(player)
+
+    # check
+    assert berth is None
+
+
+def test_operator_mode_keeps_unpaid_crew_aboard():
+    # prepare - two hands and no money, but operator mode waives the wage
+    player = crewedFleet(crewEach=2)
+    player.money = 0
+    player.operatorMode = True
+
+    # call
+    summary = boats.runDailyProduction(player)
+
+    # check - nobody walks, the wages are reported, and no money changes hands
+    assert summary["quit"] == 0
+    assert summary["quitNames"] == []
+    assert player.workers == 2
+    assert summary["wagesPaid"] == 2 * business.WORKER_DAILY_WAGE
+    assert player.money == 0
+    assert summary["fishCaught"] == 2 * business.WORKER_FISH_PER_DAY
+
+
+def test_an_unassigned_unnamed_hand_quits_before_anyone_aboard():
+    # prepare - two unnamed hands, one taken off the boat, money for only one
+    player = Player()
+    boat = boats.addBoat(player, 1)
+    boats.hireWorker(player)
+    boats.hireWorker(player)
+    boats.unassignHand(player, boat["id"])
+    player.money = business.WORKER_DAILY_WAGE
+
+    # call
+    summary = boats.runDailyProduction(player)
+
+    # check - the idle hand goes; the one aboard stays and fishes
+    assert summary["quit"] == 1
+    assert summary["quitNames"] == []
+    assert player.workers == 1
+    assert boat["hands"] == 1
+    assert summary["fishCaught"] == business.WORKER_FISH_PER_DAY
+
+
+def test_describeDay_counts_unnamed_hands_who_walk_off():
+    # prepare - a walkout with no villager names to report
+    summary = {
+        "workers": 1,
+        "fishCaught": 0,
+        "wagesPaid": 10,
+        "quit": 2,
+        "quitNames": [],
+        "earned": 0,
+        "fishSeized": 0,
+        "damaged": [],
+        "lostAtSea": [],
+    }
+
+    # call
+    report = boats.describeDay(summary)
+
+    # check - the headcount stands in for the missing names
+    assert "2 hand(s) walked off over unpaid wages." in report
