@@ -267,6 +267,50 @@ def test_run_fish_action_low_energy():
     )
 
 
+def test_fish_too_tired_when_called_directly():
+    # prepare - run() checks energy before calling fish(), but fish() repeats
+    # the check itself, so a caller that skips run() still can't fish at 0 hours
+    docksInstance = createDocks()
+    docksInstance.player.energy = 5
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+    docksInstance.timeService.increaseTime = MagicMock(return_value={"evicted": False})
+
+    with patch("src.location.docks.random.randint", return_value=3):
+        # call
+        docksInstance.fish()
+
+    # check - no cast, no time passed, nothing caught
+    assert (
+        docksInstance.currentPrompt.text
+        == "You're too tired to fish! Go home and sleep."
+    )
+    docksInstance.userInterface.timedKeyPress.assert_not_called()
+    docksInstance.timeService.increaseTime.assert_not_called()
+    assert docksInstance.player.energy == 5
+    assert docksInstance.player.fishCount == 0
+
+
+def test_fish_always_lands_at_least_one_fish():
+    # prepare - every penalty at once: a slow hook (0.25), a storm (0.5), the
+    # midday lull (0.6) and the smallest base roll (1) make int(0.075) == 0
+    docksInstance = createDocks()
+    docksInstance.timeService.time = 12
+    docksInstance.timeService.weather = "stormy"
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=3.0)
+
+    with patch("src.location.docks.random.randint", side_effect=[3, 1]):
+        docksInstance.timeService.increaseTime = MagicMock(
+            return_value={"evicted": False}
+        )
+
+        # call
+        docksInstance.fish()
+
+    # check - rounded up to the one fish the effort is always worth
+    assert docksInstance.player.fishCount == 1
+    assert docksInstance.stats.totalFishCaught == 1
+
+
 def test_fish_consumes_energy():
     # prepare
     docksInstance = createDocks()
@@ -478,6 +522,24 @@ def test_run_descriptor_mentions_current_weather():
     # check
     descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
     assert "Storm" in descriptor
+
+
+def test_run_descriptor_names_the_business_once_she_has_a_boat():
+    # prepare - a named business with a boat at the quay
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.player.businessName = "Kell & Daughters"
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
+
+    # call
+    docksInstance.run()
+
+    # check - the business greets the player instead of the salty air
+    descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert descriptor.startswith("Kell & Daughters is docked and ready for the day.")
+    assert "Salty" not in descriptor
 
 
 def test_fish_applies_time_of_day_modifier():
@@ -728,6 +790,40 @@ def test_manageFleet_sell_boat_returns_her_crew_to_the_payroll():
     assert docksInstance.player.boats == []
     assert docksInstance.player.hiredWorkers == ["Marta Kell"]
     assert "still on the payroll" in docksInstance.currentPrompt.text
+
+
+def test_manageFleet_sell_boat_from_the_menu():
+    # prepare - one Trawler and nobody aboard
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 2)
+    docksInstance.player.money = 0
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Sell a Boat", "Unnamed")
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check - the menu entry reaches the sale (Back then resets the prompt)
+    assert docksInstance.player.boats == []
+    assert docksInstance.player.money == business.tierInfo(2)["resaleValue"]
+
+
+def test_manageFleet_upgrade_boat_back_out_changes_nothing():
+    # prepare - enough for the upgrade, but the player backs out of the picker
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.player.money = business.tierInfo(2)["cost"]
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Upgrade a Boat")
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check
+    assert docksInstance.player.boats[0]["tier"] == 1
+    assert docksInstance.player.money == business.tierInfo(2)["cost"]
 
 
 def test_manageFleet_upgrade_boat():
@@ -1639,6 +1735,37 @@ def test_takeTheHelm_back_sails_nobody():
     # check
     assert boats.isAtSea(boat) is False
     assert docksInstance.timeService.day == startingDay
+
+
+def test_takeTheHelm_says_why_the_other_boats_are_staying_in():
+    # prepare - a crewed boat that can sail, and one with nobody aboard
+    docksInstance, _ = createSailingDocks()
+    boats.addBoat(docksInstance.player, 2, boats.ROLE_HAULING, "Empty")
+    docksInstance.userInterface.showOptions = MagicMock(side_effect=voyageChooser())
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check - the idle boat is listed with its reason, and isn't an option
+    descriptor, options = docksInstance.userInterface.showOptions.call_args[0]
+    assert "Staying in: Empty has no crew aboard." in descriptor
+    assert not any(option.startswith("Empty") for option in options)
+
+
+def test_voyageStatus_shows_fish_in_the_hold_only_once_there_are_some():
+    # prepare
+    docksInstance, boat = createSailingDocks()
+    voyage = adventures.startVoyage(boat, adventures.VOYAGE_PLANS[0], 10)
+    voyage["money"] = 40
+
+    # call / check - money alone while the hold has no fish
+    assert docksInstance._voyageStatus(voyage).endswith("Hold $40")
+
+    # prepare
+    voyage["fish"] = 12
+
+    # call / check
+    assert docksInstance._voyageStatus(voyage).endswith("Hold $40 + 12 fish")
 
 
 def test_a_voyage_sails_every_leg_costs_days_and_comes_home():
