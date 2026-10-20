@@ -180,8 +180,9 @@ def test_getDrunk():
     tavernInstance.player.money = 10
     tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
 
-    # call
-    tavernInstance.getDrunk()
+    # call - pin the roll to the plain-headache branch so every run is the same
+    with patch("src.location.tavern.random.random", return_value=0.99):
+        tavernInstance.getDrunk()
 
     # check - the night out is announced through the front-end, so every UI
     # shows it rather than only the console seeing a print()
@@ -197,8 +198,9 @@ def test_getDrunk_mentions_eviction_when_it_happens():
     tavernInstance.player.money = 10
     tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": True})
 
-    # call
-    tavernInstance.getDrunk()
+    # call - pin the roll to the plain-headache branch so every run is the same
+    with patch("src.location.tavern.random.random", return_value=0.99):
+        tavernInstance.getDrunk()
 
     # check - the player is told, not just silently moved back to Homeless
     assert housing.EVICTION_MESSAGE in tavernInstance.currentPrompt.text
@@ -686,8 +688,9 @@ def test_getDrunk_reports_what_the_fleet_did_overnight():
         return_value={"evicted": True, "report": ["The Marauder landed 12 fish."]}
     )
 
-    # call
-    tavernInstance.getDrunk()
+    # call - pin the roll to the plain-headache branch so every run is the same
+    with patch("src.location.tavern.random.random", return_value=0.99):
+        tavernInstance.getDrunk()
 
     # check
     assert "The Marauder landed 12 fish." in tavernInstance.currentPrompt.text
