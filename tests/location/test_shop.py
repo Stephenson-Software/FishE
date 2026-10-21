@@ -237,6 +237,23 @@ def test_buyBetterBait_refused_at_cap():
     )
 
 
+def test_buyBetterBait_refused_when_unaffordable():
+    # prepare - a cent short of the price
+    shopInstance = createShop()
+    shopInstance.player.fishMultiplier = 1
+    priceBefore = shopInstance.player.priceForBait
+    shopInstance.player.money = priceBefore - 0.01
+
+    # call
+    shopInstance.buyBetterBait()
+
+    # check - no purchase: multiplier, money, and price are unchanged
+    assert shopInstance.player.fishMultiplier == 1
+    assert shopInstance.player.money == priceBefore - 0.01
+    assert shopInstance.player.priceForBait == priceBefore
+    assert shopInstance.currentPrompt.text == "You don't have enough money!"
+
+
 def test_buyBetterRod():
     # prepare
     from src.location.shop import rodUpgradeCost

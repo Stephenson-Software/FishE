@@ -537,6 +537,45 @@ def test_getDrunk_loses_money_in_drunken_stupor():
     assert "In your drunken stupor, you lost $18!" in tavernInstance.currentPrompt.text
 
 
+def test_getDrunk_stupor_takes_nothing_when_the_drink_left_you_broke():
+    # prepare - exactly the drink's price, so nothing is left to lose
+    tavernInstance = createTavern()
+    tavernInstance.player.money = tavern.DRINK_COST
+    tavernInstance.stats.moneyLostWhileDrunk = 0
+    tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
+
+    # call
+    with patch("src.location.tavern.random.random", return_value=0.1), patch(
+        "src.location.tavern.random.uniform"
+    ) as mockUniform:
+        tavernInstance.getDrunk()
+
+    # check
+    mockUniform.assert_not_called()
+    assert tavernInstance.player.money == 0
+    assert tavernInstance.stats.moneyLostWhileDrunk == 0
+    assert tavernInstance.currentPrompt.text == "You have a headache."
+
+
+def test_getDrunk_stupor_takes_nothing_when_the_loss_rounds_to_zero():
+    # prepare - $2 left after the drink, and 10% of $2 rounds down to $0
+    tavernInstance = createTavern()
+    tavernInstance.player.money = tavern.DRINK_COST + 2
+    tavernInstance.stats.moneyLostWhileDrunk = 0
+    tavernInstance.timeService.increaseDay = MagicMock(return_value={"evicted": False})
+
+    # call
+    with patch("src.location.tavern.random.random", return_value=0.1), patch(
+        "src.location.tavern.random.uniform", return_value=0.1
+    ):
+        tavernInstance.getDrunk()
+
+    # check - no "you lost $0!" message
+    assert tavernInstance.player.money == 2
+    assert tavernInstance.stats.moneyLostWhileDrunk == 0
+    assert tavernInstance.currentPrompt.text == "You have a headache."
+
+
 def test_old_tom_crew_question_is_locked_until_someone_is_hired():
     # prepare
     tavernInstance = createTavern()

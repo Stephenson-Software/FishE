@@ -59,6 +59,20 @@ def test_increaseTimeToNextDay():
     assert timeService.time == expected_time
 
 
+def test_increaseTime_wraps_past_midnight_without_starting_a_new_day():
+    # prepare
+    timeService = createTimeService()
+    timeService.time = 23
+
+    # call
+    result = timeService.increaseTime()
+
+    # check - the clock wraps to 0, but the day only turns over at 8am
+    assert timeService.time == 0
+    assert timeService.day == 1
+    assert result == {"evicted": False, "report": []}
+
+
 def test_increaseTime_returns_not_evicted_without_a_day_rollover():
     # prepare
     timeService = createTimeService()
