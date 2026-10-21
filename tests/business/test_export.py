@@ -70,6 +70,40 @@ def test_capacity_grows_with_the_boat():
     )
 
 
+def test_exportBoat_is_none_without_a_boat_that_can_make_the_crossing():
+    # check - no fleet at all, and a fleet of nothing but a rowboat
+    assert export.exportBoat(Player()) is None
+    assert export.exportBoat(createExporter(tier=1)) is None
+
+
+def test_exportBoat_picks_the_biggest_hull():
+    # prepare - a Trawler and a Fishing Fleet, both fishing
+    player = createExporter(tier=2)
+    fleet = boats.addBoat(player, 3)
+
+    # call
+    runner = export.exportBoat(player)
+
+    # check
+    assert runner is fleet
+
+
+def test_exportBoat_prefers_a_hauling_hold_over_a_same_sized_hull():
+    # prepare - two Trawlers, the second dedicated to hauling
+    player = createExporter(tier=2)
+    hauler = boats.addBoat(player, 2, role=boats.ROLE_HAULING)
+
+    # call
+    runner = export.exportBoat(player)
+
+    # check - the cargo fit-out wins, and it is the boat whose hold
+    # exportCapacity reports
+    assert runner is hauler
+    assert export.exportCapacity(player) == int(
+        business.tierInfo(2)["exportCapacity"] * boats.HAULING_CAPACITY_BONUS
+    )
+
+
 def test_buildCargo_loads_the_most_valuable_fish_first():
     # prepare - more fish than a Trawler's hold can take
     capacity = business.tierInfo(2)["exportCapacity"]
