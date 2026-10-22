@@ -356,6 +356,41 @@ def test_fish_with_limited_energy():
         )  # Only fished for 2 hours due to energy limit
 
 
+def test_fish_charges_the_energy_cost_constant_per_hour():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.player.energy = 100
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+    docksInstance.timeService.increaseTime = MagicMock(return_value={"evicted": False})
+
+    with patch.object(docks, "FISHING_ENERGY_COST", 15), patch(
+        "src.location.docks.random.randint", return_value=3
+    ):
+        # call
+        docksInstance.fish()
+
+    # check
+    assert docksInstance.player.energy == 100 - 3 * 15
+
+
+def test_fish_capped_trip_spends_exactly_the_energy_it_was_sized_with():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.player.energy = 45  # 3 hours at 15 each
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+    docksInstance.timeService.increaseTime = MagicMock(return_value={"evicted": False})
+
+    with patch.object(docks, "FISHING_ENERGY_COST", 15), patch(
+        "src.location.docks.random.randint", return_value=5
+    ):
+        # call
+        docksInstance.fish()
+
+    # check
+    assert docksInstance.timeService.increaseTime.call_count == 3
+    assert docksInstance.player.energy == 0
+
+
 def test_fish_mentions_eviction_when_a_day_rolls_over_mid_trip():
     # A multi-hour trip can cross a day boundary invisibly; make sure that's
     # still reported in the trip's own message rather than going unnoticed.

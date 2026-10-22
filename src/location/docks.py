@@ -1187,7 +1187,7 @@ class Docks:
         for i in range(hours):
             self.stats.hoursSpentFishing += 1
             dayLines += dayReportLines(self.timeService.increaseTime())
-            self.player.spendEnergy(10)  # Consume 10 energy per hour
+            self.player.spendEnergy(FISHING_ENERGY_COST)
 
         baseFish = random.randint(1, 10)
         fishToAdd = int(
