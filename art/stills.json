@@ -7,7 +7,7 @@
     "why": [
       "FishE's own text does not contradict Tidewater's setting: it speaks of a seaside village, the sea, the coast and a harbour. Its money is written in dollars, which sits a little oddly with a North Sea harbour; nothing else places it, so the shared village was kept and the currency left as a game convention for the author to weigh.",
       "Every place in FishE is open at every hour, so each still's hour is one the game's own rhythm suggests: the docks at 08:00 (every day starts there, the last hour of the dawn bite), the shop and bank in the morning, home at 13:00 (the midday sun keeps the fish deep, so a fisher is ashore), the tavern at 20:00 (a night's drinking ends the day). On this date sunrise is about 07:00 and sunset about 19:05.",
-      "Home is drawn as a rented room - the bunk and stove Tidewater's home has. A homeless player (the first rung of the housing ladder) has no room to show, so the game shows no picture at home until there is one."
+      "Home is wherever the player lives, so it has one still per rung of the housing ladder that has a roof (src/housing/housing.py): the rented room, the driftwood shack, the cozy cottage, the sturdy cabin and the waterfront manor, each drawn bigger, better built and better furnished than the one below, with more fishing gear on show. All are placed in the one village: the rented room is upstairs over the tavern (Tidewater's home is a rented room too), the shack is on the shingle, the cottage and cabin have their gardens, and the manor stands on the harbour wall with its own jetty. A homeless player (the first rung) has no room to show, so the game shows no picture at home until there is one."
     ]
   },
   "strata": "v0.6.0",
@@ -16,7 +16,7 @@
     360
   ],
   "budgetBytes": 524288,
-  "artDirection": "Flat-coloured Strata primitives, no textures; one still per location; no people drawn (the characters are written, not drawn - RFC 0025 non-goal). The scenes are Tidewater's, with FishE's own props added: the shop's rack of fishing poles and bait tub, the tavern's dice, the pole being polished at home.",
+  "artDirection": "Flat-coloured Strata primitives, no textures; one still per location, and one per housing rung at home; no people drawn (the characters are written, not drawn - RFC 0025 non-goal). The scenes are Tidewater's, with FishE's own props added: the shop's rack of fishing poles and bait tub, the tavern's dice, the pole being polished at home, the gear growing with the house.",
   "stills": {
     "docks": {
       "scene": "art/docks.scene",
@@ -42,10 +42,58 @@
         "longitude": -0.6
       }
     },
-    "home": {
-      "scene": "art/home.scene",
+    "home-rented": {
+      "scene": "art/home-rented.scene",
       "hour": "13:00",
-      "alt": "Your rented room, seen from above with its roof away: a bunk with the bed made, a cold stove with a kettle, a window on the harbour, and a fishing pole laid across the table beside a polishing rag.",
+      "alt": "Your rented room over the tavern, seen from above with its roof away: bare boards and stained plaster, a narrow bunk under a thin grey blanket, a washstand on a crate, a coat on a peg, and one cheap cane pole laid across a rickety table beside a polishing rag. The tavern's sign hangs on its bracket below.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "13:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "home-shack": {
+      "scene": "art/home-shack.scene",
+      "hour": "13:00",
+      "alt": "Your driftwood shack on the shingle, seen from above with its roof away: walls of grey, bleached boards with light between them, a pallet bed under a patched blanket, a net and its floats hung on the wall, a crate for a table with a reeled pole being polished on it and a second pole by the door. An upturned dinghy lies on the stones outside, and the harbour water runs along the east side.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "13:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "home-cottage": {
+      "scene": "art/home-cottage.scene",
+      "hour": "13:00",
+      "alt": "Your cozy cottage, seen from above with its roof away: whitewashed walls and a flagged floor, a bed under a patchwork quilt with a chest at its foot, a dresser of plates, a hearth with a kettle on the hob, a geranium on the sill, a rack of three poles on the wall and the best one being polished on the table. A picket fence and a bed of flowers stand in the garden outside.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "13:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "home-cabin": {
+      "scene": "art/home-cabin.scene",
+      "hour": "13:00",
+      "alt": "Your sturdy log cabin, seen from above with its roof away: walls of stacked logs, wide plank floors and a fire burning in a stone chimney, a double bed under a red quilt, a bookshelf, a table for four with a lantern, a trophy fish over the window, a rack of five poles and a tackle chest, and a fine pole with a brass reel being polished on the table. A woodpile and two pines stand in the yard.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "13:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "home-manor": {
+      "scene": "art/home-manor.scene",
+      "hour": "13:00",
+      "alt": "Your waterfront manor on the harbour wall, seen from above with its roof away: parquet floors, oak panelling and tall windows, a four-poster bed, a marble fireplace with a painting of a boat over it, a dining table for six under a brass chandelier, armchairs by the windows, a glass cabinet of seven polished poles with brass reels under a mounted marlin, and the prized black pole being polished on a side table. The harbour water lies along the east wall, with the manor's own jetty and boat.",
       "sun": {
         "date": "2023-09-21",
         "time": "13:00",

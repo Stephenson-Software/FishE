@@ -50,4 +50,6 @@ jobs:
       run: docker build -t fishe .
     - name: The image's bundle carries the location stills
       run: |
-        docker run --rm fishe python3 -c "import zipfile; n=set(zipfile.ZipFile('web/game.zip').namelist()); assert 'art/stills.json' in n and all('pictures/%s.png' % p in n for p in ('bank','docks','home','shop','tavern')), sorted(n)"
+        # Every still the bundled manifest names - each place, and one home
+        # per housing rung - must have its picture in the bundle.
+        docker run --rm fishe python3 -c "import json, zipfile; z=zipfile.ZipFile('web/game.zip'); n=set(z.namelist()); keys=json.loads(z.read('art/stills.json'))['stills']; assert {'docks','home-rented','home-manor'} <= set(keys), sorted(keys); missing=[k for k in keys if 'pictures/%s.png' % k not in n]; assert not missing, missing; print('bundle carries %d stills' % len(keys))"

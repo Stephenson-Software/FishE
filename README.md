@@ -57,13 +57,17 @@ Both need the Setup step above: the browser build copies the installed tak into 
 
 ### Location stills (provisional)
 
-Each of the five places - the docks, the shop, home, the bank and the tavern - has one picture above its menu, rendered offline with the [Strata](https://github.com/Preponderous-Software/strata) engine from a scene file in `art/` and shipped as a PNG in `pictures/` (inside `web/game.zip` for the browser). Both browser front-ends and the pygame window draw it; the console shows none. FishE is set in the same fishing village as [Tidewater](https://github.com/Stephenson-Software/Tidewater), so the stills are drawn from Tidewater's scenes and its generated village, with FishE's own props added (the shop's rack of fishing poles, the tavern's dice).
+Each of the five places - the docks, the shop, home, the bank and the tavern - has a picture above its menu, rendered offline with the [Strata](https://github.com/Preponderous-Software/strata) engine from a scene file in `art/` and shipped as a PNG in `pictures/` (inside `web/game.zip` for the browser). Both browser front-ends and the pygame window draw it; the console shows none. FishE is set in the same fishing village as [Tidewater](https://github.com/Stephenson-Software/Tidewater), so the stills are drawn from Tidewater's scenes and its generated village, with FishE's own props added (the shop's rack of fishing poles, the tavern's dice).
 
 ![The docks' still above its menu in the browser](docs/images/stills/web-desktop.png)
 
 **The setting and the art are a provisional first pass** (Tidewater's late-September day at 54.5° N, flat-coloured shapes, no people drawn), recorded as provisional in [`art/stills.json`](art/stills.json) with the reasoning for each choice. All of it, the alt text included, is the author's to change. [All the stills](docs/images/stills/contact-sheet.png) · [on a phone](docs/images/stills/web-phone.png) · [in the pygame window](docs/images/stills/pygame.png).
 
-A homeless player has no room to show, so home has no picture until you rent one. The picture is set with tak's `setPicture(key, alt)` from `src/stills/stills.py` before each place's menu, and stays over every screen of that place.
+Home is wherever you live, so it has one picture per rung of the housing ladder - the rented room over the tavern, the driftwood shack on the shingle, the cozy cottage, the sturdy cabin and the waterfront manor on the harbour wall - each bigger and better furnished than the last, with more fishing gear on show. Move house and the next visit home shows the new one. A homeless player has no room to show, so home has no picture until you rent one. The five homes are written by [`art/gen_homes.py`](art/gen_homes.py) (re-run it after editing; a test fails if a committed scene is stale).
+
+![The five homes, from the rented room to the waterfront manor](docs/images/stills/homes.png)
+
+The picture is set with tak's `setPicture(key, alt)` from `src/stills/stills.py` before each place's menu, and stays over every screen of that place.
 
 To re-render after editing a scene or the manifest, fetch `strata-golden` from the Strata release `art/stills.json` names (see the top of `art/render.py`), then:
 

@@ -1,6 +1,7 @@
 """web/build_zip.py is a thin call into tak.web.bundle; these tests pin what
 FishE puts in the bundle."""
 
+import json
 import os
 import zipfile
 
@@ -26,8 +27,12 @@ def test_bundle_carries_the_location_stills_but_not_their_scenes(tmp_path):
     # (the Worker reads /game/pictures/<key>.png); the scene files do not.
     names = buildBundle(tmp_path)
     assert "art/stills.json" in names
-    for place in ("bank", "docks", "home", "shop", "tavern"):
-        assert "pictures/%s.png" % place in names, place
+    with open(os.path.join(REPOSITORY_ROOT, "art", "stills.json")) as manifest:
+        keys = json.load(manifest)["stills"]
+    # Every still the manifest names - each place, and a home per housing rung.
+    assert "home-manor" in keys and "docks" in keys
+    for key in keys:
+        assert "pictures/%s.png" % key in names, key
     assert not any(name.endswith(".scene") for name in names)
 
 
