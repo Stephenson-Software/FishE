@@ -37,3 +37,17 @@ jobs:
         file: ./cov.xml
         fail_ci_if_error: false
       continue-on-error: true
+
+  docker:
+    # The image runs web/build_zip.py itself, from what the Dockerfile copied
+    # in; this builds it and checks the bundle it made carries the location
+    # stills (RFC 0025), which a missing COPY line would silently drop.
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Build the image
+      run: docker build -t fishe .
+    - name: The image's bundle carries the location stills
+      run: |
+        docker run --rm fishe python3 -c "import zipfile; n=set(zipfile.ZipFile('web/game.zip').namelist()); assert 'art/stills.json' in n and all('pictures/%s.png' % p in n for p in ('bank','docks','home','shop','tavern')), sorted(n)"

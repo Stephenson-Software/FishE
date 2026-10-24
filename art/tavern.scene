@@ -1,0 +1,47 @@
+# FishE - the tavern: "You sit at the bar, watching the barkeep clean a mug
+# with a dirty rag" - and the burly man's dice on a table. The evening, after
+# dark. No figures are drawn. Provisional art (RFC 0025): see stills.json.
+size 640 360
+camera 5.0 4.4 5.4  -0.5 0.7 -0.9  50 0.1 200
+lighting sun 0.5 54 4 2048 30 0.6 1
+clear 0 0 0 1 sky
+include _room.scene
+# the hearth in the left wall and its fire
+item cube -3.3 1.0 -0.8  0.5 2.0 1.8  0.45 0.42 0.38
+item cube -3.05 0.5 -0.8  0.1 0.8 1.0  0.06 0.05 0.05
+item cube -2.95 0.2 -0.8  0.3 0.18 0.7  1.0 0.50 0.12
+item cube -3.3 2.1 -0.8  0.6 0.12 2.0  0.40 0.30 0.20
+light point -2.6 0.6 -0.8  8  1.0 0.50 0.16  4.0 shadow
+# the bar along the back wall, its taps, its bottles, a lamp over it
+item cube 0.8 0.55 -2.1  4.0 1.1 0.6  0.40 0.24 0.12
+item cube 0.8 1.12 -2.1  4.2 0.06 0.8  0.50 0.32 0.16
+item cylinder 0.2 1.3 -2.2  0.06 0.18 0.06  0.75 0.60 0.25
+item cylinder 0.5 1.3 -2.2  0.06 0.18 0.06  0.75 0.60 0.25
+item cube 0.8 1.9 -2.95  4.0 0.05 0.25  0.40 0.24 0.12
+item cylinder -0.6 2.05 -2.95  0.12 0.14 0.12  0.20 0.45 0.20
+item cylinder -0.3 2.05 -2.95  0.12 0.14 0.12  0.55 0.30 0.10
+item cylinder 0.0 2.05 -2.95  0.12 0.14 0.12  0.20 0.45 0.20
+item cylinder 1.6 2.05 -2.95  0.12 0.14 0.12  0.55 0.30 0.10
+item cylinder 2.0 2.05 -2.95  0.12 0.14 0.12  0.75 0.70 0.60
+light point 1.2 2.0 -1.6  5  1.0 0.75 0.40  2.2 shadow
+# tables and stools, tankards left on one
+item cylinder -0.8 0.72 0.9  1.0 0.03 1.0  0.45 0.30 0.16
+item cylinder -0.8 0.36 0.9  0.12 0.36 0.12  0.30 0.20 0.12
+item cylinder 1.6 0.72 1.2  1.0 0.03 1.0  0.45 0.30 0.16
+item cylinder 1.6 0.36 1.2  0.12 0.36 0.12  0.30 0.20 0.12
+item cylinder -1.6 0.25 0.9  0.4 0.25 0.4  0.35 0.22 0.12
+item cylinder -0.8 0.25 1.8  0.4 0.25 0.4  0.35 0.22 0.12
+item cylinder 0.6 0.25 1.2  0.4 0.25 0.4  0.35 0.22 0.12
+item cylinder 1.6 0.25 2.2  0.4 0.25 0.4  0.35 0.22 0.12
+item cylinder 0.5 0.25 -1.2  0.4 0.25 0.4  0.35 0.22 0.12
+item cylinder 1.5 0.25 -1.2  0.4 0.25 0.4  0.35 0.22 0.12
+item cylinder -0.6 0.84 0.8  0.12 0.1 0.12  0.70 0.68 0.62
+item cylinder -1.0 0.84 1.0  0.12 0.1 0.12  0.70 0.68 0.62
+item cylinder 1.7 0.84 1.1  0.12 0.1 0.12  0.70 0.68 0.62
+# a lamp on the far table
+light point 1.6 1.2 1.2  4  1.0 0.75 0.40  1.4
+item cylinder 1.6 0.86 1.2  0.14 0.12 0.14  0.95 0.80 0.45
+# the burly man's dice and their cup on the near table
+item cube -1.05 0.795 0.6  0.12 0.12 0.12  0.95 0.94 0.90
+item cube -0.85 0.795 0.5  0.12 0.12 0.12  0.95 0.94 0.90
+item cylinder -1.1 0.84 1.25  0.16 0.2 0.16  0.30 0.18 0.10

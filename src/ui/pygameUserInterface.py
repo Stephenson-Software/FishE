@@ -1,3 +1,4 @@
+import os
 import pygame
 import sys
 import time
@@ -10,6 +11,13 @@ from prompt.prompt import Prompt
 from player.player import Player
 from world.timeService import TimeService
 from housing import housing
+
+
+# Where setPicture's PNGs are, relative to where the game runs (as schemas/ is).
+PICTURES_DIR = "pictures"
+
+# The most of the window's height a place's picture may take above the menu.
+PICTURE_MAX_HEIGHT_FRACTION = 0.3
 
 
 # @author Daniel McCoy Stephenson
@@ -42,6 +50,11 @@ class PygameUserInterface(BaseUserInterface):
 
         # Font sizes that scale with screen size
         self._update_fonts()
+
+        # The place's picture (setPicture), loaded once per key; None marks a
+        # key whose file could not be read, so it is not retried every frame.
+        self.picturesDir = PICTURES_DIR
+        self._pictureCache = {}
 
         # UI state
         self.current_options = []
@@ -308,8 +321,62 @@ class PygameUserInterface(BaseUserInterface):
             "instructionsY": instructionsY,
         }
 
+    def _pictureSurface(self):
+        """The current picture (see setPicture) as a pygame surface, or None.
+
+        Optional like everywhere else: no picture set, or one whose file is
+        missing or unreadable, draws the menu as plain text."""
+        picture = self.picture()
+        if picture is None:
+            return None
+        key = picture["key"]
+        if key not in self._pictureCache:
+            try:
+                self._pictureCache[key] = pygame.image.load(
+                    os.path.join(self.picturesDir, key + ".png")
+                )
+            except (pygame.error, OSError):
+                self._pictureCache[key] = None
+        return self._pictureCache[key]
+
+    def _pictureSize(self, imageSize):
+        """(width, height) to draw a picture of imageSize at: as large as fits
+        the text column and PICTURE_MAX_HEIGHT_FRACTION of the window, never
+        stretched out of its own proportions."""
+        imageWidth, imageHeight = imageSize
+        scale = min(
+            self._textWidth() / imageWidth,
+            self.height * PICTURE_MAX_HEIGHT_FRACTION / imageHeight,
+        )
+        return max(1, int(imageWidth * scale)), max(1, int(imageHeight * scale))
+
     def _draw_game_screen(self, descriptor, optionList, reasons=None):
-        """Draw the main game screen with responsive layout"""
+        """Draw the main game screen, with the place's picture above it if set.
+
+        The picture takes a band at the top of the window and the text screen
+        is laid out, unchanged, in what is left below it."""
+        image = self._pictureSurface()
+        if image is None:
+            self._draw_text_screen(descriptor, optionList, reasons)
+            return
+        self.screen.fill(self.BLACK)
+        size = self._pictureSize(image.get_size())
+        top = int(self.height * 0.02)
+        self.screen.blit(
+            pygame.transform.smoothscale(image.convert(), size),
+            ((self.width - size[0]) // 2, top),
+        )
+        band = top + size[1]
+        window, windowHeight = self.screen, self.height
+        self.screen = window.subsurface((0, band, self.width, windowHeight - band))
+        self.height = windowHeight - band
+        try:
+            self._draw_text_screen(descriptor, optionList, reasons)
+        finally:
+            self.screen, self.height = window, windowHeight
+
+    def _draw_text_screen(self, descriptor, optionList, reasons=None):
+        """Draw the main game screen's text with responsive layout"""
         if reasons is None:
             reasons = [None] * len(optionList)
         # Clear screen

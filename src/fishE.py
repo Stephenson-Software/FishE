@@ -21,6 +21,7 @@ from achievements import achievements
 from achievements import arcade as arcadeAchievements
 from achievements.achievements import GOAL_AMOUNT, GOAL_MILESTONE_NAME
 from progression import progression
+from stills import stills
 from config.config import Config
 from trace_client import TraceClient
 import usageReporting
@@ -45,6 +46,10 @@ def describeSlot(metadata):
 
 # @author Daniel McCoy Stephenson
 class FishE:
+    # {place: alt text} for the stills (see src/stills); replaced, never
+    # mutated, in __init__. No pictures until then.
+    stillAlts = {}
+
     def __init__(self, interfaceType=INTERFACE_TYPE):
         self.running = True
 
@@ -74,6 +79,8 @@ class FishE:
         self.userInterface = UserInterfaceFactory.create_user_interface(
             interfaceType, self.prompt, self.timeService, self.player
         )
+        # The picture over each place's menu (RFC 0025); the console shows none.
+        self.stillAlts = stills.load()
 
         # Migrate old save files to new format if they exist
         self.saveFileManager.migrate_old_save_files()
@@ -250,6 +257,11 @@ class FishE:
                 )
             else:
                 self.userInterface.goalProgress = ""
+
+            # the place's picture, above every screen until the next place
+            stills.show(
+                self.userInterface, self.currentLocation, self.stillAlts, self.player
+            )
 
             # change location
             nextLocation = self.locations[self.currentLocation].run()

@@ -65,19 +65,22 @@ def test_showOptions():
     userInterfaceInstance.showOptions("descriptor", ["option1", "option2"])
 
     # check
-    assert consoleModule.print.call_count == 9
+    # The header's chips share a line (tak prints them " | "-joined, wrapping
+    # only at the terminal's width), so the count depends on the terminal:
+    # check what was printed rather than how many lines it took.
+    printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
+    assert " [1] option1" in printedLines and " [2] option2" in printedLines
     userInterfaceInstance.lotsOfSpace.assert_called()
     assert userInterfaceInstance.divider.call_count == 3
     consoleModule.input.assert_called_with("\n> ")
 
     # check - the energy line shows the current tier's cap, not just the
     # raw value, so the housing energy-cap benefit is always visible
-    expectedEnergyLine = " | Energy: %d/%d" % (
+    expectedEnergyChip = "Energy: %d/%d" % (
         userInterfaceInstance.player.energy,
         housing.maxEnergy(userInterfaceInstance.player),
     )
-    printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
-    assert expectedEnergyLine in printedLines
+    assert expectedEnergyChip in "\n".join(printedLines)
 
 
 def test_showOptions_includes_location_when_set():
@@ -94,7 +97,7 @@ def test_showOptions_includes_location_when_set():
 
     # check - the header shows the current location
     printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
-    assert " | Location: Docks" in printedLines
+    assert "Location: Docks" in "\n".join(printedLines)
 
 
 def test_showOptions_includes_goal_progress_when_set():
@@ -111,7 +114,7 @@ def test_showOptions_includes_goal_progress_when_set():
 
     # check
     printedLines = [call.args[0] for call in consoleModule.print.call_args_list]
-    assert " | Goal: $1200 / $10000" in printedLines
+    assert "Goal: $1200 / $10000" in "\n".join(printedLines)
 
 
 def test_showOptions_omits_location_when_unset():

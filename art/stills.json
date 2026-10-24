@@ -1,0 +1,82 @@
+{
+  "provisional": true,
+  "note": "PROVISIONAL. Chosen by Claude to render a first pass under RFC 0025, not by the author. The setting (place, date, year), the art direction and every alt line below are the author's to change; the game's own text fixes none of them.",
+  "setting": {
+    "place": "The village is fictional - the same fishing village as Tidewater (Stephenson-Software/Tidewater), drawn from the same scene files, so the two games look like one place. Rendered as Tidewater is: on a south-facing harbour at 54.5 N, 0.6 W, UTC+1.",
+    "date": "Rendered as 2023-09-21, Tidewater's day. FishE's calendar counts days from 1 and names no season or year; its weather (clear, rainy, stormy) rolls daily and is not drawn - every still is a clear day.",
+    "why": [
+      "FishE's own text does not contradict Tidewater's setting: it speaks of a seaside village, the sea, the coast and a harbour. Its money is written in dollars, which sits a little oddly with a North Sea harbour; nothing else places it, so the shared village was kept and the currency left as a game convention for the author to weigh.",
+      "Every place in FishE is open at every hour, so each still's hour is one the game's own rhythm suggests: the docks at 08:00 (every day starts there, the last hour of the dawn bite), the shop and bank in the morning, home at 13:00 (the midday sun keeps the fish deep, so a fisher is ashore), the tavern at 20:00 (a night's drinking ends the day). On this date sunrise is about 07:00 and sunset about 19:05.",
+      "Home is drawn as a rented room - the bunk and stove Tidewater's home has. A homeless player (the first rung of the housing ladder) has no room to show, so the game shows no picture at home until there is one."
+    ]
+  },
+  "strata": "v0.6.0",
+  "size": [
+    640,
+    360
+  ],
+  "budgetBytes": 524288,
+  "artDirection": "Flat-coloured Strata primitives, no textures; one still per location; no people drawn (the characters are written, not drawn - RFC 0025 non-goal). The scenes are Tidewater's, with FishE's own props added: the shop's rack of fishing poles and bait tub, the tavern's dice, the pole being polished at home.",
+  "stills": {
+    "docks": {
+      "scene": "art/docks.scene",
+      "hour": "08:00",
+      "alt": "The docks at eight in the morning: a wooden pier on piles running out over the harbour with boats moored along it, and the stone bell tower standing at its far end.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "08:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "shop": {
+      "scene": "art/shop.scene",
+      "hour": "10:00",
+      "alt": "The shop, seen from above with its roof away: a long counter with a till, a rack of fishing poles on the back wall, shelves of tins and boxes of hooks, coils of rope, a tub of bait and a barrel of salt.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "10:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "home": {
+      "scene": "art/home.scene",
+      "hour": "13:00",
+      "alt": "Your rented room, seen from above with its roof away: a bunk with the bed made, a cold stove with a kettle, a window on the harbour, and a fishing pole laid across the table beside a polishing rag.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "13:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "tavern": {
+      "scene": "art/tavern.scene",
+      "hour": "20:00",
+      "alt": "The tavern after dark, seen from above with its roof away: a fire in the hearth, a bar with taps and bottles under a lamp, and round tables with stools, tankards, and a pair of dice beside their cup.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "20:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    },
+    "bank": {
+      "scene": "art/bank.scene",
+      "hour": "11:00",
+      "alt": "The bank, seen from above with its roof away: a panelled counter behind a brass grille with a ledger open on it, a green safe in the corner, and a clock on the wall.",
+      "sun": {
+        "date": "2023-09-21",
+        "time": "11:00",
+        "utcOffset": 1,
+        "latitude": 54.5,
+        "longitude": -0.6
+      }
+    }
+  }
+}

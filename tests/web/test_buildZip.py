@@ -6,7 +6,7 @@ import zipfile
 
 from tak.web.bundle import build
 
-from web.build_zip import REPOSITORY_ROOT
+from web.build_zip import EXTRA_FILES, REPOSITORY_ROOT, SOURCE_DIRECTORIES
 
 
 def buildBundle(tmp_path):
@@ -14,10 +14,21 @@ def buildBundle(tmp_path):
     build(
         REPOSITORY_ROOT,
         outputPath=str(outputPath),
-        extraFiles=("version.txt", "web/pyodide_main.py"),
+        sourceDirectories=SOURCE_DIRECTORIES,
+        extraFiles=EXTRA_FILES,
     )
     with zipfile.ZipFile(outputPath) as bundle:
         return set(bundle.namelist())
+
+
+def test_bundle_carries_the_location_stills_but_not_their_scenes(tmp_path):
+    # RFC 0025: the pictures and the manifest naming them ride in the bundle
+    # (the Worker reads /game/pictures/<key>.png); the scene files do not.
+    names = buildBundle(tmp_path)
+    assert "art/stills.json" in names
+    for place in ("bank", "docks", "home", "shop", "tavern"):
+        assert "pictures/%s.png" % place in names, place
+    assert not any(name.endswith(".scene") for name in names)
 
 
 def test_bundle_carries_the_game(tmp_path):
