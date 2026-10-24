@@ -1,0 +1,18 @@
+# FishE - the docks: "You breathe in the fresh air. Salty." Eight in the
+# morning, the hour every day begins and the last of the dawn bite. The same
+# front Tidewater's docks still shows - one village. No figures are drawn.
+# Provisional art (RFC 0025): see stills.json.
+size 640 360
+camera -3 3.4 16  7 5.5 70  62 0.3 500
+lighting sun 0.5 54 4 2048 120 0.6 1
+clear 0 0 0 1 sky
+include _village.scene
+# on the front: nets over a rail, lobster pots, a rod against a bollard
+item cube -6 1.9 15.5  4 0.06 0.06  0.40 0.30 0.20
+item cube -6 1.55 15.5  3.8 0.7 0.04  0.30 0.36 0.32 0.8
+item cube -7.8 1.55 15.5  0.08 0.8 0.08  0.40 0.30 0.20
+item cube -4.2 1.55 15.5  0.08 0.8 0.08  0.40 0.30 0.20
+item cube -1.5 1.5 16.6  0.8 0.6 0.6  0.55 0.38 0.20
+item cube -1.5 1.5 15.8  0.8 0.6 0.6  0.55 0.38 0.20
+item cylinder 2.4 1.5 17.0  0.5 0.3 0.5  0.15 0.15 0.15
+item cube 2.5 2.4 17.1  0.04 2.2 0.04  0.45 0.32 0.18

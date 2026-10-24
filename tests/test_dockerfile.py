@@ -64,3 +64,23 @@ def test_tak_requirement_finds_a_pin_and_ignores_comments():
     assert requirements == [
         "tak @ git+https://github.com/Stephenson-Software/tak@bbbbbbb"
     ]
+
+
+def test_dockerfile_copies_everything_the_bundle_carries():
+    # web/build_zip.py runs inside the image, and tak's bundle skips a missing
+    # directory or file silently - so a path it bundles that the Dockerfile
+    # never copied would just vanish from the deployed game (as the location
+    # stills would, without their COPY lines).
+    from web.build_zip import EXTRA_FILES, SOURCE_DIRECTORIES
+
+    copied = [
+        line.split()[1].rstrip("/")
+        for line in readRepositoryFile("Dockerfile").splitlines()
+        if line.startswith("COPY ") and "requirements.txt" not in line
+    ]
+    bundled = SOURCE_DIRECTORIES + EXTRA_FILES
+    assert "pictures" in bundled and "art/stills.json" in bundled
+    for path in bundled:
+        assert any(
+            path == each or path.startswith(each + "/") for each in copied
+        ), path

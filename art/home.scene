@@ -1,0 +1,41 @@
+# FishE - home: "You sit in your rented room, polishing one of your prized
+# fishing poles." Midday, when the sun keeps the fish deep. No figures are
+# drawn: the pole lies on the table with a rag. Provisional art (RFC 0025):
+# see stills.json.
+size 640 360
+camera 5.0 4.4 5.4  -0.5 0.7 -0.9  50 0.1 200
+lighting sun 0.5 54 4 2048 30 0.6 1
+clear 0 0 0 1 sky
+include _room.scene
+# the window on the harbour, in the back wall
+item cube -0.4 1.7 -2.99  1.6 1.2 0.04  0.75 0.88 0.95
+item cube -0.4 1.7 -2.97  0.06 1.2 0.04  0.40 0.30 0.20
+item cube -0.4 1.12 -2.9  1.8 0.05 0.3  0.45 0.32 0.18
+# the bunk along the left wall, made: blanket squared, pillow plumped
+item cube -2.9 0.45 -0.6  1.1 0.1 2.2  0.42 0.30 0.18
+item cube -2.9 0.25 -1.65  1.1 0.5 0.08  0.42 0.30 0.18
+item cube -2.9 0.25 0.45  1.1 0.5 0.08  0.42 0.30 0.18
+item cube -2.9 0.6 -0.6  1.0 0.2 2.1  0.85 0.85 0.80
+item cube -2.9 0.72 -0.4  1.02 0.06 1.6  0.25 0.32 0.50
+item cube -2.9 0.76 -1.35  0.6 0.14 0.35  0.95 0.95 0.92
+# the stove in the corner, cold, with its pipe and a kettle
+item cube 2.2 0.45 -2.5  0.8 0.9 0.6  0.12 0.12 0.13
+item cylinder 2.3 2.0 -2.75  0.16 1.1 0.16  0.14 0.14 0.15
+item cylinder 2.0 0.98 -2.45  0.24 0.08 0.24  0.45 0.42 0.38
+# a table, a chair, a cup, a coat on a peg
+item cube 0.6 0.75 0.2  1.0 0.05 0.8  0.50 0.36 0.22
+item cube 0.15 0.37 -0.15  0.06 0.74 0.06  0.40 0.28 0.16
+item cube 1.05 0.37 -0.15  0.06 0.74 0.06  0.40 0.28 0.16
+item cube 0.15 0.37 0.55  0.06 0.74 0.06  0.40 0.28 0.16
+item cube 1.05 0.37 0.55  0.06 0.74 0.06  0.40 0.28 0.16
+item cube 1.4 0.45 0.2  0.42 0.05 0.42  0.40 0.28 0.16
+item cube 1.6 0.75 0.2  0.05 0.6 0.42  0.40 0.28 0.16
+item cylinder 0.4 0.82 0.3  0.1 0.06 0.1  0.85 0.85 0.80
+item cube -3.45 1.6 1.6  0.08 0.08 0.08  0.30 0.22 0.14
+item cube -3.38 1.15 1.6  0.12 0.9 0.5  0.30 0.36 0.30
+# the rod by the door
+item cube -3.4 1.1 2.7  0.04 2.2 0.04  0.45 0.32 0.18
+# the prized pole on the table, mid-polish, and the rag beside it
+item cube 0.6 0.8 0.15  1.3 0.025 0.025  0.35 0.22 0.12
+item cylinder 0.9 0.81 0.15  0.08 0.05 0.08  0.70 0.70 0.72
+item cube 0.75 0.79 0.45  0.25 0.03 0.18  0.80 0.78 0.70

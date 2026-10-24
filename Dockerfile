@@ -18,7 +18,7 @@ WORKDIR /app
 #     front-end (examples/web_app.py) could not give them.
 COPY requirements.txt ./
 RUN apt-get update && apt-get install -y --no-install-recommends git \
-    && pip install --no-cache-dir "tak @ git+https://github.com/Stephenson-Software/tak@9b539d8760e2c02cc262a7dcff6d0c541572ab71" \
+    && pip install --no-cache-dir "tak @ git+https://github.com/Stephenson-Software/tak@9749869783ebd20959a2365f29812675a0b0d053" \
     && apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 COPY src/ ./src/
@@ -28,6 +28,11 @@ COPY web/ ./web/
 # so these have to be copied in for build_zip.py to put them in the bundle, not
 # for anything in this image to read.
 COPY schemas/ ./schemas/
+# The location stills and the manifest naming them (RFC 0025). The bundle
+# skips a missing directory silently, so without these the browser build
+# would simply show no pictures.
+COPY pictures/ ./pictures/
+COPY art/stills.json ./art/
 COPY version.txt ./
 
 # Bundle the game for the browser to download. Built here rather than checked

@@ -55,6 +55,24 @@ python3 examples/web_app.py
 
 Both need the Setup step above: the browser build copies the installed tak into `web/game.zip` and loads `jsonschema` into the browser sandbox when the page opens, while the server-backed front-end runs on your local Python and needs both installed first. Rebuild `web/game.zip` after upgrading tak.
 
+### Location stills (provisional)
+
+Each of the five places - the docks, the shop, home, the bank and the tavern - has one picture above its menu, rendered offline with the [Strata](https://github.com/Preponderous-Software/strata) engine from a scene file in `art/` and shipped as a PNG in `pictures/` (inside `web/game.zip` for the browser). Both browser front-ends and the pygame window draw it; the console shows none. FishE is set in the same fishing village as [Tidewater](https://github.com/Stephenson-Software/Tidewater), so the stills are drawn from Tidewater's scenes and its generated village, with FishE's own props added (the shop's rack of fishing poles, the tavern's dice).
+
+![The docks' still above its menu in the browser](docs/images/stills/web-desktop.png)
+
+**The setting and the art are a provisional first pass** (Tidewater's late-September day at 54.5° N, flat-coloured shapes, no people drawn), recorded as provisional in [`art/stills.json`](art/stills.json) with the reasoning for each choice. All of it, the alt text included, is the author's to change. [All the stills](docs/images/stills/contact-sheet.png) · [on a phone](docs/images/stills/web-phone.png) · [in the pygame window](docs/images/stills/pygame.png).
+
+A homeless player has no room to show, so home has no picture until you rent one. The picture is set with tak's `setPicture(key, alt)` from `src/stills/stills.py` before each place's menu, and stays over every screen of that place.
+
+To re-render after editing a scene or the manifest, fetch `strata-golden` from the Strata release `art/stills.json` names (see the top of `art/render.py`), then:
+
+```bash
+uv run --with pillow python art/render.py --strata-golden /path/to/strata/bin/strata-golden
+```
+
+The script places the sun from each still's date, time and place, and refuses to render a still whose sun is not filled in. The PNGs are committed, and `tests/stills/test_stills.py` holds them to the manifest's size budget.
+
 ### One Thing at a Time
 A new game opens on the docks with a rod, a bucket, and exactly one thing to do: **fish**. Everything else in the village arrives later, one option at a time, as you earn it — and each arrival tells you why it's there:
 
