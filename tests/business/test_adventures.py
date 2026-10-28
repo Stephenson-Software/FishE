@@ -297,6 +297,24 @@ def test_unnamed_hands_lost_at_sea_are_taken_off_the_headcount():
     assert player.workers == 1
 
 
+def test_pressing_on_through_sickness_loses_an_unnamed_hand_without_a_name():
+    # prepare - a pre-roles crew with no names, so the hand lost has none
+    player = Player()
+    player.money = 1000
+    boat = boats.addBoat(player, 2, boats.ROLE_HAULING, "Mule")
+    player.workers = 2
+    boat["hands"] = 2
+    voyage = adventures.startVoyage(boat, adventures.VOYAGE_PLANS[0], 20)
+
+    # call
+    with patch("src.business.adventures.random.random", return_value=0.0):
+        text = adventures._sickPush(voyage)
+
+    # check
+    assert text == "You press on, and a hand doesn't get up again."
+    assert voyage["hands"] == 1
+
+
 def test_a_captained_voyage_beats_leaving_her_to_the_crew():
     # prepare - the same boat, one day passive versus one leg captained
     player, boat, voyage = createVoyage(role=boats.ROLE_PIRACY, tier=3, plan=2)
