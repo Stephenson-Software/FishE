@@ -504,6 +504,20 @@ def test_selection_skips_unavailable_options():
         ui.cleanup()
 
 
+def test_selection_steps_in_from_the_nearest_end_off_a_stale_highlight():
+    # check - a highlight left on a row that has since gone grey isn't in the
+    # selectable list; DOWN lands on the first selectable row, UP on the last
+    ui = makeUI()
+    try:
+        reasons = [None, "no money", None, None]
+
+        ui.selected_option = 1
+        assert ui._moveSelection(reasons, 1) == 0
+        assert ui._moveSelection(reasons, -1) == 3
+    finally:
+        ui.cleanup()
+
+
 def test_selection_stays_put_when_nothing_is_selectable():
     # check - a defensive case (the base contract drops the marks rather than
     # blocking a whole menu), but the navigation must not loop forever if it

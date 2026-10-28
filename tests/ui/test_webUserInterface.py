@@ -81,6 +81,17 @@ def test_header_includes_max_energy():
     } in ui.header()["chips"]
 
 
+def test_header_flags_operator_mode():
+    # check - an operator session says so in the header, with its own class
+    # for the browser to style; a normal session shows no such chip
+    ui = makeWebUI()
+    ui.player.operatorMode = False
+    assert not any("OPERATOR" in chip["text"] for chip in ui.header()["chips"])
+
+    ui.player.operatorMode = True
+    assert {"text": "[OPERATOR MODE]", "class": "operator"} in ui.header()["chips"]
+
+
 def test_showOptions_round_trips_a_choice():
     ui = makeWebUI()
     thread, box = runInThread(lambda: ui.showOptions("Pick one", ["Apple", "Banana"]))
