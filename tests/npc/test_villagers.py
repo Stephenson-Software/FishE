@@ -238,6 +238,37 @@ def test_createCrewNPC_boat_dialogue_is_staged_by_tier():
         assert business.tierInfo(tier)["name"] in response
 
 
+def test_createCrewNPC_boat_dialogue_is_about_the_hands_own_boat():
+    # prepare - a Rowboat and a Fishing Fleet, with Marta on the Rowboat
+    player = createEmployedPlayer(tier=1)
+    boats.addBoat(player, 3)
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+
+    # call - question 3 is "How's the boat treating you?"
+    response = npc.get_dialogue_response(2)
+
+    # check - she talks about her Rowboat, not the fleet's best hull
+    assert business.tierInfo(1)["name"] in response
+    assert business.tierInfo(3)["name"] not in response
+
+
+def test_createCrewNPC_boat_dialogue_handles_an_unassigned_hand():
+    # prepare - hired, then pulled off her Fishing Fleet with nowhere to work
+    player = Player()
+    boat = boats.addBoat(player, 3)
+    player.money = 1000
+    boats.hireWorker(player, "Marta Kell")
+    boats.unassignCrew(player, boat["id"], "Marta Kell")
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+
+    # call
+    response = npc.get_dialogue_response(2)
+
+    # check - she's ashore, so there's no boat of hers to describe
+    assert "ashore" in response
+    assert business.tierInfo(3)["name"] not in response
+
+
 def test_createCrewNPC_crowded_response_quotes_the_berth_count():
     # prepare - fill every berth on the Rowboat
     player = createEmployedPlayer(tier=1)
