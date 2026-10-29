@@ -179,7 +179,15 @@ def createCrewNPC(player, name):
         )
 
     def boatDialogue():
-        tier = business.currentTier(player)
+        # The boat this hand actually works, like workDialogue - not the
+        # fleet's best hull, which may be a boat they've never set foot on.
+        boat = boats.boatFor(player, name)
+        if boat is None:
+            return (
+                "What boat? I'm ashore until you find me a berth. I'll take "
+                "whatever floats."
+            )
+        tier = boat["tier"]
         info = business.tierInfo(tier)
         if tier == 1:
             return (
