@@ -827,6 +827,37 @@ def test_manageFleet_sell_boat_returns_her_crew_to_the_payroll():
     assert "still on the payroll" in docksInstance.currentPrompt.text
 
 
+def test_manageFleet_dismiss_crew_left_ashore_by_selling_the_last_boat():
+    # prepare - the only boat sold out from under her crew
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.sellBoat(docksInstance.player, boat["id"])
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=fleetChooser("Dismiss a Worker", "Marta Kell")
+    )
+
+    # call
+    docksInstance.manageFleet()
+
+    # check - still reachable with no fleet, so wages can be stopped
+    assert docksInstance.player.hiredWorkers == []
+    assert docksInstance.player.workers == 0
+
+
+def test_manageFleet_with_no_boats_and_no_crew_offers_no_dismiss():
+    # prepare
+    docksInstance = createDocks()
+    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call
+    docksInstance.manageFleet()
+
+    # check - just buying a boat and leaving
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert options == ["Buy a Rowboat ($%d)" % business.tierInfo(1)["cost"], "Back"]
+
+
 def test_manageFleet_sell_boat_from_the_menu():
     # prepare - one Trawler and nobody aboard
     docksInstance = createDocks()
