@@ -419,6 +419,11 @@ class Docks:
                 actions.append("sell_boat")
                 options.append("Rename Business")
                 actions.append("rename")
+            elif self.player.workers > 0:
+                # Selling the last boat leaves her crew ashore on wages; they
+                # still have to be let go from somewhere.
+                options.append("Dismiss a Worker")
+                actions.append("dismiss")
             options.append("Back")
             actions.append("back")
 

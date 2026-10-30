@@ -25,6 +25,43 @@ def test_no_production_without_a_boat():
     assert player.fishCount == 0
 
 
+def test_crew_ashore_after_the_last_boat_is_sold_still_draw_wages():
+    # prepare - the only boat sold, her hand left ashore
+    player = Player()
+    boat = boats.addBoat(player, 1)
+    boats.hireWorker(player, "Marta Kell")
+    boats.sellBoat(player, boat["id"])
+    player.money = 1000
+    stats = Stats()
+
+    # call
+    summary = boats.runDailyProduction(player, stats)
+
+    # check - on the payroll as the sale promised, but nothing to earn with
+    assert summary["wagesPaid"] == business.WORKER_DAILY_WAGE
+    assert player.money == 1000 - business.WORKER_DAILY_WAGE
+    assert stats.totalWagesPaid == business.WORKER_DAILY_WAGE
+    assert summary["fishCaught"] == 0
+    assert summary["earned"] == 0
+
+
+def test_crew_ashore_after_the_last_boat_is_sold_walk_off_when_unpaid():
+    # prepare - the only boat sold and nothing left to pay her hand with
+    player = Player()
+    boat = boats.addBoat(player, 1)
+    boats.hireWorker(player, "Marta Kell")
+    boats.sellBoat(player, boat["id"])
+    player.money = 0
+
+    # call
+    summary = boats.runDailyProduction(player)
+
+    # check - the same walk-off as any unpaid hand
+    assert summary["quitNames"] == ["Marta Kell"]
+    assert player.workers == 0
+    assert player.hiredWorkers == []
+
+
 def test_workers_catch_fish_and_draw_wages():
     # prepare - a boat and two workers, plenty of money
     player = Player()

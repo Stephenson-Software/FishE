@@ -438,7 +438,9 @@ def runDailyProduction(player, stats=None):
         "haulingDays": 0,
         "transportDays": 0,
     }
-    if not player.boats or player.workers <= 0:
+    # Not "no boats": selling the last hull leaves her crew ashore, hired and
+    # owed wages like any other idle hand.
+    if player.workers <= 0:
         return summary
 
     if player.operatorMode:
