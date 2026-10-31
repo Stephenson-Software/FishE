@@ -165,6 +165,14 @@ class Shop:
                 "pile in."
             )
         dailyCatch = boats.fleetDailyCatch(self.player)
+        # Hired, but nobody fishing: hands on other roles, ashore, or aboard a
+        # boat that's away at sea. "0 fish a day, keep that up" is no praise.
+        if dailyCatch == 0:
+            return (
+                "Not much, no - none of your crew are fishing right now, so "
+                "there's no steady catch coming over my counter. Put some "
+                "hands aboard a fishing boat at the docks and that'll change."
+            )
         return (
             "That I have! Word is your crew hauls in about %d fish a day. "
             "Keep that up and I might need a bigger vault!" % dailyCatch
