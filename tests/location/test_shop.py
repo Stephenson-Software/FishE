@@ -163,9 +163,35 @@ def test_npc_crew_dialogue_ignores_non_fishing_boats():
     boat["hands"] = 3
     shopInstance.player.workers = 3
 
-    # check - Gilbert reports the true (zero) catch, not the best hull's rate
+    # check - Gilbert doesn't report the best hull's rate, or praise a zero catch
     response = shopInstance._crewDialogue()
-    assert "0 fish a day" in response
+    assert "fish a day" not in response
+    assert "That I have" not in response
+    assert "none of your crew are fishing" in response
+
+
+def test_npc_crew_dialogue_crew_ashore():
+    # prepare - a boat, but the hired hands are unassigned on the dock
+    shopInstance = createShop()
+    boats.addBoat(shopInstance.player, 1)
+    shopInstance.player.workers = 2
+
+    # check
+    response = shopInstance._crewDialogue()
+    assert "none of your crew are fishing" in response
+
+
+def test_npc_crew_dialogue_fishing_boat_at_sea():
+    # prepare - the only crewed fishing boat is away with the player
+    shopInstance = createShop()
+    boat = boats.addBoat(shopInstance.player, 1)
+    boat["hands"] = 2
+    boat["atSea"] = True
+    shopInstance.player.workers = 2
+
+    # check
+    response = shopInstance._crewDialogue()
+    assert "none of your crew are fishing" in response
 
 
 def test_sellFish():
