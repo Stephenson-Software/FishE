@@ -140,6 +140,18 @@ def test_promptForNumber_marks_screen_numeric_and_parses():
     assert box["result"] == 12.5
 
 
+def test_promptForNumber_rejects_non_finite_input():
+    # The web front-end has its own promptForNumber in the kit; FishE's guard
+    # has to sit in front of that one too (#250).
+    ui = makeWebUI()
+    thread, box = runInThread(lambda: ui.promptForNumber("How much?"))
+    waitForScreen(ui, "prompt")
+
+    ui.submit_input("nan")
+    thread.join(timeout=2)
+    assert box["result"] is None
+
+
 def test_showDialogue_waits_then_resets_prompt():
     ui = makeWebUI()
     ui.currentPrompt.text = "something"

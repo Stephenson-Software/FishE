@@ -249,6 +249,8 @@ def test_promptForNumber_parses_console_input():
     assert userInterfaceInstance.promptForNumber("Amount?") == 10.5
     consoleModule.input = MagicMock(return_value="oops")
     assert userInterfaceInstance.promptForNumber("Amount?") is None
+    consoleModule.input = MagicMock(return_value="inf")
+    assert userInterfaceInstance.promptForNumber("Amount?") is None
 
 
 def test_timedKeyPress_returns_reaction_seconds():

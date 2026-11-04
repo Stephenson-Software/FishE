@@ -113,6 +113,18 @@ def test_promptForNumber_parses_or_returns_none():
     assert ui.promptForNumber("How much?") is None
 
 
+def test_promptForNumber_treats_non_finite_input_as_not_numeric():
+    # prepare - regression test for #250: float() parses all of these, and the
+    # tavern's int(amount) then crashed the game on them
+    prompt, timeService, player = makeArgs()
+    replies = ["inf", "-inf", "Infinity", "nan", "1e999"]
+    ui = RecordingUserInterface(prompt, timeService, player, choices=replies)
+
+    # check
+    for _ in replies:
+        assert ui.promptForNumber("How much?") is None
+
+
 def test_inherited_interactive_dialogue_uses_primitives():
     # prepare - pick the first question, then choose [Back]
     prompt, timeService, player = makeArgs()

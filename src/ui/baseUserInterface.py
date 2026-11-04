@@ -10,6 +10,8 @@ loop sets before each render (currentLocationName, goalProgress) live here
 too, as before.
 """
 
+import math
+
 from tak import formatHour
 from tak.ui import BaseUserInterface as KitBaseUserInterface
 from tak.ui.base import (
@@ -43,6 +45,15 @@ class BaseUserInterface(KitBaseUserInterface):
 
         # Kept for the pygame front-end and anything else that indexed it.
         self.times = {hour: formatHour(hour) for hour in range(24)}
+
+    def promptForNumber(self, promptText):
+        """The kit's prompt, minus what float() accepts that isn't a number of
+        anything: "inf", "nan" and "1e999" count as not numeric here, so they
+        reach the same "Try again" path as any other bad input (#250)."""
+        amount = super().promptForNumber(promptText)
+        if amount is None or not math.isfinite(amount):
+            return None
+        return amount
 
     def _buildHeader(self):
         """The status line, as chips. Text matches what the console has always

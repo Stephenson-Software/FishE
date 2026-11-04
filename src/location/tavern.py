@@ -223,7 +223,19 @@ class Tavern:
 
         appendDayReport(self.currentPrompt, self.timeService.increaseDay())
 
+    def _voidUncoveredBet(self):
+        """Take a bet off the table if the money behind it has gone. A bet
+        outlives the visit it was placed on, and the purse can be banked,
+        spent or drunk away before the player comes back to the dice (#249)."""
+        if self.currentBet > 0 and not self.player.canAfford(self.currentBet):
+            self.currentPrompt.text = (
+                "You can't cover your $%d bet any more, so it's off the table. "
+                "Money: $%.2f" % (self.currentBet, self.player.money)
+            )
+            self.currentBet = 0
+
     def gamble(self):
+        self._voidUncoveredBet()
         while True:
             li = ["1", "2", "3", "4", "5", "6", "Change Bet", "Back"]
             # Nothing rides on a face until money is on the table, so the six
