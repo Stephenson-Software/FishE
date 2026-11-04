@@ -354,6 +354,24 @@ def test_withdraw_invalid_input_retries_then_succeeds():
     assert bankInstance.player.money == 10
 
 
+def test_operator_mode_deposit_retries_on_non_finite_input():
+    # prepare - regression test for #250: canAfford always passes in operator
+    # mode, so "nan" used to land in moneyInBank through the real prompt
+    bankInstance = createBank()
+    bankInstance.player.operatorMode = True
+    bankInstance.player.moneyInBank = 0
+    bankInstance.userInterface.promptForText = MagicMock(
+        side_effect=["nan", "inf", "10"]
+    )
+
+    # call
+    bankInstance.deposit()
+
+    # check - both were refused and the real amount went through
+    assert bankInstance.userInterface.promptForText.call_count == 3
+    assert bankInstance.player.moneyInBank == 10
+
+
 def test_deposit_negative_amount_is_rejected():
     # prepare - a negative "deposit" would otherwise pass canAfford (money >=
     # negative is always true) and mint cash out of nothing

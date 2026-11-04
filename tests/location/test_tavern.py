@@ -716,6 +716,129 @@ def test_gamble_frees_the_dice_once_a_bet_is_on_the_table():
     assert markedOptions(tavernInstance) == {}
 
 
+def test_gamble_voids_a_bet_the_purse_no_longer_covers():
+    # prepare - regression test for #249: a $100 bet is placed, then the $100
+    # is banked between visits. Throwing that bet used to take the purse to
+    # -$100 on a loss and pay $500 on a win with nothing at stake.
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.userInterface.promptForNumber = MagicMock(return_value=100.0)
+    tavernInstance.changeBet("How much money would you like to bet?")
+    assert tavernInstance.currentBet == 100
+    tavernInstance.player.moneyInBank += 100
+    tavernInstance.player.spendMoney(100)
+    textOnReturn = []
+    callCount = [0]
+
+    def showOptionsSideEffect(prompt, options, unavailableOptions=None):
+        callCount[0] += 1
+        if callCount[0] == 1:
+            textOnReturn.append(tavernInstance.currentPrompt.text)
+            return "2"
+        return "8"
+
+    tavernInstance.userInterface.showOptions = MagicMock(
+        side_effect=showOptionsSideEffect
+    )
+
+    # call
+    with patch("src.location.tavern.random.randint", return_value=2) as mockRandint:
+        tavernInstance.gamble()
+
+    # check - no dice were thrown, and no money moved either way
+    mockRandint.assert_not_called()
+    assert tavernInstance.player.money == 0
+    assert tavernInstance.stats.totalMoneyMade == 0
+    assert tavernInstance.stats.moneyLostFromGambling == 0
+    assert tavernInstance.currentBet == 0
+    assert "can't cover your $100 bet" in textOnReturn[0]
+    assert "Money: $0.00" in textOnReturn[0]
+
+
+def test_gamble_voids_a_bet_only_partly_covered():
+    # prepare - some of the stake is still there, but not all of it
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 60
+    tavernInstance.currentBet = 100
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="8")  # Back
+
+    # call
+    tavernInstance.gamble()
+
+    # check - the dice go back to being greyed out, as for any unstaked throw
+    assert tavernInstance.currentBet == 0
+    assert markedOptions(tavernInstance) == {
+        face: "place a bet first" for face in ["1", "2", "3", "4", "5", "6"]
+    }
+
+
+def test_gamble_keeps_a_bet_the_purse_exactly_covers():
+    # prepare
+    tavernInstance = createTavern()
+    tavernInstance.player.money = 100
+    tavernInstance.currentBet = 100
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="8")  # Back
+
+    # call
+    tavernInstance.gamble()
+
+    # check
+    assert tavernInstance.currentBet == 100
+    assert markedOptions(tavernInstance) == {}
+
+
+def test_gamble_keeps_a_bet_in_operator_mode():
+    # prepare - every money check passes in operator mode, so no bet is uncovered
+    tavernInstance = createTavern()
+    tavernInstance.player.operatorMode = True
+    tavernInstance.player.money = 0
+    tavernInstance.currentBet = 100
+    tavernInstance.userInterface.showOptions = MagicMock(return_value="8")  # Back
+
+    # call
+    tavernInstance.gamble()
+
+    # check
+    assert tavernInstance.currentBet == 100
+
+
+def test_gamble_leaves_the_prompt_alone_with_nothing_staked_and_a_negative_purse():
+    # prepare - canAfford(0) is False below zero, but no bet is being voided
+    tavernInstance = createTavern()
+    tavernInstance.player.money = -5
+    tavernInstance.currentBet = 0
+    seen = []
+
+    def showOptionsSideEffect(prompt, options, unavailableOptions=None):
+        seen.append(tavernInstance.currentPrompt.text)
+        return "8"
+
+    tavernInstance.userInterface.showOptions = MagicMock(
+        side_effect=showOptionsSideEffect
+    )
+
+    # call
+    tavernInstance.gamble()
+
+    # check
+    assert "can't cover" not in seen[0]
+
+
+def test_changeBet_retries_on_non_finite_input_through_the_real_prompt():
+    # prepare - regression test for #250: "inf" and "nan" crashed int(amount)
+    for text in ["inf", "-inf", "nan", "1e999"]:
+        tavernInstance = createTavern()
+        tavernInstance.player.money = 42.7
+        tavernInstance.userInterface.promptForText = MagicMock(return_value=text)
+
+        # call
+        tavernInstance.changeBet("How much money would you like to bet?")
+
+        # check
+        assert tavernInstance.currentBet == 0
+        assert tavernInstance.currentPrompt.text == "Try again. Money: $42.70"
+
+
 def test_getDrunk_reports_what_the_fleet_did_overnight():
     # Drinking rolls the day over the same way sleeping does, so it owes the
     # player the same overnight report.
