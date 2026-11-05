@@ -100,8 +100,8 @@ class Bank:
                 "catch money for a while and you'll have their wages covered "
                 "in no time."
             )
-        # Nothing to congratulate before the first payday. Wages come out of
-        # the player's purse, so this is the one time she says not to bank it.
+        # Nothing to congratulate before the first payday. Wages are drawn from
+        # the player's purse, so the advice here is to keep money on hand.
         if self.stats.totalWagesPaid == 0:
             return (
                 "Your crew haven't drawn a wage yet - the first payday comes "
