@@ -7,6 +7,7 @@ from src.ui.userInterface import UserInterface
 from src.world.timeService import TimeService
 from src.achievements import achievements
 from src.housing import housing
+from src.investments import investments
 from src.progression import progression
 from unittest.mock import MagicMock
 
@@ -287,6 +288,25 @@ def test_displayStats_includes_investment_block_when_owned():
     shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
     assert "Investment Properties: 2 owned" in shownText
     assert "Lifetime Rental Income: $30" in shownText
+
+
+def test_displayStats_keeps_the_rental_record_after_every_unit_is_sold():
+    # prepare - a portfolio that paid out and was then sold off entirely
+    homeInstance = createHome()
+    homeInstance.player.money = 5000
+    investments.buyProperty(homeInstance.player, 1, homeInstance.stats)
+    investments.runDailyIncome(homeInstance.player, homeInstance.stats)
+    investments.sellProperty(homeInstance.player, 1)
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check
+    expectedIncome = investments.typeInfo(1)["dailyIncome"]
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Investment Properties: 0 owned" in shownText
+    assert "Lifetime Rental Income: $%d" % expectedIncome in shownText
 
 
 def test_manageHome_rented_room_option_discloses_daily_rent():

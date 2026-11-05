@@ -601,8 +601,38 @@ def test_old_tom_crew_question_is_locked_until_someone_is_hired():
     assert "Do my crew drink in here?" in questions
     index = questions.index("Do my crew drink in here?")
     response = tavernInstance.npc.get_dialogue_response(index)
-    assert "Marta Kell" in response
+    assert "Marta Kell holds court" in response
+    assert "hasn't had a bad word" in response
+
+
+def test_old_tom_crew_dialogue_speaks_of_several_hands_in_the_plural():
+    # prepare
+    tavernInstance = createTavern()
+    boats.addBoat(tavernInstance.player, 1)
+    tavernInstance.player.money = 1000
+    boats.hireWorker(tavernInstance.player, "Marta Kell")
+    boats.hireWorker(tavernInstance.player, "Owen Brackish")
+
+    # call
+    response = tavernInstance._crewDialogue()
+
+    # check
+    assert "Marta Kell and Owen Brackish hold court" in response
     assert "not one of them's had a bad word" in response
+
+
+def test_old_tom_crew_dialogue_warns_about_a_lone_hands_unpaid_wages():
+    # prepare - a single hire the player can't pay
+    tavernInstance = createTavern()
+    boats.addBoat(tavernInstance.player, 1)
+    boats.hireWorker(tavernInstance.player, "Marta Kell")
+    tavernInstance.player.money = 5
+
+    # call
+    response = tavernInstance._crewDialogue()
+
+    # check
+    assert "Marta Kell has been asking" in response
 
 
 def test_old_tom_crew_dialogue_warns_about_unpaid_wages():
@@ -618,6 +648,7 @@ def test_old_tom_crew_dialogue_warns_about_unpaid_wages():
 
     # check - Old Tom passes on what the crew are saying at the bar
     assert "payday" in response
+    assert "Marta Kell and Owen Brackish have been asking" in response
     assert "$%d a day" % (2 * business.WORKER_DAILY_WAGE) in response
 
 

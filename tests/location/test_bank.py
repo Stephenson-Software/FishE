@@ -10,6 +10,8 @@ from src.progression import progression
 from src.investments import investments
 from unittest.mock import MagicMock
 
+import pytest
+
 
 def createBank(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
@@ -193,6 +195,23 @@ def test_npc_business_dialogue_fleet_tier():
 
     # check
     assert "retire a wealthy soul" in bankInstance._businessDialogue()
+
+
+@pytest.mark.parametrize("tier", [1, 3])
+def test_npc_business_dialogue_quotes_no_wages_before_the_first_payday(tier):
+    # prepare - hired today, so no morning has paid them yet
+    bankInstance = createBank()
+    boats.addBoat(bankInstance.player, tier)
+    bankInstance.player.workers = 2
+    bankInstance.stats.totalWagesPaid = 0
+
+    # call
+    response = bankInstance._businessDialogue()
+
+    # check
+    assert "$0" not in response
+    assert "first payday" in response
+    assert "out of your purse" in response
 
 
 def test_npc_interest_dialogue_discloses_the_daily_cap():

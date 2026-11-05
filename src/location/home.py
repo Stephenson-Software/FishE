@@ -267,7 +267,9 @@ class Home:
                 ("Freight Paid", self.stats.totalShippingPaid, "$%d"),
             ],
         )
-        if self.player.rentalProperties:
+        # Gated on ever having bought one, not on owning one today, for the same
+        # reason as the blocks above: a sold-off portfolio keeps its record.
+        if self.player.rentalProperties or self.stats.totalPropertiesBought:
             lines += [
                 "",
                 "Investment Properties: %d owned" % len(self.player.rentalProperties),
