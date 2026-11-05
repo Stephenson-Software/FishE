@@ -294,7 +294,12 @@ class Shop:
             earned += value
             self.player.removeFish(species)
 
-        if self.player.fishCount > 0:
+        if self.player.fishCount > 0 and earned == 0:
+            # Nothing changed hands, so there's no sale to report.
+            self.currentPrompt.text = (
+                "The shop is out of money for today. %s" % self._leftoverAdvice()
+            )
+        elif self.player.fishCount > 0:
             self.currentPrompt.text = (
                 "Sold fish for $%.2f, but the shop is out of money for today. "
                 "%s" % (earned, self._leftoverAdvice())

@@ -105,18 +105,29 @@ class Tavern:
         """Old Tom's barside gossip about the villagers the player employs -
         he hears what they say about the job once you're not in earshot."""
         crew = self.player.hiredWorkers
+        onlyOne = len(crew) == 1
         payroll = self.player.workers * business.WORKER_DAILY_WAGE
         if not self.player.operatorMode and self.player.money < payroll:
             return (
-                "They do, and I'll be straight with you: %s have been asking "
+                "They do, and I'll be straight with you: %s %s been asking "
                 "at the bar whether payday's coming. Wages run $%d a day and "
                 "you're carrying $%.2f. Sort it out before they walk."
-                % (villagers.joinNames(crew), payroll, self.player.money)
+                % (
+                    villagers.joinNames(crew),
+                    "has" if onlyOne else "have",
+                    payroll,
+                    self.player.money,
+                )
             )
         return (
-            "Every night! %s hold court at that table by the window, and not "
-            "one of them's had a bad word about you yet. That's rarer than "
-            "you'd think in this village." % villagers.joinNames(crew)
+            "Every night! %s %s court at that table by the window, and %s had "
+            "a bad word about you yet. That's rarer than you'd think in this "
+            "village."
+            % (
+                villagers.joinNames(crew),
+                "holds" if onlyOne else "hold",
+                "hasn't" if onlyOne else "not one of them's",
+            )
         )
 
     def _businessDialogue(self):

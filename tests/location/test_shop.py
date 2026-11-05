@@ -356,6 +356,24 @@ def test_sellFish_limited_by_shop_budget():
     assert "out of money for today" in shopInstance.currentPrompt.text
 
 
+def test_sellFish_reports_no_sale_when_the_shop_cannot_buy_anything():
+    # prepare - the day's budget is already spent
+    shopInstance = createShop()
+    shopInstance.money = 0
+    shopInstance.player.money = 0
+    shopInstance.player.addFish("Minnow", 3)
+
+    # call
+    shopInstance.sellFish()
+
+    # check - nothing changed hands, so no "$0.00" sale is claimed
+    assert shopInstance.player.fishCount == 3
+    assert shopInstance.player.money == 0
+    assert "Sold fish" not in shopInstance.currentPrompt.text
+    assert "out of money for today" in shopInstance.currentPrompt.text
+    assert "Come back tomorrow" in shopInstance.currentPrompt.text
+
+
 def test_shop_budget_refills_next_day():
     # prepare - exhaust the shop's budget
     shopInstance = createShop()
