@@ -306,6 +306,48 @@ def test_createCrewNPC_crowded_question_stays_hidden_with_room_on_another_boat()
     assert player.workers < boats.totalCrewBerths(player)
 
 
+def test_createCrewNPC_crowded_question_stays_hidden_with_no_boats_left():
+    # prepare - the last boat is sold, so "every berth" is no berths at all
+    player = createEmployedPlayer(tier=1)
+    boats.sellBoat(player, player.boats[0]["id"])
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+
+    # call
+    questions = [option["question"] for option in npc.get_dialogue_options()]
+
+    # check
+    assert "Getting crowded out there, isn't it?" not in questions
+    assert player.workers == 1
+
+
+def test_createCrewNPC_wage_response_to_a_lone_hand_is_just_them():
+    # prepare - one hand on the payroll and nothing to pay them with
+    player = createEmployedPlayer()
+    player.money = 0
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+
+    # call
+    response = npc.get_dialogue_response(3)
+
+    # check
+    assert "for just me and" in response
+    assert "the lot of us" not in response
+
+
+def test_createCrewNPC_wage_response_to_a_crew_is_the_lot_of_them():
+    # prepare - two hands on the payroll and nothing to pay them with
+    player = createEmployedPlayer()
+    boats.hireWorker(player, "Owen Brackish")
+    player.money = 0
+    npc = villagers.createCrewNPC(player, "Marta Kell")
+
+    # call
+    response = npc.get_dialogue_response(3)
+
+    # check
+    assert "for the lot of us and" in response
+
+
 def test_createCrewNPC_ambition_response_mentions_the_business():
     # prepare
     player = createEmployedPlayer(tier=len(business.BOAT_TIERS))

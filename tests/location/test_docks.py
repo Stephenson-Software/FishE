@@ -1165,7 +1165,95 @@ def test_sam_crew_question_mentions_unnamed_hands():
 
     # check
     assert "Marta Kell" in response
-    assert "2 hands" in response
+    assert "2 hands besides, whose names I never did catch" in response
+
+
+def test_sam_crew_question_speaks_of_one_unnamed_hand_in_the_singular():
+    # prepare - one named villager plus one hand from a legacy save
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.player.workers = 1
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+
+    # call
+    response = docksInstance._crewDialogue()
+
+    # check
+    assert "1 hand besides, whose name I never did catch" in response
+
+
+def test_sam_crew_question_speaks_of_a_single_hire_in_the_singular():
+    # prepare
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+
+    # call
+    response = docksInstance._crewDialogue()
+
+    # check
+    assert "I've known that one since" in response
+    assert "every one of 'em" not in response
+
+
+def test_sam_crew_question_keeps_the_singular_beside_unnamed_hands():
+    # prepare - one named villager plus two hands: Sam only knows the one
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    docksInstance.player.workers = 2
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+
+    # call
+    response = docksInstance._crewDialogue()
+
+    # check
+    assert "I've known that one since" in response
+
+
+def test_sam_crew_question_speaks_of_several_hires_in_the_plural():
+    # prepare
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.hireWorker(docksInstance.player, "Owen Brackish")
+
+    # call
+    response = docksInstance._crewDialogue()
+
+    # check
+    assert "I've known every one of 'em since" in response
+
+
+def test_talkToCrew_prompt_has_the_crew_at_work_on_a_boat():
+    # prepare - one hand aboard, so "2" is Back
+    docksInstance = createDocks()
+    boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call
+    docksInstance.talkToCrew()
+
+    # check
+    prompt = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert "working the boat" in prompt
+
+
+def test_talkToCrew_prompt_has_the_crew_ashore_after_the_last_boat_is_sold():
+    # prepare - the hand stays on the payroll with no boat to work
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1)
+    boats.hireWorker(docksInstance.player, "Marta Kell")
+    boats.sellBoat(docksInstance.player, boat["id"])
+    docksInstance.userInterface.showOptions = MagicMock(return_value="2")
+
+    # call
+    docksInstance.talkToCrew()
+
+    # check
+    prompt = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert "ashore" in prompt
+    assert "working the boat" not in prompt
 
 
 def test_fleetStatus_lists_every_boat_and_who_is_on_her():
