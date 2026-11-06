@@ -295,15 +295,18 @@ class Docks:
                 described.append(name)
             else:
                 described.append("%s on %s" % (name, villager["specialty"]))
+        known = "that one" if len(described) == 1 else "every one of 'em"
         text = (
-            "You've got %s. I've known every one of 'em since they were "
-            "knee-high - you picked well." % villagers.joinNames(described)
+            "You've got %s. I've known %s since they were knee-high - you "
+            "picked well." % (villagers.joinNames(described), known)
         )
         unnamed = self.player.workers - len(self.player.hiredWorkers)
         if unnamed > 0:
-            text += " And %d hand%s besides, whose name I never did catch." % (
+            plural = "s" if unnamed != 1 else ""
+            text += " And %d hand%s besides, whose name%s I never did catch." % (
                 unnamed,
-                "s" if unnamed != 1 else "",
+                plural,
+                plural,
             )
         return text
 
@@ -313,9 +316,15 @@ class Docks:
         while True:
             options = list(self.player.hiredWorkers)
             options.append("Back")
+            # Hands outlive their boats - see boats.sellBoat.
+            where = (
+                "working the boat"
+                if boats.assignedNames(self.player)
+                else "ashore, waiting on a berth"
+            )
             choice = int(
                 self.userInterface.showOptions(
-                    "Your crew are working the boat. Who do you want a word with?",
+                    "Your crew are %s. Who do you want a word with?" % where,
                     options,
                 )
             )

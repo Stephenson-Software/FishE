@@ -214,9 +214,14 @@ def createCrewNPC(player, name):
             )
         return (
             "$%d a day is fair enough - if it turns up. Payroll's $%d a day "
-            "for the lot of us and you're carrying $%.2f. I'd sort that out "
-            "before morning if I were you."
-            % (business.WORKER_DAILY_WAGE, payroll, player.money)
+            "for %s and you're carrying $%.2f. I'd sort that out before "
+            "morning if I were you."
+            % (
+                business.WORKER_DAILY_WAGE,
+                payroll,
+                "just me" if player.workers == 1 else "the lot of us",
+                player.money,
+            )
         )
 
     def crowdedDialogue():
@@ -261,10 +266,12 @@ def createCrewNPC(player, name):
                 "response": wageDialogue,
             },
             {
-                # Only worth asking once there's no room left to hire.
+                # Only worth asking once there's no room left to hire - and
+                # with the last boat sold there's nothing to be crowded on.
                 "question": "Getting crowded out there, isn't it?",
                 "response": crowdedDialogue,
-                "condition": lambda: player.workers >= boats.totalCrewBerths(player),
+                "condition": lambda: bool(player.boats)
+                and player.workers >= boats.totalCrewBerths(player),
             },
             {
                 # The outfit has to have a name before anyone can have an
