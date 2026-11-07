@@ -336,6 +336,87 @@ def test_withdraw_with_decimal():
     assert bankInstance.player.money == 10.50
 
 
+def test_withdraw_accepts_the_balance_as_shown_when_it_is_held_just_under():
+    # prepare - what 16 days of interest on the starting cent really leaves,
+    # which the prompt prints as $16.01
+    bankInstance = createBank()
+    bankInstance.player.moneyInBank = 16.009999999999998
+    bankInstance.player.money = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=16.01)
+
+    # call
+    bankInstance.withdraw()
+
+    # check - the whole balance moved, and nothing is left behind
+    assert bankInstance.currentPrompt.text == "$16.01 withdrawn successfully."
+    assert bankInstance.player.moneyInBank == 0
+    assert bankInstance.player.money == 16.009999999999998
+
+
+def test_withdraw_leaves_no_sliver_when_the_balance_is_held_just_over():
+    # prepare - shown as $16.01, so the row would stay enabled at $0.00
+    bankInstance = createBank()
+    bankInstance.player.moneyInBank = 16.010000000000005
+    bankInstance.player.money = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=16.01)
+
+    # call
+    bankInstance.withdraw()
+
+    # check
+    assert bankInstance.player.moneyInBank == 0
+    assert bankInstance.player.money == 16.010000000000005
+
+
+def test_deposit_accepts_the_purse_as_shown_when_it_is_held_just_under():
+    # prepare - 6 * 1.2 from an export, which the prompt prints as $7.20
+    bankInstance = createBank()
+    bankInstance.player.money = 7.199999999999999
+    bankInstance.player.moneyInBank = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=7.2)
+
+    # call
+    bankInstance.deposit()
+
+    # check
+    assert bankInstance.currentPrompt.text == "$7.20 deposited successfully."
+    assert bankInstance.player.money == 0
+    assert bankInstance.player.moneyInBank == 7.199999999999999
+
+
+def test_deposit_leaves_no_sliver_when_the_purse_is_held_just_over():
+    # prepare - shown as $7.20
+    bankInstance = createBank()
+    bankInstance.player.money = 7.200000000000001
+    bankInstance.player.moneyInBank = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=7.2)
+
+    # call
+    bankInstance.deposit()
+
+    # check
+    assert bankInstance.player.money == 0
+    assert bankInstance.player.moneyInBank == 7.200000000000001
+
+
+def test_withdraw_still_refuses_a_cent_more_than_the_balance_shown():
+    # prepare
+    bankInstance = createBank()
+    bankInstance.player.moneyInBank = 16.009999999999998
+    bankInstance.player.money = 0
+    bankInstance.userInterface.promptForNumber = MagicMock(return_value=16.02)
+
+    # call
+    bankInstance.withdraw()
+
+    # check
+    assert (
+        bankInstance.currentPrompt.text == "You don't have that much money in the bank!"
+    )
+    assert bankInstance.player.moneyInBank == 16.009999999999998
+    assert bankInstance.player.money == 0
+
+
 def test_deposit_invalid_input_retries_then_succeeds():
     # prepare - the player types something non-numeric first (promptForNumber
     # returns None), then a valid amount

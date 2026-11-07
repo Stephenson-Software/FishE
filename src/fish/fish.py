@@ -33,9 +33,9 @@ def bestFirst(fishByType, fishCount):
 
     Shared by every buyer that can only take part of a hoard - the shop (whose
     daily budget runs out) and the export markets (whose hold has a capacity) -
-    so the fish left behind are always the cheapest ones. A legacy save with
-    only an aggregate count and no species breakdown yields that many unknown
-    entries, which fishValue prices at the original flat range."""
+    so the best fish are taken first. A legacy save with only an aggregate
+    count and no species breakdown yields that many unknown entries, which
+    fishValue prices at the original flat range."""
     if not fishByType:
         return [None] * fishCount
     queue = []

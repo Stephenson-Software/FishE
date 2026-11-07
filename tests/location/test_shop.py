@@ -9,7 +9,7 @@ from src.world.timeService import TimeService
 from src.business import boats
 from src.business import export
 from src.progression import progression
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def createShop(unlocked=True):
@@ -372,6 +372,47 @@ def test_sellFish_reports_no_sale_when_the_shop_cannot_buy_anything():
     assert "Sold fish" not in shopInstance.currentPrompt.text
     assert "out of money for today" in shopInstance.currentPrompt.text
     assert "Come back tomorrow" in shopInstance.currentPrompt.text
+
+
+def test_sellFish_passes_over_a_fish_the_till_cannot_cover():
+    # prepare - $20 left: not enough for the Koi at the head of the queue,
+    # plenty for the Minnows behind it
+    shopInstance = createShop()
+    shopInstance.money = 20
+    shopInstance.player.money = 0
+    shopInstance.player.addFish("Golden Koi", 1)
+    shopInstance.player.addFish("Minnow", 3)
+    prices = {"Golden Koi": 60, "Minnow": 3}
+
+    # call
+    with patch.object(shop.fish, "fishValue", side_effect=lambda name: prices[name]):
+        shopInstance.sellFish()
+
+    # check - the Minnows sold, and the Koi stays in the hold for another day
+    assert shopInstance.player.fishByType == {"Golden Koi": 1}
+    assert shopInstance.player.money == 9
+    assert shopInstance.money == 11
+    assert "Sold fish for $9.00" in shopInstance.currentPrompt.text
+    assert "Come back tomorrow" in shopInstance.currentPrompt.text
+
+
+def test_sellFish_keeps_selling_best_first_until_the_till_runs_dry():
+    # prepare - the till covers the Koi and one Minnow, but not the second
+    shopInstance = createShop()
+    shopInstance.money = 63
+    shopInstance.player.money = 0
+    shopInstance.player.addFish("Minnow", 2)
+    shopInstance.player.addFish("Golden Koi", 1)
+    prices = {"Golden Koi": 60, "Minnow": 3}
+
+    # call
+    with patch.object(shop.fish, "fishValue", side_effect=lambda name: prices[name]):
+        shopInstance.sellFish()
+
+    # check - the Koi went first, so the fish left over is the Minnow
+    assert shopInstance.player.fishByType == {"Minnow": 1}
+    assert shopInstance.player.money == 63
+    assert shopInstance.money == 0
 
 
 def test_shop_budget_refills_next_day():
