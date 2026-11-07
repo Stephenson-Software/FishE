@@ -278,8 +278,10 @@ class Shop:
             return
 
         # One entry per held fish, most valuable species first, so the best
-        # fish are cashed in before the shop's daily budget runs out; any
-        # unaffordable leftovers stay in the inventory for another day.
+        # fish are cashed in before the shop's daily budget runs out. A fish
+        # the till can't cover is passed over rather than ending the sale, as
+        # cheaper ones behind it may still fit (#265); leftovers stay in the
+        # inventory for another day.
         queue = fish.bestFirst(self.player.fishByType, self.player.fishCount)
 
         earned = 0.0
@@ -287,7 +289,7 @@ class Shop:
             value = fish.fishValue(species)
             if not self.player.operatorMode:
                 if self.money < value:
-                    break  # shop is out of money for today
+                    continue  # too dear for what's left in the till today
                 self.money -= value
             self.player.money += value
             self.stats.totalMoneyMade += value

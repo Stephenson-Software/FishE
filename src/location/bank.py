@@ -15,6 +15,19 @@ from progression import progression
 _INTEREST_CAP_BALANCE = int(MAX_INTEREST_PER_DAY / INTEREST_RATE)
 
 
+def _wholeBalanceIfShown(amount, balance):
+    """The amount to actually move: the whole balance if the player typed it
+    as the screen shows it, otherwise what they typed.
+
+    Balances are floats and carry noise a cent can't show - a day's interest
+    can leave 16.009999999999998 on screen as $16.01 - so comparing the typed
+    figure with the held one would refuse the very number on display, or leave
+    an unseen sliver behind in the account (#264)."""
+    if "%.2f" % amount == "%.2f" % balance:
+        return balance
+    return amount
+
+
 # @author Daniel McCoy Stephenson
 class Bank:
     def __init__(
@@ -261,6 +274,7 @@ class Bank:
                 )
                 continue
 
+            amount = _wholeBalanceIfShown(amount, self.player.money)
             if self.player.canAfford(amount):
                 self.player.moneyInBank += amount
                 self.player.spendMoney(amount)
@@ -285,6 +299,7 @@ class Bank:
                 )
                 continue
 
+            amount = _wholeBalanceIfShown(amount, self.player.moneyInBank)
             if amount <= self.player.moneyInBank:
                 self.player.money += amount
                 self.player.moneyInBank -= amount
