@@ -295,9 +295,15 @@ class FishE:
             # because this is appended to whatever the action itself already
             # wrote, and is preserved on the next screen the same way the
             # milestones above are.
-            appendDayReport(
-                self.prompt, self.timeService.increaseTime(), separator="  "
-            )
+            #
+            # Not on the iteration that ends the run, though: quitting or
+            # retiring is not an hour spent, and a day rolled there would be
+            # saved with its report on a prompt that is never shown again -
+            # a lost hand or an eviction nobody is told about (#267).
+            if self.running:
+                appendDayReport(
+                    self.prompt, self.timeService.increaseTime(), separator="  "
+                )
 
             self.save()
 
