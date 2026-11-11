@@ -214,9 +214,14 @@ class Home:
         # The ledger opens (progression.JOURNAL) before the bank and the tavern
         # are usually revealed, so these rows wait for something to count -
         # the same rule as _careerBlock below. A zero row would name a place
-        # the player hasn't been shown yet (#271).
+        # the player hasn't been shown yet (#271). Interest also waits for the
+        # bank itself: the starting cent in the account earns a rounded-up
+        # dollar a night long before Margaret is introduced.
+        interest = self.stats.moneyMadeFromInterest
+        if not progression.isUnlocked(self.stats, progression.BANK):
+            interest = 0
         for label, value, valueFormat in [
-            ("Money Made From Interest", self.stats.moneyMadeFromInterest, "$%d"),
+            ("Money Made From Interest", interest, "$%d"),
             ("Times Gotten Drunk", self.stats.timesGottenDrunk, "%d"),
             ("Money Lost Gambling", self.stats.moneyLostFromGambling, "$%d"),
             ("Money Lost While Drunk", self.stats.moneyLostWhileDrunk, "$%d"),

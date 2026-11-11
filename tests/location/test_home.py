@@ -651,8 +651,11 @@ def test_displayStats_marks_every_money_total_with_a_dollar_sign():
 
 def test_displayStats_omits_bank_and_tavern_rows_until_they_count_something():
     # prepare - a first look at the ledger: hours on the water, but the bank
-    # and the tavern not yet part of the career
-    homeInstance = createHome()
+    # and the tavern not yet revealed - though the starting cent in the account
+    # has already earned a rounded-up dollar a night for three nights
+    homeInstance = createHome(unlocked=False)
+    homeInstance.stats.unlockedFeatures.append(progression.JOURNAL)
+    homeInstance.stats.moneyMadeFromInterest = 3
     homeInstance.stats.totalFishCaught = 12
     homeInstance.stats.hoursSpentFishing = 15
     homeInstance.userInterface.showDialogue = MagicMock()
