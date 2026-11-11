@@ -1,0 +1,13 @@
+{
+  "comment": "FishE's link-preview card (web/og.png, the og:image in web/index.html). Rendered by community-site-kit tools/og-card at 5e3329e2f50d9700ad60979270557fb0e3de98f8; see og-card/README.md.",
+  "output": "../web/og.png",
+  "scene": "coast",
+  "seed": 4,
+  "sun": { "azimuth": 200, "elevation": 28 },
+  "wordmark": "A text fishing game",
+  "title": "FishE",
+  "subtitle": "Fish a seaside village and build a fortune of $10,000.",
+  "url": "fishe.danielstephenson.dev",
+  "accent": "#3fb6a8",
+  "alt": "Green headlands with pine trees around a bay of teal water, a red and white lighthouse on the near shore, in afternoon sun, beside the title FishE."
+}
