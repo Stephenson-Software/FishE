@@ -1,0 +1,45 @@
+{
+  "tool": "community-site-kit tools/og-card/og_card.py",
+  "tool_repository": "https://github.com/kingdom-community/community-site-kit",
+  "tool_commit": "5e3329e2f50d9700ad60979270557fb0e3de98f8",
+  "command": "python3 tools/og-card/og_card.py <site>/og-card/card.json",
+  "renderer": {
+    "engine": "Strata",
+    "version": "0.6.0",
+    "asset": "libstrata-0.6.0-linux-x64.so",
+    "asset_sha256": "3815068f90afa67b42177359a7ea918a5de321d7f7bad8706fa5275c4906af2a",
+    "library_sha256": "3815068f90afa67b42177359a7ea918a5de321d7f7bad8706fa5275c4906af2a",
+    "binding": "strata-engine 0.6.0",
+    "gpu": "llvmpipe (LLVM 12.0.0, 256 bits) | 4.5 (Core Profile) Mesa 21.2.6"
+  },
+  "text": {
+    "pillow": "10.4.0",
+    "fonts": {
+      "DejaVuSans-Bold.ttf": "aa2ebed70cf6a389400a49feeb976c785de411f387d0cff998472590760cc2b6",
+      "DejaVuSans.ttf": "437a5ecec2ec177cba9284cbffc56055311347f3e9fe4f2b4b40323d0290a6db"
+    }
+  },
+  "python": "3.11.15",
+  "spec": {
+    "accent": "#3fb6a8",
+    "alt": "Green headlands with pine trees around a bay of teal water, a red and white lighthouse on the near shore, in afternoon sun, beside the title FishE.",
+    "credit": "Rendered with Strata",
+    "output": "../web/og.png",
+    "scene": "coast",
+    "seed": 4,
+    "subtitle": "Fish a seaside village and build a fortune of $10,000.",
+    "sun": {
+      "azimuth": 200.0,
+      "elevation": 28.0
+    },
+    "title": "FishE",
+    "url": "fishe.danielstephenson.dev",
+    "wordmark": "A text fishing game"
+  },
+  "output": {
+    "path": "../web/og.png",
+    "width": 1200,
+    "height": 630,
+    "sha256": "9ca1be891d965e9c588a43dddfcf09050f0303677f7bdfa398b32afc5fe7abd3"
+  }
+}
