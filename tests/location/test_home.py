@@ -612,6 +612,7 @@ def test_displayStats_marks_every_money_total_with_a_dollar_sign():
     homeInstance.stats.moneyMadeFromInterest = 210
     homeInstance.stats.moneyLostFromGambling = 150
     homeInstance.stats.moneyLostWhileDrunk = 65
+    homeInstance.stats.timesGottenDrunk = 7
     homeInstance.stats.totalRentPaid = 40
     homeInstance.stats.daysInBusiness = 30
     homeInstance.stats.totalWagesPaid = 600
@@ -644,8 +645,53 @@ def test_displayStats_marks_every_money_total_with_a_dollar_sign():
     ]:
         assert row in shownText
     # the counts beside them are untouched - only money carries the marker
-    assert "Times Gotten Drunk: 0" in shownText
+    assert "Times Gotten Drunk: 7" in shownText
     assert "Investment Properties: 1 owned" in shownText
+
+
+def test_displayStats_omits_bank_and_tavern_rows_until_they_count_something():
+    # prepare - a first look at the ledger: hours on the water, but the bank
+    # and the tavern not yet revealed - though the starting cent in the account
+    # has already earned a rounded-up dollar a night for three nights
+    homeInstance = createHome(unlocked=False)
+    homeInstance.stats.unlockedFeatures.append(progression.JOURNAL)
+    homeInstance.stats.moneyMadeFromInterest = 3
+    homeInstance.stats.totalFishCaught = 12
+    homeInstance.stats.hoursSpentFishing = 15
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - no row names a place the player hasn't been shown yet (#271)
+    shownText = homeInstance.userInterface.showDialogue.call_args[0][0]
+    assert "Hours Spent Fishing: 15" in shownText
+    assert "Interest" not in shownText
+    assert "Drunk" not in shownText
+    assert "Gambling" not in shownText
+
+
+def test_displayStats_bank_and_tavern_rows_keep_their_order_once_earned():
+    # prepare - each row given a distinct value
+    homeInstance = createHome()
+    homeInstance.stats.moneyMadeFromInterest = 11
+    homeInstance.stats.timesGottenDrunk = 2
+    homeInstance.stats.moneyLostFromGambling = 33
+    homeInstance.stats.moneyLostWhileDrunk = 44
+    homeInstance.userInterface.showDialogue = MagicMock()
+
+    # call
+    homeInstance.displayStats()
+
+    # check - straight after the hours, in the order they always had
+    lines = homeInstance.userInterface.showDialogue.call_args[0][0].split("\n")
+    hours = [i for i, line in enumerate(lines) if line.startswith("Hours Spent")][0]
+    assert lines[hours + 1 : hours + 5] == [
+        "Money Made From Interest: $11",
+        "Times Gotten Drunk: 2",
+        "Money Lost Gambling: $33",
+        "Money Lost While Drunk: $44",
+    ]
 
 
 def test_displayStats_omits_the_fleet_and_export_blocks_for_a_fresh_player():
