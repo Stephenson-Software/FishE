@@ -848,11 +848,12 @@ class Docks:
         options.append("Back")
 
         descriptor = (
-            "%d hands aboard for %d days. Full stores is %d supplies at $%d "
+            "%d hand%s aboard for %d days. Full stores is %d supplies at $%d "
             "each - enough for the legs and no more, and events at sea can "
             "eat into it. You're carrying $%.2f."
             % (
                 boats.crewSize(boat),
+                "s" if boats.crewSize(boat) != 1 else "",
                 plan["legs"],
                 recommended,
                 adventures.SUPPLY_COST,
@@ -954,8 +955,12 @@ class Docks:
         """The homecoming, good or bad."""
         if summary["foundered"]:
             lines = [
-                "The hull gives at last, %d days out of %d."
-                % (summary["legsSailed"], summary["legs"]),
+                "The hull gives at last, %d day%s out of %d."
+                % (
+                    summary["legsSailed"],
+                    "s" if summary["legsSailed"] != 1 else "",
+                    summary["legs"],
+                ),
                 "",
                 "You make port on the pumps.",
                 "  Cargo    lost overboard",
@@ -1078,8 +1083,9 @@ class Docks:
             )
         )
         if self.player.fishCount > 0:
-            self.currentPrompt.text += (
-                " %d fish are still in the hold." % self.player.fishCount
+            self.currentPrompt.text += " %d fish %s still in the hold." % (
+                self.player.fishCount,
+                "are" if self.player.fishCount != 1 else "is",
             )
 
         # The round trip is what stops exporting from being a free repeatable
@@ -1215,10 +1221,11 @@ class Docks:
         self.player.addFish(fishTypeName, fishToAdd)
         self.stats.totalFishCaught += fishToAdd
 
-        self.currentPrompt.text = "You caught %d %s over %d hours! %s" % (
+        self.currentPrompt.text = "You caught %d %s over %d hour%s! %s" % (
             fishToAdd,
             fishTypeName,
             hours,
+            "s" if hours != 1 else "",
             qualityLabel,
         )
 
