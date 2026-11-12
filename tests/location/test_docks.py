@@ -309,6 +309,24 @@ def test_fish_always_lands_at_least_one_fish():
     # check - rounded up to the one fish the effort is always worth
     assert docksInstance.player.fishCount == 1
     assert docksInstance.stats.totalFishCaught == 1
+    assert "over 3 hours!" in docksInstance.currentPrompt.text
+
+
+def test_fish_says_hour_for_a_one_hour_trip():
+    # prepare - the trip roll comes up 1
+    docksInstance = createDocks()
+    docksInstance.userInterface.timedKeyPress = MagicMock(return_value=0.5)
+
+    with patch("src.location.docks.random.randint", side_effect=[1, 5]):
+        docksInstance.timeService.increaseTime = MagicMock(
+            return_value={"evicted": False}
+        )
+
+        # call
+        docksInstance.fish()
+
+    # check
+    assert " over 1 hour! " in docksInstance.currentPrompt.text
 
 
 def test_fish_consumes_energy():
@@ -1643,6 +1661,20 @@ def test_exportFish_reports_fish_left_in_the_hold():
     assert "40 fish are still in the hold" in docksInstance.currentPrompt.text
 
 
+def test_exportFish_reports_a_single_fish_left_in_the_hold():
+    # prepare - one fish more than a Trawler can carry in one run
+    capacity = business.tierInfo(2)["exportCapacity"]
+    docksInstance = createExportingDocks(fishCount=capacity + 1)
+    docksInstance.userInterface.showOptions = MagicMock(return_value="1")
+
+    # call
+    docksInstance.exportFish()
+
+    # check
+    assert docksInstance.player.fishCount == 1
+    assert "1 fish is still in the hold." in docksInstance.currentPrompt.text
+
+
 def test_exportFish_back_ships_nothing():
     # prepare - "Back" is the entry after the reachable markets
     docksInstance = createExportingDocks()
@@ -2081,6 +2113,29 @@ def test_voyageReport_reads_as_a_disaster_when_she_founders():
     assert "hull gives" in report
     assert "lost overboard" in report
     assert "Owen Brackish did not come back" in report
+    assert "3 days out of 11." in report
+
+
+def test_voyageReport_says_day_for_a_foundering_on_the_first_leg():
+    # prepare - the hull went on leg one
+    docksInstance, _ = createSailingDocks()
+
+    # call
+    report = docksInstance._voyageReport(
+        {
+            "boat": "Marauder",
+            "foundered": True,
+            "legsSailed": 1,
+            "legs": 4,
+            "money": 0,
+            "fish": 0,
+            "crewLost": [],
+            "hullDamage": 92,
+        }
+    )
+
+    # check
+    assert "The hull gives at last, 1 day out of 4." in report
 
 
 def test_exportCapacity_prefers_a_hauling_boat():
@@ -2197,6 +2252,23 @@ def test_provisioning_says_when_each_option_runs_out():
     options = docksInstance.userInterface.showOptions.call_args[0][1]
     assert any("lasts the voyage" in option for option in options)
     assert any("runs out on day" in option for option in options)
+    descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert descriptor.startswith("3 hands aboard for 11 days.")
+
+
+def test_provisioning_says_hand_for_a_crew_of_one():
+    # prepare - a boat with a single hand aboard
+    docksInstance, boat = createSailingDocks(crew=1)
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=voyageChooser("Marauder", "A short run")
+    )
+
+    # call
+    docksInstance.takeTheHelm()
+
+    # check
+    descriptor = docksInstance.userInterface.showOptions.call_args[0][0]
+    assert descriptor.startswith("1 hand aboard for 4 days.")
 
 
 def test_provisioning_warns_before_sailing_a_damaged_hull():
