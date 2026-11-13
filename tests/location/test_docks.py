@@ -2138,6 +2138,73 @@ def test_voyageReport_says_day_for_a_foundering_on_the_first_leg():
     assert "The hull gives at last, 1 day out of 4." in report
 
 
+def test_voyageReport_names_an_unnamed_hand_who_did_not_come_back():
+    # prepare - a legacy crew, one of whom was lost at sea (#277)
+    docksInstance, _ = createSailingDocks()
+
+    # call
+    report = docksInstance._voyageReport(
+        {
+            "boat": "Mule",
+            "foundered": False,
+            "legsSailed": 4,
+            "legs": 4,
+            "money": 300,
+            "fish": 0,
+            "crewLost": [],
+            "handsLost": 1,
+            "hullDamage": 0,
+        }
+    )
+
+    # check - one short is not all hands accounted for
+    assert "1 unnamed hand did not come back" in report
+    assert "all hands accounted for" not in report
+
+
+def test_voyageReport_reads_back_named_and_unnamed_losses_together():
+    # prepare
+    docksInstance, _ = createSailingDocks()
+
+    # call
+    report = docksInstance._voyageReport(
+        {
+            "boat": "Mule",
+            "foundered": False,
+            "legsSailed": 4,
+            "legs": 4,
+            "money": 300,
+            "fish": 0,
+            "crewLost": ["Owen Brackish"],
+            "handsLost": 2,
+            "hullDamage": 0,
+        }
+    )
+
+    # check
+    assert "Owen Brackish and 2 unnamed hands did not come back" in report
+
+
+def test_a_voyage_that_loses_an_unnamed_hand_reports_it_on_the_way_home():
+    # prepare - the real settle-up feeding the real report
+    docksInstance, _ = createSailingDocks()
+    player = docksInstance.player
+    boat = boats.addBoat(player, 2, boats.ROLE_HAULING, "Mule")
+    player.workers += 2
+    boat["hands"] = 2
+    voyage = adventures.startVoyage(boat, adventures.VOYAGE_PLANS[0], 20)
+    adventures.loseCrew(voyage)
+    voyage["status"] = "home"
+
+    # call
+    summary = adventures.finishVoyage(player, voyage, docksInstance.stats)
+    report = docksInstance._voyageReport(summary)
+
+    # check
+    assert "1 unnamed hand did not come back" in report
+    assert "all hands accounted for" not in report
+
+
 def test_exportCapacity_prefers_a_hauling_boat():
     # prepare - the same hull, fishing then hauling
     docksInstance = createDocks()

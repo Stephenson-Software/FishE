@@ -977,11 +977,16 @@ class Docks:
             ]
             if summary["fish"]:
                 lines.append("  Hold     %d fish" % summary["fish"])
-        if summary["crewLost"]:
-            lines.append(
-                "  Crew     %s did not come back"
-                % villagers.joinNames(summary["crewLost"])
+        # Unnamed legacy hands are read back as a count beside the names, so a
+        # voyage that lost only them isn't reported as all hands home (#277).
+        lost = list(summary["crewLost"])
+        handsLost = summary.get("handsLost", 0)
+        if handsLost:
+            lost.append(
+                "%d unnamed hand%s" % (handsLost, "s" if handsLost != 1 else "")
             )
+        if lost:
+            lines.append("  Crew     %s did not come back" % villagers.joinNames(lost))
         else:
             lines.append("  Crew     all hands accounted for")
         lines.append(
