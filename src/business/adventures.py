@@ -641,6 +641,9 @@ def finishVoyage(player, voyage, stats=None):
         "money": 0,
         "fish": 0,
         "crewLost": [],
+        # Unnamed legacy hands who didn't come back - they have no name to put
+        # in crewLost, but they are just as lost and the report has to say so.
+        "handsLost": 0,
         "hullDamage": 0,
     }
 
@@ -653,6 +656,7 @@ def finishVoyage(player, voyage, stats=None):
     if lostHands > 0:
         boat["hands"] = voyage["hands"]
         player.workers = max(0, player.workers - lostHands)
+        summary["handsLost"] = lostHands
 
     boat["damage"] = boats.MAX_DAMAGE - voyage["hull"] if not foundered else 92
     summary["hullDamage"] = boat["damage"]
@@ -669,7 +673,7 @@ def finishVoyage(player, voyage, stats=None):
         stats.totalMoneyMade += summary["money"]
         stats.totalMoneyFromVoyages += summary["money"]
         stats.totalFishCaught += summary["fish"]
-        stats.crewLostToPiracy += len(summary["crewLost"])
+        stats.crewLostToPiracy += len(summary["crewLost"]) + summary["handsLost"]
         if foundered:
             stats.totalVoyagesFoundered += 1
     return summary

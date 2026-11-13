@@ -297,6 +297,42 @@ def test_unnamed_hands_lost_at_sea_are_taken_off_the_headcount():
     assert player.workers == 1
 
 
+def test_unnamed_hands_lost_at_sea_are_reported_and_counted():
+    # prepare - a pre-roles crew with no names, two of whom don't come back
+    player = Player()
+    player.money = 1000
+    boat = boats.addBoat(player, 2, boats.ROLE_HAULING, "Mule")
+    player.workers = 3
+    boat["hands"] = 3
+    voyage = adventures.startVoyage(boat, adventures.VOYAGE_PLANS[0], 20)
+    adventures.loseCrew(voyage)
+    adventures.loseCrew(voyage)
+    voyage["status"] = "home"
+    stats = Stats()
+
+    # call
+    summary = adventures.finishVoyage(player, voyage, stats)
+
+    # check - no names, but the count travels with the summary and the ledger
+    assert summary["crewLost"] == []
+    assert summary["handsLost"] == 2
+    assert stats.crewLostToPiracy == 2
+
+
+def test_a_voyage_with_everyone_home_loses_no_unnamed_hands():
+    # prepare
+    player, boat, voyage = createVoyage()
+    voyage["status"] = "home"
+    stats = Stats()
+
+    # call
+    summary = adventures.finishVoyage(player, voyage, stats)
+
+    # check
+    assert summary["handsLost"] == 0
+    assert stats.crewLostToPiracy == 0
+
+
 def test_pressing_on_through_sickness_loses_an_unnamed_hand_without_a_name():
     # prepare - a pre-roles crew with no names, so the hand lost has none
     player = Player()
