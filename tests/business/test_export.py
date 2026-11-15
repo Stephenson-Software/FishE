@@ -166,6 +166,26 @@ def test_a_damaged_fleet_leaves_the_run_to_a_sound_trawler():
     assert player.fishCount == 700
 
 
+def test_holdFor_canSail_and_runnerTier_report_on_the_boat_itself():
+    # prepare - a hauling Trawler and a laid-up Fishing Fleet
+    player = createExporter(tier=2)
+    boats.setRole(player, player.boats[0]["id"], boats.ROLE_HAULING)
+    hauler = player.boats[0]
+    fleet = boats.addBoat(player, 3)
+    fleet["damage"] = 92
+
+    # check - holdFor ignores her state, canSail is the hull test, and the
+    # run's tier is the boat that sails, not the fleet's best hull
+    assert export.holdFor(hauler) == int(
+        business.tierInfo(2)["exportCapacity"] * boats.HAULING_CAPACITY_BONUS
+    )
+    assert export.holdFor(fleet) == business.tierInfo(3)["exportCapacity"]
+    assert export.canSail(hauler) is True
+    assert export.canSail(fleet) is False
+    assert export.runnerTier(player) == 2
+    assert export.runnerTier(Player()) == 0
+
+
 def test_a_damaged_rowboat_beside_a_trawler_is_still_a_small_boat_refusal():
     # prepare - nothing big enough for the far market, damaged or not
     player = createExporter(tier=2, fish={"Bass": 10})
