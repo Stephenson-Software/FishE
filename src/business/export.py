@@ -44,47 +44,74 @@ EXPORT_MARKETS = [
     },
 ]
 
-def exportCapacity(player):
-    """How many fish one run can carry (0 with no boat, or none big enough to
-    make the crossing).
+def holdFor(boat):
+    """How many fish this boat carries on an export run, whatever her state.
 
-    The run goes out on whichever boat carries the most: a hauling boat's hold
-    is fitted for cargo, so it beats a same-sized hull in any other role - which
-    is the passive half of what dedicating a boat to hauling buys you."""
-    best = 0
-    for boat in player.boats:
-        capacity = business.tierInfo(boat["tier"]).get("exportCapacity", 0)
-        if boat["role"] == boats.ROLE_HAULING:
-            capacity = int(capacity * boats.HAULING_CAPACITY_BONUS)
-        best = max(best, capacity)
-    return best
+    A hauling boat's hold is fitted for cargo, so it beats a same-sized hull in
+    any other role - which is the passive half of what dedicating a boat to
+    hauling buys you."""
+    capacity = business.tierInfo(boat["tier"]).get("exportCapacity", 0)
+    if boat["role"] == boats.ROLE_HAULING:
+        capacity = int(capacity * boats.HAULING_CAPACITY_BONUS)
+    return capacity
+
+
+def canSail(boat):
+    """Whether this boat can make a crossing at all. The same hull test Take
+    the Helm uses (Docks.readyToSail), so a boat the docks screen calls too
+    damaged to sail isn't sent across the water anyway (#279). No crew is
+    needed - the player sails the run."""
+    return boats.isSeaworthy(boat) and not boats.isAtSea(boat)
 
 
 def exportBoat(player):
-    """The boat an export run would actually sail on - the one with the biggest
-    effective hold. None if nothing in the fleet can make the crossing."""
+    """The boat an export run would actually sail on - the seaworthy one with
+    the biggest effective hold. None if nothing in the fleet that could sail
+    can make the crossing."""
     best = None
     bestCapacity = 0
     for boat in player.boats:
-        capacity = business.tierInfo(boat["tier"]).get("exportCapacity", 0)
-        if boat["role"] == boats.ROLE_HAULING:
-            capacity = int(capacity * boats.HAULING_CAPACITY_BONUS)
+        if not canSail(boat):
+            continue
+        capacity = holdFor(boat)
         if capacity > bestCapacity:
             best, bestCapacity = boat, capacity
     return best
 
 
+def exportCapacity(player):
+    """How many fish one run can carry: the hold of the boat it sails on (0
+    with no boat, or none both seaworthy and big enough to make the crossing)."""
+    runner = exportBoat(player)
+    return holdFor(runner) if runner else 0
+
+
 def canExport(player):
-    """Whether the player's boat can export at all."""
+    """Whether the player's fleet can export at all."""
     return exportCapacity(player) > 0
 
 
+def runnerTier(player):
+    """The hull tier the run actually sails on, which is what decides how far
+    it can go - not the fleet's best hull, which may be laid up for repairs.
+    0 if no boat can make the crossing."""
+    runner = exportBoat(player)
+    return runner["tier"] if runner else 0
+
+
 def availableMarkets(player):
-    """The markets the player's fleet can reach, in order."""
-    if not player.boats:
-        return []
-    tier = business.currentTier(player)
+    """The markets the boat an export run would sail on can reach, in order."""
+    tier = runnerTier(player)
     return [market for market in EXPORT_MARKETS if market["minBoatTier"] <= tier]
+
+
+def _hullRefusal(player, minTier):
+    """Why no boat can make a crossing that needs minTier: one big enough is
+    only laid up with damage, or there's none big enough at all."""
+    for boat in player.boats:
+        if boat["tier"] >= minTier and not boats.isSeaworthy(boat):
+            return "boat_too_damaged"
+    return "boat_too_small"
 
 
 def buildCargo(player):
@@ -130,11 +157,8 @@ def runExport(player, market, stats=None):
         "earned": 0.0,
     }
 
-    if exportCapacity(player) <= 0:
-        summary["reason"] = "boat_too_small"
-        return summary
-    if market["minBoatTier"] > business.currentTier(player):
-        summary["reason"] = "boat_too_small"
+    if exportCapacity(player) <= 0 or market["minBoatTier"] > runnerTier(player):
+        summary["reason"] = _hullRefusal(player, market["minBoatTier"])
         return summary
     if player.fishCount <= 0:
         summary["reason"] = "empty_hold"
