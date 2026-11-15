@@ -1109,6 +1109,15 @@ class Docks:
                 "Sell a few fish at the shop to cover it, or ship somewhere "
                 "nearer." % (market["name"], market["shippingCost"], self.player.money)
             )
+        if summary["reason"] == "boat_too_damaged":
+            return (
+                "The crossing to %s needs a %s, and yours is too damaged to "
+                "sail. Repair her under Manage Fleet first."
+                % (
+                    market["name"],
+                    business.tierInfo(market["minBoatTier"])["name"],
+                )
+            )
         return "Your boat can't make the crossing to %s. You'd need a %s." % (
             market["name"],
             business.tierInfo(market["minBoatTier"])["name"],

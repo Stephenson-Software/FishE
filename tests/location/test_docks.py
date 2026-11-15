@@ -1748,6 +1748,56 @@ def test_exportRefusal_explains_a_boat_that_is_too_small():
     assert business.tierInfo(farMarket["minBoatTier"])["name"] in text
 
 
+def test_exportRefusal_explains_a_boat_that_is_too_damaged():
+    # prepare - a Fishing Fleet laid up with damage, aimed at the far market
+    docksInstance = createExportingDocks(tier=3)
+    docksInstance.player.boats[0]["damage"] = 92
+    farMarket = next(m for m in export.EXPORT_MARKETS if m["minBoatTier"] == 3)
+
+    # call
+    docksInstance._runExport(farMarket)
+
+    # check - points at the repair, not at buying a boat she already is (#279)
+    text = docksInstance.currentPrompt.text
+    assert farMarket["name"] in text
+    assert "too damaged to sail" in text
+    assert "Manage Fleet" in text
+    assert "You'd need" not in text
+    assert docksInstance.player.fishCount == 100
+
+
+def test_run_hides_export_when_the_only_crossing_boat_is_too_damaged():
+    # prepare - the docks screen already calls her too damaged to sail
+    docksInstance = createExportingDocks(tier=2)
+    docksInstance.player.boats[0]["damage"] = 92
+    docksInstance.userInterface.showOptions = MagicMock(
+        side_effect=dockChooser("Go Home")
+    )
+
+    # call
+    docksInstance.run()
+
+    # check - so she isn't offered for a crossing either (#279)
+    options = docksInstance.userInterface.showOptions.call_args[0][1]
+    assert "Export Fish to Other Villages" not in options
+
+
+def test_exportStatus_names_the_sound_boat_rather_than_a_damaged_bigger_one():
+    # prepare - a wrecked Fishing Fleet and a sound Trawler
+    docksInstance = createExportingDocks(tier=2)
+    docksInstance.player.boats[0]["name"] = "Gull"
+    fleet = boats.addBoat(docksInstance.player, 3, name="Leviathan")
+    fleet["damage"] = 92
+
+    # call
+    status = docksInstance._exportStatus()
+
+    # check
+    capacity = business.tierInfo(2)["exportCapacity"]
+    assert "Gull can carry %d fish per run" % capacity in status
+    assert "Leviathan" not in status
+
+
 def test_exportStatus_describes_the_load():
     # prepare - more fish than the hold takes
     capacity = business.tierInfo(2)["exportCapacity"]

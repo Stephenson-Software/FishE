@@ -104,6 +104,82 @@ def test_exportBoat_prefers_a_hauling_hold_over_a_same_sized_hull():
     )
 
 
+def test_a_boat_too_damaged_to_sail_cannot_export():
+    # prepare - the only boat that could make the crossing is laid up (#279)
+    player = createExporter(tier=3, fish={"Bass": 100})
+    player.boats[0]["damage"] = 92
+    farMarket = next(m for m in export.EXPORT_MARKETS if m["minBoatTier"] == 3)
+
+    # call
+    summary = export.runExport(player, farMarket)
+
+    # check - the docks call her too damaged to sail, so she doesn't sail
+    assert boats.isSeaworthy(player.boats[0]) is False
+    assert export.exportBoat(player) is None
+    assert export.exportCapacity(player) == 0
+    assert export.canExport(player) is False
+    assert export.availableMarkets(player) == []
+    assert summary["shipped"] is False
+    assert summary["reason"] == "boat_too_damaged"
+    assert player.fishCount == 100
+    assert player.money == 1000
+
+
+def test_a_boat_just_under_the_damage_threshold_still_exports():
+    # prepare - the same line Take the Helm draws
+    player = createExporter(tier=2)
+    player.boats[0]["damage"] = boats.UNSEAWORTHY_DAMAGE - 1
+
+    # check
+    assert export.exportBoat(player) is player.boats[0]
+    assert export.canExport(player) is True
+
+
+def test_a_boat_at_sea_cannot_export():
+    # prepare - the player has her out as captain
+    player = createExporter(tier=2)
+    player.boats[0]["atSea"] = True
+
+    # check
+    assert export.exportBoat(player) is None
+    assert export.canExport(player) is False
+
+
+def test_a_damaged_fleet_leaves_the_run_to_a_sound_trawler():
+    # prepare - a wrecked Fishing Fleet and a sound Trawler
+    player = createExporter(tier=2, fish={"Bass": 700})
+    trawler = player.boats[0]
+    fleet = boats.addBoat(player, 3)
+    fleet["damage"] = 92
+    farMarket = next(m for m in export.EXPORT_MARKETS if m["minBoatTier"] == 3)
+
+    # call
+    summary = export.runExport(player, farMarket)
+
+    # check - the Trawler's hold and reach, not the laid-up Fleet's
+    assert export.exportBoat(player) is trawler
+    assert export.exportCapacity(player) == business.tierInfo(2)["exportCapacity"]
+    assert farMarket not in export.availableMarkets(player)
+    assert export.availableMarkets(player)
+    assert summary["shipped"] is False
+    assert summary["reason"] == "boat_too_damaged"
+    assert player.fishCount == 700
+
+
+def test_a_damaged_rowboat_beside_a_trawler_is_still_a_small_boat_refusal():
+    # prepare - nothing big enough for the far market, damaged or not
+    player = createExporter(tier=2, fish={"Bass": 10})
+    rowboat = boats.addBoat(player, 1)
+    rowboat["damage"] = 92
+    farMarket = next(m for m in export.EXPORT_MARKETS if m["minBoatTier"] == 3)
+
+    # call
+    summary = export.runExport(player, farMarket)
+
+    # check
+    assert summary["reason"] == "boat_too_small"
+
+
 def test_buildCargo_loads_the_most_valuable_fish_first():
     # prepare - more fish than a Trawler's hold can take
     capacity = business.tierInfo(2)["exportCapacity"]
