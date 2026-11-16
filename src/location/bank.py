@@ -121,16 +121,18 @@ class Bank:
                 "with the morning. Wages come out of your purse, not this "
                 "account, so keep enough on you to cover them."
             )
+        # totalWagesPaid is money the player has paid out, so it's quoted as
+        # a payroll, never as something the crew earned (#282).
         if business.currentTier(self.player) >= 3:
             return (
-                "A whole Fishing Fleet, paying out $%d in wages so far? "
-                "You could retire a wealthy soul if you keep banking those "
-                "profits!" % self.stats.totalWagesPaid
+                "A whole Fishing Fleet, with $%d paid out in wages so far? "
+                "Bank what's left once the crew are paid and you could retire "
+                "a wealthy soul!" % self.stats.totalWagesPaid
             )
         return (
-            "Your crew's brought in $%d in wages paid out so far - quite the "
-            "little enterprise! Don't let it all burn a hole in your pocket, "
-            "park some of it here and let it earn interest." % self.stats.totalWagesPaid
+            "Your crew have drawn $%d in wages so far - quite the little "
+            "enterprise! Keep enough in your purse for payday, and park the "
+            "rest here to earn interest." % self.stats.totalWagesPaid
         )
 
     def run(self):
