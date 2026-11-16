@@ -198,6 +198,26 @@ def test_npc_business_dialogue_fleet_tier():
 
 
 @pytest.mark.parametrize("tier", [1, 3])
+def test_npc_business_dialogue_quotes_wages_as_a_cost_not_income(tier):
+    # prepare - totalWagesPaid is money paid out to the crew, so Margaret
+    # mustn't call it something the crew brought in, or the player's profits
+    # (#282)
+    bankInstance = createBank()
+    boats.addBoat(bankInstance.player, tier)
+    bankInstance.player.workers = 2
+    bankInstance.stats.totalWagesPaid = 240
+
+    # call
+    response = bankInstance._businessDialogue()
+
+    # check
+    assert "$240" in response
+    assert "paid out in wages" in response or "drawn $240 in wages" in response
+    assert "brought in" not in response
+    assert "profits" not in response
+
+
+@pytest.mark.parametrize("tier", [1, 3])
 def test_npc_business_dialogue_quotes_no_wages_before_the_first_payday(tier):
     # prepare - hired today, so no morning has paid them yet
     bankInstance = createBank()
