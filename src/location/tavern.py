@@ -134,6 +134,16 @@ class Tavern:
         """Old Tom's barroom banter about the player's fishing business,
         staged by boat tier."""
         if not self.player.hasBoat:
+            # Selling the last hull leaves her crew hired and on wages (#284).
+            if self.player.workers > 0:
+                if self.player.workers == 1:
+                    hands = "a hand"
+                else:
+                    hands = "%d hands" % self.player.workers
+                return (
+                    "Paying %s to sit ashore with no boat? That's a quick way "
+                    "to an empty purse. Get them a hull down at the docks!" % hands
+                )
             return (
                 "No boat yet? Can't rightly call yourself a fisherman around "
                 "here without a crew behind you. Get one down at the docks!"

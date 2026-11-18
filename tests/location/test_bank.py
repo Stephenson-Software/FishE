@@ -164,13 +164,41 @@ def test_npc_business_dialogue_no_boat():
     assert "save toward" in bankInstance._businessDialogue()
 
 
-def test_npc_business_dialogue_no_crew():
-    # prepare
+@pytest.mark.parametrize("tier,name", [(1, "Rowboat"), (2, "Trawler")])
+def test_npc_business_dialogue_no_crew_names_the_hull(tier, name):
+    # prepare - Margaret used to call every uncrewed hull a rowboat (#284)
     bankInstance = createBank()
-    boats.addBoat(bankInstance.player, 1)
+    boats.addBoat(bankInstance.player, tier)
+
+    # call
+    response = bankInstance._businessDialogue()
 
     # check
-    assert "rowboat and a dream" in bankInstance._businessDialogue()
+    assert "A %s with no crew is just a hull and a dream" % name in response
+    if tier != 1:
+        assert "rowboat" not in response.lower()
+
+
+@pytest.mark.parametrize(
+    "hired,expected", [(1, "your hand is"), (2, "all 2 of your hands are")]
+)
+def test_npc_business_dialogue_crew_ashore_after_last_boat_sold(hired, expected):
+    # prepare - selling the last boat leaves her crew hired and on wages,
+    # which isn't the same as never having had a boat (#284)
+    bankInstance = createBank()
+    boat = boats.addBoat(bankInstance.player, 1)
+    for _ in range(hired):
+        boats.hireWorker(bankInstance.player)
+    boats.sellBoat(bankInstance.player, boat["id"])
+
+    # call
+    response = bankInstance._businessDialogue()
+
+    # check
+    assert not bankInstance.player.hasBoat
+    assert "save toward" not in response
+    assert "No boat to work, but %s still on the payroll" % expected in response
+    assert "Manage Fleet" in response
 
 
 def test_npc_business_dialogue_reports_wages_paid():

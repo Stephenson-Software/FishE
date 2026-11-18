@@ -14,6 +14,8 @@ from src.npc import villagers
 from src.progression import progression
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 def createDocks(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
@@ -127,6 +129,29 @@ def test_npc_business_dialogue_staged_by_boat_ownership():
     # check
     response = docksInstance._businessDialogue()
     assert "No boat yet" in response
+
+
+@pytest.mark.parametrize(
+    "hired,expected", [(1, "your hand is"), (2, "your 2 hands are")]
+)
+def test_npc_business_dialogue_crew_ashore_after_last_boat_sold(hired, expected):
+    # prepare - selling the last boat leaves her crew hired and on wages, and
+    # Manage Fleet still offers Dismiss a Worker, so Sam mustn't offer to find
+    # hands for a player who already has them (#284)
+    docksInstance = createDocks()
+    boat = boats.addBoat(docksInstance.player, 1)
+    for _ in range(hired):
+        boats.hireWorker(docksInstance.player)
+    boats.sellBoat(docksInstance.player, boat["id"])
+
+    # call
+    response = docksInstance._businessDialogue()
+
+    # check
+    assert not docksInstance.player.hasBoat
+    assert "No boat yet" not in response
+    assert "%s still drawing wages ashore" % expected in response
+    assert "Manage Fleet" in response
 
 
 def test_npc_business_dialogue_staged_by_empty_crew():

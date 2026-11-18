@@ -258,6 +258,17 @@ class Docks:
         """Sam's take on the player's fishing business, staged by boat tier and
         crew size so it reflects real progress rather than being fixed text."""
         if not self.player.hasBoat:
+            # Selling the last hull leaves her crew hired and on wages (#284).
+            if self.player.workers > 0:
+                if self.player.workers == 1:
+                    hands = "your hand is"
+                else:
+                    hands = "your %d hands are" % self.player.workers
+                return (
+                    "No boat under you, and %s still drawing wages ashore! Buy "
+                    "a hull to put them back to work, or let them go under "
+                    "Manage Fleet." % hands
+                )
             return (
                 "No boat yet, eh? Once you've got one, I can help you find "
                 "good hands to hire. A crew changes everything!"
