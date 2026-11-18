@@ -180,7 +180,7 @@ def test_npc_business_dialogue_no_crew_names_the_hull(tier, name):
 
 
 @pytest.mark.parametrize(
-    "hired,expected", [(1, "your hand is"), (2, "all 2 of your hands are")]
+    "hired,expected", [(1, "your hand is"), (2, "your 2 hands are")]
 )
 def test_npc_business_dialogue_crew_ashore_after_last_boat_sold(hired, expected):
     # prepare - selling the last boat leaves her crew hired and on wages,

@@ -109,7 +109,7 @@ class Bank:
                 if self.player.workers == 1:
                     hands = "your hand is"
                 else:
-                    hands = "all %d of your hands are" % self.player.workers
+                    hands = "your %d hands are" % self.player.workers
                 return (
                     "No boat to work, but %s still on the payroll - wages come "
                     "out of your purse every morning. Save here toward a new "
