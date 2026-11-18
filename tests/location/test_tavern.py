@@ -10,6 +10,8 @@ from src.business import boats
 from src.progression import progression
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 def createTavern(unlocked=True):
     currentPrompt = Prompt("What would you like to do?")
@@ -149,6 +151,28 @@ def test_npc_business_dialogue_no_boat():
 
     # check
     assert "No boat yet" in tavernInstance._businessDialogue()
+
+
+@pytest.mark.parametrize(
+    "hired,expected", [(1, "Paying a hand"), (2, "Paying 2 hands")]
+)
+def test_npc_business_dialogue_crew_ashore_after_last_boat_sold(hired, expected):
+    # prepare - selling the last boat leaves her crew hired and on wages, so
+    # Old Tom mustn't say there's no crew behind the player (#284)
+    tavernInstance = createTavern()
+    boat = boats.addBoat(tavernInstance.player, 1)
+    for _ in range(hired):
+        boats.hireWorker(tavernInstance.player)
+    boats.sellBoat(tavernInstance.player, boat["id"])
+
+    # call
+    response = tavernInstance._businessDialogue()
+
+    # check
+    assert not tavernInstance.player.hasBoat
+    assert "No boat yet" not in response
+    assert "without a crew" not in response
+    assert "%s to sit ashore with no boat" % expected in response
 
 
 def test_npc_business_dialogue_staged_by_tier():

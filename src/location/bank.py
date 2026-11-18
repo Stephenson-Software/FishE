@@ -103,15 +103,28 @@ class Bank:
         """Margaret's savings-minded take on the player's fishing business,
         staged by boat ownership/crew size."""
         if not self.player.hasBoat:
+            # Selling the last hull leaves her crew hired and paid every
+            # morning, so that isn't the same as never having had a boat (#284).
+            if self.player.workers > 0:
+                if self.player.workers == 1:
+                    hands = "your hand is"
+                else:
+                    hands = "your %d hands are" % self.player.workers
+                return (
+                    "No boat to work, but %s still on the payroll - wages come "
+                    "out of your purse every morning. Save here toward a new "
+                    "hull, or let them go under Manage Fleet at the docks." % hands
+                )
             return (
                 "A boat's a fine goal to save toward! Set some money aside "
                 "here and it'll be waiting for you when you're ready to buy one."
             )
         if self.player.workers == 0:
+            starter = business.tierInfo(business.currentTier(self.player))
             return (
-                "A boat with no crew is just a rowboat and a dream! Bank your "
+                "A %s with no crew is just a hull and a dream! Bank your "
                 "catch money for a while and you'll have their wages covered "
-                "in no time."
+                "in no time." % starter["name"]
             )
         # Nothing to congratulate before the first payday. Wages are drawn from
         # the player's purse, so the advice here is to keep money on hand.
