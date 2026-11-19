@@ -13,7 +13,7 @@ client only reads or creates it when reporting is on.
 
 Reporting is on by default and switched off with
 ``FISHE_USAGE_REPORTING_ENABLED=false`` in the environment (see
-config.Config), or with the two variables every trace client honours,
+config.Config; once set, anything but true/on/yes/1 is off), or with the two variables every trace client honours,
 ``TRACE_USAGE_REPORTING=off`` and ``DO_NOT_TRACK=1``. Those two are checked by
 the client itself, in its constructor, before FishE's own setting - so they
 win even when the setting says on. The first time an install reports, one

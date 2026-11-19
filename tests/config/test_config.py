@@ -66,17 +66,20 @@ def test_usage_reporting_is_on_by_default_and_aimed_at_the_trace_service(
     assert config.usageReportingKey == config.usageReportingKey.strip()
 
 
-@pytest.mark.parametrize("value", ["false", "FALSE", "0", "no", "off", " False "])
-def test_usage_reporting_can_be_switched_off(monkeypatch, value):
+@pytest.mark.parametrize(
+    "value",
+    ["false", "FALSE", "0", "no", "off", " False ", "", "  ", "disabled", "anything", '"false"'],
+)
+def test_usage_reporting_fails_closed(monkeypatch, value):
+    # Once set, only a clear "on" keeps reporting on: an opt-out, an empty
+    # value or a typo is never read as on.
     monkeypatch.setenv("FISHE_USAGE_REPORTING_ENABLED", value)
 
     assert createConfig().usageReportingEnabled is False
 
 
-@pytest.mark.parametrize("value", ["", "  ", "true", "1", "yes", "anything"])
-def test_only_a_clear_no_switches_usage_reporting_off(monkeypatch, value):
-    # An unset-but-present variable (a compose file with
-    # FISHE_USAGE_REPORTING_ENABLED=) leaves the default on, like FISHE_SAVE_DIR.
+@pytest.mark.parametrize("value", ["true", "TRUE", " true ", "1", "yes", "on"])
+def test_only_a_clear_on_keeps_usage_reporting_on(monkeypatch, value):
     monkeypatch.setenv("FISHE_USAGE_REPORTING_ENABLED", value)
 
     assert createConfig().usageReportingEnabled is True
