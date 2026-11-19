@@ -194,20 +194,22 @@ To turn it off, set any of these in the environment the game runs in:
 - `TRACE_USAGE_REPORTING=off` (also `false`, `0`, `no`) — turns off every program that reports to trace
 - `DO_NOT_TRACK=1` (also `true`, `yes`) — the [console DNT convention](https://consoledonottrack.com), honoured the same way
 
+Every switch fails closed, so an opt-out is never read as "on": `FISHE_USAGE_REPORTING_ENABLED`, once set, keeps reporting on only for `true`, `on`, `yes` or `1` (any case) and turns it off for anything else, an empty value or a typo included; `TRACE_USAGE_REPORTING` set to anything but blank or one of those values turns it off; `DO_NOT_TRACK` set to anything but blank, `0`, `false`, `off` or `no` turns it off.
+
 ```bash
 FISHE_USAGE_REPORTING_ENABLED=false python3 src/fishE.py
 ```
 
 | Variable | Default | What it does |
 |---|---|---|
-| `FISHE_USAGE_REPORTING_ENABLED` | `true` | `false`, `0`, `no` or `off` turns reporting off. |
+| `FISHE_USAGE_REPORTING_ENABLED` | `true` | `false`, `0`, `no` or `off` turns reporting off — so does any value but `true`, `on`, `yes` or `1`, empty included. |
 | `FISHE_USAGE_REPORTING_ENDPOINT` | `https://trace.danielstephenson.dev` | Where events are sent — a self-hosted trace, or a local stub. |
 | `FISHE_USAGE_REPORTING_KEY` | the key issued to FishE | The program key sent with each event. |
-| `TRACE_USAGE_REPORTING` | unset | `off`, `false`, `0` or `no` turns reporting off, for FishE and every other trace client. |
-| `DO_NOT_TRACK` | unset | `1`, `true` or `yes` turns reporting off the same way. |
+| `TRACE_USAGE_REPORTING` | unset | `off`, `false`, `0` or `no` (any value but blank, `true`, `on`, `yes` or `1`) turns reporting off, for FishE and every other trace client. |
+| `DO_NOT_TRACK` | unset | `1`, `true` or `yes` (any value but blank, `0`, `false`, `off` or `no`) turns reporting off the same way. |
 | `TRACE_INSTALL_ID` | unset | Sent as the installation ID instead of the one in `trace-install-id`, which is then left alone — to pin one for a container or service. |
 
-The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either. The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python) (0.4.1); the wiring is `src/usageReporting.py`.
+The test suite switches reporting off for every test (`tests/conftest.py`), and the tests that exercise it point at a loopback stub server, so running the tests never reports anything either. The client is `src/trace_client.py`, vendored as one standard-library file from [trace-client-python](https://github.com/Stephenson-Software/trace-client-python) (0.5.0); the wiring is `src/usageReporting.py`.
 
 Details: https://danielstephenson.dev/usage-reporting
 
