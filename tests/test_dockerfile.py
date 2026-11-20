@@ -1,7 +1,8 @@
 """The Dockerfile must install the same tak that everything else is tested on.
 
-tak is pinned to a commit twice. requirements.txt is what CI, run.sh and the
-README's Setup step install, so it is the version the suite runs against. The
+tak is pinned twice, to a commit or a release tag. requirements.txt is what
+CI, run.sh and the README's Setup step install, so it is the version the suite
+runs against. The
 Dockerfile installs tak on its own line instead - deliberately, since the image
 needs nothing else from requirements.txt - and web/build_zip.py copies that
 install into the bundle the browser plays. Only requirements.txt is exercised
@@ -15,7 +16,8 @@ import re
 
 REPOSITORY_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
-TAK_REQUIREMENT = re.compile(r"tak @ git\+\S+?@[0-9a-f]+")
+# The ref after the last "@" is a commit hash or a release tag such as v0.5.0.
+TAK_REQUIREMENT = re.compile(r"tak @ git\+\S+?@[0-9A-Za-z][0-9A-Za-z._-]*")
 
 
 def readRepositoryFile(*parts):
@@ -64,6 +66,34 @@ def test_tak_requirement_finds_a_pin_and_ignores_comments():
     assert requirements == [
         "tak @ git+https://github.com/Stephenson-Software/tak@bbbbbbb"
     ]
+
+
+def test_tak_requirement_finds_a_release_tag_pin():
+    # prepare
+    text = 'RUN pip install "tak @ git+https://github.com/Stephenson-Software/tak@v0.5.0" \\\n'
+
+    # call
+    requirements = takRequirements(text)
+
+    # check
+    assert requirements == [
+        "tak @ git+https://github.com/Stephenson-Software/tak@v0.5.0"
+    ]
+
+
+def test_tak_requirements_differing_only_in_tag_do_not_match():
+    # prepare
+    pinned = takRequirements(
+        "tak @ git+https://github.com/Stephenson-Software/tak@v0.5.0"
+    )
+
+    # call
+    installed = takRequirements(
+        'pip install "tak @ git+https://github.com/Stephenson-Software/tak@v0.5.1"'
+    )
+
+    # check
+    assert installed != pinned
 
 
 def test_dockerfile_copies_everything_the_bundle_carries():
